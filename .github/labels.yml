@@ -1,0 +1,72 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# RHYTHMIND 律动 — GitHub Labels 配置
+# 使用 gh label import .github/labels.yml 导入
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: "bug"
+  color: "d73a4a"
+  description: "确认的 Bug，触发自动修复流程"
+
+- name: "enhancement"
+  color: "a2eeef"
+  description: "新功能或改进"
+
+- name: "auto-fix"
+  color: "e4e669"
+  description: "由 auto-fix-issue workflow 自动创建"
+
+- name: "needs-review"
+  color: "0075ca"
+  description: "需要代码审查"
+
+- name: "in-progress"
+  color: "fbca04"
+  description: "正在处理中"
+
+- name: "blocked"
+  color: "b60205"
+  description: "被其他 Issue/PR 阻塞"
+
+- name: "good-first-issue"
+  color: "7057ff"
+  description: "适合新贡献者的入门任务"
+
+- name: "help-wanted"
+  color: "008672"
+  description: "需要额外帮助"
+
+- name: "documentation"
+  color: "0052cc"
+  description: "文档相关"
+
+- name: "performance"
+  color: "e99695"
+  description: "性能优化"
+
+- name: "security"
+  color: "ee0701"
+  description: "安全相关"
+
+- name: "mlx"
+  color: "f9d0c4"
+  description: "Apple MLX 推理相关"
+
+- name: "agent"
+  color: "c5def5"
+  description: "智能体逻辑相关"
+
+- name: "mcp"
+  color: "bfd4f2"
+  description: "MCP Server 相关"
+
+- name: "compliance"
+  color: "d4c5f9"
+  description: "合规/审查相关"
+
+- name: "wontfix"
+  color: "ffffff"
+  description: "不会修复"
+
+- name: "duplicate"
+  color: "cfd3d7"
+  description: "重复 Issue"

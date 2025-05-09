@@ -60,3 +60,7 @@ logs/
 
 # Byte-order marks
 *.bom
+
+# pytest cache
+pytest-cache-files*
+.pytest_cache/

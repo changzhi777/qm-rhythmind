@@ -1,0 +1,21 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# RHYTHMIND 律动 — CODEOWNERS
+# 作者：外星动物（常智）/ IoTchange  |  许可：CC BY-NC 4.0
+# ─────────────────────────────────────────────────────────────────────────────
+# 所有文件的默认 Owner
+*                           @changzhi777
+
+# 核心引擎
+src/rhythmind/core/         @changzhi777
+src/rhythmind/adapters/     @changzhi777
+
+# 智能体
+src/rhythmind/agents/       @changzhi777
+src/rhythmind/orchestrator/ @changzhi777
+
+# API + MCP
+src/rhythmind/api/          @changzhi777
+src/rhythmind/mcp/          @changzhi777
+
+# CI/CD
+.github/                    @changzhi777

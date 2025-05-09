@@ -4,7 +4,7 @@
 > 作者：外星动物（常智）/ IoTchange · 邮箱：14455975@qq.com  
 > 许可：[CC BY-NC 4.0](LICENSE) · 版本：`0.1.1`
 
-[![CI](https://github.com/iotchange/qm-rhythmind/actions/workflows/ci.yml/badge.svg)](https://github.com/iotchange/qm-rhythmind/actions/workflows/ci.yml)
+[![CI](https://github.com/changzhi777/qm-rhythmind/actions/workflows/ci.yml/badge.svg)](https://github.com/changzhi777/qm-rhythmind/actions/workflows/ci.yml)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 
@@ -132,7 +132,7 @@ flowchart TD
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/iotchange/qm-rhythmind.git
+git clone https://github.com/changzhi777/qm-rhythmind.git
 cd qm-rhythmind
 
 # 2. 安装依赖

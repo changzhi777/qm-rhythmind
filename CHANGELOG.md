@@ -85,6 +85,6 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-[Unreleased]: https://github.com/iotchange/qm-rhythmind/compare/v0.1.1...HEAD
-[0.1.1]: https://github.com/iotchange/qm-rhythmind/compare/v0.1.0...v0.1.1
-[0.1.0]: https://github.com/iotchange/qm-rhythmind/releases/tag/v0.1.0
+[Unreleased]: https://github.com/changzhi777/qm-rhythmind/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/changzhi777/qm-rhythmind/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/changzhi777/qm-rhythmind/releases/tag/v0.1.0
