@@ -1,0 +1,143 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# RHYTHMIND Auto-Fix — Issue 自动分析与修复分支创建
+# 作者：外星动物（常智）/ IoTchange  |  许可：CC BY-NC 4.0
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# 触发条件：
+#   Issue 被打上 "bug" 标签时自动触发
+#
+# 流程：
+#   1. 解析 Issue 标题 + 正文
+#   2. 自动创建修复分支 fix/issue-{number}-{slug}
+#   3. 运行测试，定位可能的失败点
+#   4. 创建修复 PR 草稿（含 Issue 诊断报告）
+#   5. 在 Issue 下回复进度
+#
+# 配置要求（仓库 Secrets）：
+#   CLAUDE_API_KEY — Anthropic API Key（用于 AI 辅助分析，可选）
+#
+# 注意：AI 自动修复为辅助功能，最终修复需开发者审查 PR。
+
+name: Auto Fix Issue
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  issues: write
+  contents: write
+  pull-requests: write
+
+jobs:
+  analyze-and-branch:
+    name: 分析 Bug 并创建修复分支
+    if: github.event.label.name == 'bug'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 设置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 安装依赖
+        run: |
+          pip install pytest pytest-asyncio sqlalchemy aiosqlite \
+            pydantic pydantic-settings structlog httpx openai mcp
+
+      - name: 运行测试（定位失败点）
+        id: test
+        env:
+          DATABASE_URL: "sqlite+aiosqlite:///:memory:"
+          ENV: test
+        run: |
+          pytest tests/unit/ --tb=short -q 2>&1 | tee test_output.txt || true
+          FAILED=$(grep -c "FAILED" test_output.txt || echo "0")
+          echo "FAILED_COUNT=$FAILED" >> $GITHUB_OUTPUT
+
+      - name: 构建 Issue Slug
+        id: slug
+        run: |
+          TITLE="${{ github.event.issue.title }}"
+          SLUG=$(echo "$TITLE" | tr '[:upper:]' '[:lower:]' | \
+            sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | cut -c1-40)
+          echo "SLUG=$SLUG" >> $GITHUB_OUTPUT
+          echo "BRANCH=fix/issue-${{ github.event.issue.number }}-$SLUG" >> $GITHUB_OUTPUT
+
+      - name: 创建修复分支
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "${{ steps.slug.outputs.BRANCH }}"
+          # 创建占位提交（开发者在此分支上修复）
+          echo "# Fix for Issue #${{ github.event.issue.number }}" > .fix_placeholder
+          echo "## Issue: ${{ github.event.issue.title }}" >> .fix_placeholder
+          echo "" >> .fix_placeholder
+          echo "测试失败数：${{ steps.test.outputs.FAILED_COUNT }}" >> .fix_placeholder
+          git add .fix_placeholder
+          git commit -m "chore: init fix branch for issue #${{ github.event.issue.number }}" \
+            --no-verify
+          git push origin "${{ steps.slug.outputs.BRANCH }}"
+
+      - name: 读取测试输出
+        id: test_output
+        run: |
+          OUTPUT=$(head -50 test_output.txt | sed 's/"/\\"/g')
+          echo "OUTPUT<<EOF" >> $GITHUB_OUTPUT
+          head -50 test_output.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: 创建 Draft PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: ${{ steps.slug.outputs.BRANCH }}
+          title: "fix: [Issue #${{ github.event.issue.number }}] ${{ github.event.issue.title }}"
+          body: |
+            ## 自动生成的修复 PR
+
+            关联 Issue：#${{ github.event.issue.number }}
+
+            ### Issue 描述
+            ${{ github.event.issue.body }}
+
+            ### 测试诊断
+            当前测试失败数：**${{ steps.test.outputs.FAILED_COUNT }}**
+
+            ```
+            ${{ steps.test_output.outputs.OUTPUT }}
+            ```
+
+            ### 修复指南
+            1. 在分支 `${{ steps.slug.outputs.BRANCH }}` 上进行修复
+            2. 确保 `pytest tests/unit/ -q` 全绿
+            3. 删除 `.fix_placeholder` 占位文件
+            4. 将此 PR 从草稿状态改为 Ready for Review
+
+            ---
+            _由 auto-fix-issue workflow 自动创建_
+          draft: true
+          labels: |
+            bug
+            auto-fix
+
+      - name: 在 Issue 回复进度
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            🤖 **自动修复流程已启动**
+
+            已创建修复分支：`${{ steps.slug.outputs.BRANCH }}`
+
+            **当前测试状态**：失败数 ${{ steps.test.outputs.FAILED_COUNT }}
+
+            Draft PR 已创建，开发者可在对应分支上完成修复。
+            修复完成后将 PR 改为 Ready for Review 即可触发最终 CI 验证。
+
+            _RHYTHMIND Bot · 作者：外星动物（常智）/ IoTchange_

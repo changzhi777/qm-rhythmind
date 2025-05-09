@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+*.coveragerc
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+.AppleDouble
+
+# Secrets / env
+.env
+.env.local
+*.env
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# MLX model cache
+.mlx_cache/
+
+# InfluxDB
+influxdb_data/
+
+# Logs
+*.log
+logs/
+
+# Dist
+*.tar.gz
+*.whl
+
+# Fix placeholders
+.fix_placeholder
+
+# Byte-order marks
+*.bom

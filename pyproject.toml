@@ -1,0 +1,106 @@
+[tool.poetry]
+name = "qm-rhythmind"
+version = "0.1.0"
+description = "律动 RHYTHMIND — Multi-agent AI Health Platform (AG2 + Hermes)"
+authors = ["Qingmu Life Tech <dev@qingmu.ai>"]
+readme = "README.md"
+packages = [{ include = "rhythmind", from = "src" }]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+
+# ── Multi-agent orchestration ──────────────────────────────────────────────
+autogen-agentchat = "^0.4"
+autogen-ext = { version = "^0.4", extras = ["openai"] }
+
+# ── LLM gateway ───────────────────────────────────────────────────────────
+litellm = "^1.40"
+
+# ── Data validation & settings ────────────────────────────────────────────
+pydantic = "^2.7"
+pydantic-settings = "^2.3"
+
+# ── Web framework ─────────────────────────────────────────────────────────
+fastapi = "^0.115"
+uvicorn = { version = "^0.30", extras = ["standard"] }
+sse-starlette = "^2.1"
+
+# ── MCP Server ────────────────────────────────────────────────────────────
+mcp = ">=1.0"
+
+# ── HTTP client (async) ───────────────────────────────────────────────────
+httpx = "^0.27"
+
+# ── Database ──────────────────────────────────────────────────────────────
+sqlalchemy = { version = "^2.0", extras = ["asyncio"] }
+aiosqlite = "^0.20"           # dev SQLite driver
+asyncpg = "^0.29"             # prod PostgreSQL driver
+alembic = "^1.13"
+
+# ── Cache / message queue ─────────────────────────────────────────────────
+redis = { version = "^5.0", extras = ["asyncio"] }
+
+# ── Time-series (wearable streaming) ──────────────────────────────────────
+influxdb-client = { version = "^1.44", extras = ["async"] }
+
+# ── Data processing ───────────────────────────────────────────────────────
+pandas = "^2.2"
+numpy = "^1.26"
+
+# ── File handling ─────────────────────────────────────────────────────────
+pillow = "^10.3"
+aiofiles = "^23.2"
+python-multipart = "^0.0.9"   # FastAPI form/file upload
+
+# ── Auth ──────────────────────────────────────────────────────────────────
+python-jose = { version = "^3.3", extras = ["cryptography"] }
+passlib = { version = "^1.7", extras = ["bcrypt"] }
+
+# ── Observability ─────────────────────────────────────────────────────────
+structlog = "^24.1"
+opentelemetry-sdk = "^1.25"
+opentelemetry-instrumentation-fastapi = "^0.46b0"
+sentry-sdk = { version = "^2.5", extras = ["fastapi"] }
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.2"
+pytest-asyncio = "^0.23"
+pytest-cov = "^5.0"
+pytest-httpx = "^0.30"        # mock httpx for QMDClient tests
+ruff = "^0.4"
+mypy = "^1.10"
+pre-commit = "^3.7"
+factory-boy = "^3.3"          # test fixtures
+
+[tool.poetry.group.cv.dependencies]
+# 独立安装组，避免 CPU-only 环境拉错包
+paddlepaddle = "^2.6"
+paddleocr = "^2.8"
+mediapipe = "^0.10"
+opencv-python-headless = "^4.10"
+
+# ── Tool config ────────────────────────────────────────────────────────────
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "ANN"]
+ignore = ["ANN101", "ANN102"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["rhythmind"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+
+[tool.coverage.run]
+source = ["src/rhythmind"]
+omit = ["*/migrations/*", "*/tests/*"]

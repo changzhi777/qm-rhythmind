@@ -1,0 +1,115 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# RHYTHMIND Release — 自动发布流水线
+# 作者：外星动物（常智）/ IoTchange  |  许可：CC BY-NC 4.0
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# 触发方式：
+#   git tag v0.1.1 && git push origin v0.1.1
+#
+# 流程：
+#   1. 运行完整测试套件（必须全绿才发布）
+#   2. 从 CHANGELOG.md 提取当前版本的发布说明
+#   3. 创建 GitHub Release（含 tag + 发布说明）
+#   4. 构建 Docker 镜像并推送到 GHCR（可选，需配置 DOCKER_PUSH=true）
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  test-before-release:
+    name: 发布前测试
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: |
+          pip install pytest pytest-asyncio sqlalchemy aiosqlite \
+            pydantic pydantic-settings structlog httpx openai mcp
+      - name: 运行测试（必须全绿）
+        env:
+          DATABASE_URL: "sqlite+aiosqlite:///:memory:"
+          ENV: test
+        run: pytest tests/unit/ -q --tb=short
+
+  create-release:
+    name: 创建 GitHub Release
+    needs: test-before-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 读取版本号
+        id: version
+        run: echo "VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
+
+      - name: 提取 CHANGELOG 内容
+        id: changelog
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          # 提取 CHANGELOG.md 中当前版本的部分
+          NOTES=$(awk "/^## \[$VERSION\]/{flag=1;next} /^## \[/{flag=0} flag{print}" CHANGELOG.md)
+          if [ -z "$NOTES" ]; then
+            NOTES="版本 $VERSION 发布。详情请查看提交历史。"
+          fi
+          # 多行输出处理
+          echo "NOTES<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: 创建 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v${{ steps.version.outputs.VERSION }}"
+          name: "RHYTHMIND v${{ steps.version.outputs.VERSION }}"
+          body: |
+            ## 律动 RHYTHMIND v${{ steps.version.outputs.VERSION }}
+
+            ${{ steps.changelog.outputs.NOTES }}
+
+            ---
+            **作者**：外星动物（常智）/ IoTchange
+            **许可**：CC BY-NC 4.0（非商业使用）/ 商业使用请联系授权
+            **邮箱**：14455975@qq.com
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.VERSION, 'alpha') || contains(steps.version.outputs.VERSION, 'beta') }}
+
+  docker-publish:
+    name: 构建并推送 Docker 镜像
+    needs: create-release
+    runs-on: ubuntu-latest
+    if: vars.DOCKER_PUSH == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 读取版本号
+        id: version
+        run: echo "VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
+
+      - name: 登录 GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 构建并推送
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/rhythmind:latest
+            ghcr.io/${{ github.repository_owner }}/rhythmind:v${{ steps.version.outputs.VERSION }}

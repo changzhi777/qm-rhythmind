@@ -1,0 +1,171 @@
+version: "3.9"
+
+# 律动 RHYTHMIND — 本地开发全栈环境
+# 启动：docker compose up -d
+# API:       http://localhost:8000
+# QMD:       http://localhost:8181
+# Redis UI:  http://localhost:8001
+# InfluxDB:  http://localhost:8086
+# LiteLLM:   http://localhost:4000
+
+services:
+
+  # ── PostgreSQL 16 ──────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_postgres.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    environment:
+      POSTGRES_USER: rhythmind
+      POSTGRES_PASSWORD: rhythmind
+      POSTGRES_DB: rhythmind
+      # 开启 pg_trgm（模糊搜索）和 pgcrypto 扩展
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rhythmind -d rhythmind"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── FastAPI 应用 ──────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src:/app/src          # 热重载
+      - ./data:/app/data
+    environment:
+      ENV: dev
+      DEBUG: "true"
+      DATABASE_URL: postgresql+asyncpg://rhythmind:rhythmind@postgres:5432/rhythmind
+      PG_POOL_SIZE: "5"
+      PG_POOL_MAX_OVERFLOW: "10"
+      REDIS_URL: redis://redis:6379
+      QMD_URL: http://qmd:8181
+      LITELLM_URL: http://litellm:4000
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-1234}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      JWT_SECRET: dev-secret-change-in-prod
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      influxdb:
+        condition: service_started
+      qmd:
+        condition: service_started
+      litellm:
+        condition: service_started
+    command: >
+      uvicorn rhythmind.api.main:app
+        --reload
+        --host 0.0.0.0
+        --port 8000
+        --log-level info
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ── QMD 本地语义搜索 ──────────────────────────────────────────────────
+  qmd:
+    image: node:20-alpine
+    ports:
+      - "8181:8181"
+    volumes:
+      - ./data/skills:/data/skills
+      - qmd_data:/data/.qmd
+    working_dir: /app
+    command: >
+      sh -c "
+        npm install -g @tobi/qmd 2>/dev/null || true &&
+        qmd collection add /data/skills --name agent_skills 2>/dev/null || true &&
+        qmd collection add /data/compliance_rules --name compliance_rules 2>/dev/null || true &&
+        qmd mcp --http :8181
+      "
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:8181/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis（LoopGuard + 会话缓存）────────────────────────────────────
+  redis:
+    image: redis/redis-stack:latest
+    ports:
+      - "6379:6379"
+      - "8001:8001"   # Redis Insight UI
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── InfluxDB（可穿戴设备流数据）─────────────────────────────────────
+  influxdb:
+    image: influxdb:2.7
+    ports:
+      - "8086:8086"
+    volumes:
+      - influx_data:/var/lib/influxdb2
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: rhythmind
+      DOCKER_INFLUXDB_INIT_PASSWORD: rhythmind123
+      DOCKER_INFLUXDB_INIT_ORG: rhythmind
+      DOCKER_INFLUXDB_INIT_BUCKET: health_metrics
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUXDB_TOKEN:-dev-token-change-me}
+
+  # ── LiteLLM Proxy（统一模型网关）────────────────────────────────────
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./litellm_config.yaml:/app/config.yaml:ro
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+    command: >
+      --config /app/config.yaml
+      --port 4000
+      --num_workers 2
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ── Ollama（本地 qwen2.5:7b，合规检查用）────────────────────────────
+  # 仅在有 GPU 或愿意等待 CPU 推理时启用
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+
+volumes:
+  postgres_data:
+  qmd_data:
+  redis_data:
+  influx_data:
+  # ollama_data:

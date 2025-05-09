@@ -1,0 +1,34 @@
+#!/bin/sh
+# ─────────────────────────────────────────────────────────────────────────────
+# RHYTHMIND pre-commit 钩子 — 自动升级 patch 版本号
+# 作者：外星动物（常智）/ IoTchange  |  邮箱：14455975@qq.com
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# 功能：
+#   每次 git commit 时自动将版本第3位（patch）+1，
+#   并将 VERSION / _version.py / pyproject.toml 加入本次提交。
+#
+# 跳过版本升级（仅用于版本发布 commit 本身）：
+#   git commit --no-verify -m "chore: release vX.Y.Z"
+#
+
+PYTHON=$(which python3 || which python)
+REPO_ROOT=$(git rev-parse --show-toplevel)
+BUMP_SCRIPT="$REPO_ROOT/scripts/bump_version.py"
+
+# 检查脚本存在
+if [ ! -f "$BUMP_SCRIPT" ]; then
+    echo "[pre-commit] 找不到 bump_version.py，跳过版本升级"
+    exit 0
+fi
+
+echo "[pre-commit] 自动升级 patch 版本..."
+$PYTHON "$BUMP_SCRIPT" patch
+
+# 将修改的版本文件追加到本次 commit
+git add "$REPO_ROOT/VERSION"
+git add "$REPO_ROOT/src/rhythmind/_version.py"
+git add "$REPO_ROOT/pyproject.toml"
+
+echo "[pre-commit] 版本文件已加入暂存区"
+exit 0

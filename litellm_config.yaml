@@ -1,0 +1,58 @@
+# litellm_config.yaml — 模型路由配置
+# 文档：https://docs.litellm.ai/docs/proxy/configs
+
+model_list:
+  # ── 高质量推理（核心报告生成）────────────────────────────────────────
+  - model_name: primary
+    litellm_params:
+      model: claude-sonnet-4-6
+      api_key: os.environ/ANTHROPIC_API_KEY
+    model_info:
+      description: "Claude Sonnet — 数据解读/训练计划生成"
+      max_tokens: 4096
+
+  # ── 快速廉价（意图分类/技能提取）────────────────────────────────────
+  - model_name: fast
+    litellm_params:
+      model: deepseek/deepseek-chat
+      api_key: os.environ/DEEPSEEK_API_KEY
+    model_info:
+      description: "DeepSeek — 分类/提取任务"
+      max_tokens: 2048
+
+  # ── 本地通用（备用，保留）────────────────────────────────────────────
+  - model_name: local
+    litellm_params:
+      model: ollama/qwen2.5:7b
+      api_base: http://ollama:11434
+    model_info:
+      description: "Qwen 2.5 7B — 本地备用"
+      max_tokens: 2048
+
+  # ── 合规审查专用（gemma-4-e4b，数据零外泄）──────────────────────────
+  # Google Gemma 4 4B int4 量化版，边缘推理优化，延迟约 200-400ms（CPU）
+  # Ollama 拉取：ollama pull gemma4:e4b
+  - model_name: compliance
+    litellm_params:
+      model: ollama/gemma4:e4b
+      api_base: http://ollama:11434
+    model_info:
+      description: "Gemma 4 E4B — prompt 合规审查，本地运行，零外泄"
+      max_tokens: 512   # 只需输出 JSON 风险评估，不需要长文本
+
+router_settings:
+  routing_strategy: least-busy
+  num_retries: 3
+  retry_after: 2
+  # primary 失败自动 fallback 到 fast
+  fallbacks:
+    - primary: [fast]
+  # 请求超时（秒）
+  timeout: 30
+
+# 限流（防止 token 爆炸）
+litellm_settings:
+  max_budget: 50             # 每天 $50 硬上限
+  budget_duration: 1d
+  drop_params: true          # 不支持的参数自动忽略
+  set_verbose: false
