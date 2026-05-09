@@ -202,36 +202,47 @@ echo ""
 echo ""
 info "Step 7b: 导入 Issue Labels..."
 
-if [ -f ".github/labels.yml" ] && command -v python3 >/dev/null; then
-    python3 - <<PYEOF
-import subprocess, sys
-try:
-    import yaml
-except ImportError:
-    subprocess.run(["pip3", "install", "pyyaml", "-q"])
-    import yaml
+if [ -f ".github/labels.yml" ]; then
+    # 纯 shell 解析 YAML（无需 pyyaml），兼容 macOS BSD sed
+    # 用 sed -E（扩展正则），避免 GNU sed 专用的 \?
+    _extract() { echo "$1" | sed -E 's/.*'"$2"': *"?([^"]*)"?.*/\1/' | xargs; }
 
-import os
-with open(".github/labels.yml") as f:
-    labels = yaml.safe_load(f)
-
-repo = os.popen("gh api user --jq '.login'").read().strip() + "/qm-rhythmind"
-for lbl in labels:
-    name  = lbl["name"]
-    color = lbl.get("color", "ededed")
-    desc  = lbl.get("description", "")
-    r = subprocess.run(
-        ["gh", "label", "create", name,
-         "--color", color, "--description", desc,
-         "--repo", repo, "--force"],
-        capture_output=True, text=True
-    )
-    mark = "✓" if r.returncode == 0 else "~"
-    print(f"  {mark} {name}")
-PYEOF
+    NAME=""; COLOR="ededed"; DESC=""
+    while IFS= read -r line || [ -n "$line" ]; do
+        case "$line" in
+            "- name:"*)
+                # 新条目：先提交上一条
+                if [ -n "$NAME" ]; then
+                    gh label create "$NAME" \
+                        --color "$COLOR" \
+                        --description "$DESC" \
+                        --repo "${GH_USER}/${REPO_NAME}" \
+                        --force 2>/dev/null \
+                    && echo "  ✓ $NAME" || echo "  ~ $NAME (已存在或失败)"
+                fi
+                NAME=$(_extract "$line" "name")
+                COLOR="ededed"; DESC=""
+                ;;
+            "  color:"*)
+                COLOR=$(_extract "$line" "color")
+                ;;
+            "  description:"*)
+                DESC=$(_extract "$line" "description")
+                ;;
+        esac
+    done < ".github/labels.yml"
+    # 处理最后一条
+    if [ -n "$NAME" ]; then
+        gh label create "$NAME" \
+            --color "$COLOR" \
+            --description "$DESC" \
+            --repo "${GH_USER}/${REPO_NAME}" \
+            --force 2>/dev/null \
+        && echo "  ✓ $NAME" || echo "  ~ $NAME (已存在或失败)"
+    fi
     ok "Labels 导入完成"
 else
-    warn "跳过 Labels 导入（缺少 .github/labels.yml 或 python3）"
+    warn "跳过 Labels 导入（缺少 .github/labels.yml）"
 fi
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -240,10 +251,13 @@ fi
 echo ""
 info "Step 8: 创建 develop 分支..."
 
-if git ls-remote --heads origin develop | grep -q develop; then
+# 清理可能残留的 lock 文件
+rm -f .git/HEAD.lock .git/refs/heads/develop.lock 2>/dev/null || true
+
+if git ls-remote --heads origin develop 2>/dev/null | grep -q develop; then
     warn "develop 分支已存在，跳过"
 else
-    git checkout -b develop
+    git checkout -b develop 2>/dev/null || git checkout develop
     git push -u origin develop
     git checkout main
     ok "develop 分支已创建并推送"

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "qm-rhythmind"
-version = "0.1.0"
+version = "0.1.2"
 description = "律动 RHYTHMIND — Multi-agent AI Health Platform (AG2 + Hermes)"
 authors = ["Qingmu Life Tech <dev@qingmu.ai>"]
 readme = "README.md"
