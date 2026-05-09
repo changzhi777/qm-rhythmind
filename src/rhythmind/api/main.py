@@ -61,16 +61,40 @@ structlog.configure(
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
-    启动：初始化数据库表
-    关闭：释放连接池
+    启动：初始化数据库表 + AgentPool 后台清理任务
+    关闭：取消清理任务 + 释放连接池
     """
+    import asyncio
     log.info("rhythmind.startup env=%s debug=%s", settings.env, settings.debug)
 
     # 初始化 SQLAlchemy 表（开发用；生产走 Alembic migration）
     await init_db()
     log.info("rhythmind.db_ready")
 
+    # AgentPool 后台清理任务（每 5 分钟清理过期 Agent）
+    from rhythmind.api.deps import get_pool
+    pool = get_pool()
+
+    async def _pool_cleanup() -> None:
+        while True:
+            await asyncio.sleep(300)
+            try:
+                purged = await pool.purge_expired()
+                if purged:
+                    log.info("pool.cleanup purged=%d", purged)
+            except Exception as exc:
+                log.warning("pool.cleanup error=%s", exc)
+
+    cleanup_task = asyncio.create_task(_pool_cleanup())
+    log.info("rhythmind.pool_cleanup_task started pool_max=%d", pool.max_users)
+
     yield  # 应用运行期间
+
+    cleanup_task.cancel()
+    try:
+        await cleanup_task
+    except asyncio.CancelledError:
+        pass
 
     # 关闭时清理
     from rhythmind.api.deps import _router_instance

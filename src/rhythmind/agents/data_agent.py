@@ -164,8 +164,8 @@ class DataAgent(HermesBase):
             requires_human_review=(
                 # critical 级异常 → 触发人工复核
                 critical_count > 0
-                or metrics.get("heart_rate_max", 0) > 195
-                or metrics.get("heart_rate_avg", 999) < 35
+                or (metrics.get("heart_rate_max") or 0) > 195
+                or (metrics.get("heart_rate_avg") or 999) < 35
             ),
         )
 
