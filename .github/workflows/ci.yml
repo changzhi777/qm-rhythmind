@@ -62,6 +62,9 @@ jobs:
           # YAML 解析（测试收集阶段需要）
           pip install pyyaml
 
+          # Redis（loop_guard.py 导入需要）
+          pip install redis
+
           # HTTP & API
           pip install httpx openai fastapi sse-starlette
 
