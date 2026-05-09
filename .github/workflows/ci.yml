@@ -59,6 +59,9 @@ jobs:
           # 日志
           pip install structlog
 
+          # YAML 解析（测试收集阶段需要）
+          pip install pyyaml
+
           # HTTP & API
           pip install httpx openai fastapi sse-starlette
 
