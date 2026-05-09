@@ -8,7 +8,7 @@
 #   - 向 main / develop 发起 Pull Request
 #
 # 流程：
-#   1. 安装 Python 依赖
+#   1. 安装 Python 依赖（仅测试所需，跳过平台专用包）
 #   2. Ruff lint 检查
 #   3. pytest 单元测试（含覆盖率报告）
 #   4. 测试结果上传为 Artifact
@@ -43,24 +43,48 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
-      - name: 安装依赖
+      - name: 安装测试依赖
         run: |
           pip install --upgrade pip
-          pip install -e ".[dev]" 2>/dev/null || \
-          pip install pytest pytest-asyncio pytest-cov ruff \
-            sqlalchemy aiosqlite pydantic pydantic-settings \
-            structlog httpx openai mcp mlx-lm 2>/dev/null || \
-          pip install pytest pytest-asyncio pytest-cov ruff \
-            sqlalchemy aiosqlite pydantic pydantic-settings \
-            structlog httpx openai mcp
+
+          # 核心测试框架
+          pip install pytest pytest-asyncio pytest-cov pytest-mock
+
+          # 数据层
+          pip install sqlalchemy aiosqlite alembic
+
+          # 配置 & 验证
+          pip install pydantic pydantic-settings
+
+          # 日志
+          pip install structlog
+
+          # HTTP & API
+          pip install httpx openai fastapi sse-starlette
+
+          # JWT
+          pip install python-jose[cryptography]
+
+          # 多智能体（Linux 兼容版，跳过 mlx/Apple 专用包）
+          pip install autogen-agentchat autogen-ext[openai] || \
+          pip install autogen-agentchat
+
+          # MCP
+          pip install mcp || true
+
+          # 安装本包（跳过平台专用依赖）
+          pip install -e . --no-deps
 
       - name: Ruff 代码检查
-        run: ruff check src/ tests/ || true   # 不阻断 CI，仅报告
+        run: |
+          pip install ruff
+          ruff check src/ tests/ || true   # 不阻断 CI，仅报告
 
       - name: 运行单元测试
         env:
           DATABASE_URL: "sqlite+aiosqlite:///:memory:"
           ENV: test
+          PYTHONPATH: src
         run: |
           pytest tests/unit/ \
             --tb=short \
