@@ -45,14 +45,14 @@ RUN pip install "poetry==${POETRY_VERSION}"
 # 依赖安装：lock 文件必须存在以保证可重复构建。
 # 仓库当前缺 poetry.lock —— CI 第一次跑 `poetry lock --no-update` 即可生成。
 COPY pyproject.toml poetry.lock ./
-RUN poetry install --without cv,dev --no-root \
+RUN poetry install --without dev --no-root \
     && rm -rf $POETRY_CACHE_DIR
 
 # 拷贝源码并安装本包（不再装一次 deps，加速构建）
 COPY src/ ./src/
 COPY data/ ./data/
 COPY alembic.ini ./
-RUN poetry install --without cv,dev --only-root
+RUN poetry install --without dev --only-root
 
 # ── runtime ──────────────────────────────────────────────────────────────────
 FROM python:3.12-slim AS runtime

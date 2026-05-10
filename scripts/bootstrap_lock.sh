@@ -17,13 +17,11 @@ if ! command -v poetry >/dev/null; then
     exit 1
 fi
 
-# Apple Silicon 上 mlx_lm 等 platform-specific 依赖会跑全；其他平台跳过 cv 组。
-ARGS=()
-if [[ "${SKIP_CV:-1}" == "1" ]]; then
-    ARGS+=(--without cv)
-fi
+# CV 依赖（paddlepaddle / paddleocr / mediapipe / opencv）已从 Poetry 移出，
+# 见 requirements-cv.txt；Apple Silicon 用户按需手动 pip install。
 
-echo "[bootstrap_lock] poetry lock --no-update ${ARGS[*]:-}"
+echo "[bootstrap_lock] poetry lock --no-update"
 poetry lock --no-update
 
 echo "[bootstrap_lock] done. commit poetry.lock to lock dependency tree."
+echo "[bootstrap_lock] (need CV/OCR? run: pip install -r requirements-cv.txt)"

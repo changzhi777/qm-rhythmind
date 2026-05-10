@@ -103,7 +103,7 @@ jobs:
 
       - name: 导出依赖到 requirements.txt
         run: |
-          poetry export --without cv,dev --without-hashes --format requirements.txt --output /tmp/requirements.txt
+          poetry export --without dev --without-hashes --format requirements.txt --output /tmp/requirements.txt
 
       - name: 生成 SBOM (CycloneDX 1.5 JSON)
         # cyclonedx-bom 直接读 requirements.txt 描述运行时依赖。

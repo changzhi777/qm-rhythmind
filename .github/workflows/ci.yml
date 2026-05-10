@@ -189,9 +189,9 @@ jobs:
           pipx install poetry==1.8.3
           pipx install pip-audit
       - name: 导出 requirements.txt
-        # 排除 cv 与 dev 组：cv 是 Apple-only，dev 仅本地测试
+        # 排除 dev 组（仅本地测试）；cv 已不在 Poetry，独立维护在 requirements-cv.txt
         run: |
-          poetry export --without cv,dev --without-hashes --format requirements.txt --output /tmp/requirements.txt
+          poetry export --without dev --without-hashes --format requirements.txt --output /tmp/requirements.txt
           wc -l /tmp/requirements.txt
       - name: 跑 pip-audit（含 allowlist）
         # 在 .pip-audit-allowlist 中维护已知豁免（每条带 expiry 与 issue 链接）

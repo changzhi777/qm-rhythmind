@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "qm-rhythmind"
-version = "0.1.6"
+version = "0.1.7"
 description = "律动 RHYTHMIND — Multi-agent AI Health Platform (AG2 + Hermes)"
 authors = ["Qingmu Life Tech <dev@qingmu.ai>"]
 readme = "README.md"
@@ -48,7 +48,8 @@ pandas = "^2.2"
 numpy = "^1.26"
 
 # ── File handling ─────────────────────────────────────────────────────────
-pillow = "^10.3"
+# Pillow 11.0 (2024-10) 是 AutoGen 0.4.x 强制依赖；保持 ^11 即可
+pillow = "^11.0"
 aiofiles = "^23.2"
 python-multipart = "^0.0.9"   # FastAPI form/file upload
 
@@ -58,8 +59,9 @@ passlib = { version = "^1.7", extras = ["bcrypt"] }
 
 # ── Observability ─────────────────────────────────────────────────────────
 structlog = "^24.1"
-opentelemetry-sdk = "^1.25"
-opentelemetry-instrumentation-fastapi = "^0.46b0"
+# AutoGen 0.4.x 强制 opentelemetry-api >=1.27；这里跟着升
+opentelemetry-sdk = "^1.27"
+opentelemetry-instrumentation-fastapi = ">=0.48b0"
 sentry-sdk = { version = "^2.5", extras = ["fastapi"] }
 
 [tool.poetry.group.dev.dependencies]
@@ -72,12 +74,11 @@ mypy = "^1.10"
 pre-commit = "^3.7"
 factory-boy = "^3.3"          # test fixtures
 
-[tool.poetry.group.cv.dependencies]
-# 独立安装组，避免 CPU-only 环境拉错包
-paddlepaddle = "^2.6"
-paddleocr = "^2.8"
-mediapipe = "^0.10"
-opencv-python-headless = "^4.10"
+# ── CV 依赖（已从 Poetry 移出）─────────────────────────────────────────────
+# paddlepaddle / paddleocr / mediapipe / opencv-python-headless 锁死了 protobuf 3.x，
+# 与 autogen 0.4.x 要求的 protobuf 4/5.x 不兼容；Poetry lock 即使 optional 组也仍会解析，
+# 因此把它们整体移到独立 requirements 文件 `requirements-cv.txt`，
+# 在 Apple Silicon 上需要 OCR / 姿态识别功能时手动 `pip install -r requirements-cv.txt`。
 
 # ── Tool config ────────────────────────────────────────────────────────────
 [tool.ruff]

@@ -1,0 +1,25 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# requirements-cv.txt — CV / OCR / 姿态识别依赖（Apple Silicon 推荐）
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# 为什么独立文件而不是 Poetry group:
+#   paddlepaddle 锁死 protobuf 3.x，与 autogen 0.4.x 要求的 protobuf 4/5.x 冲突；
+#   Poetry 即使 optional group 也会在 lock 时解析所有组，无法绕开。
+#   把这一类"独立工具链"用 pip 安装，反而最稳。
+#
+# 何时安装:
+#   - Apple Silicon 上需要：体脂秤 OCR（paddleocr）/ 姿态识别（mediapipe）/ 通用图像处理
+#   - Linux 服务器一般不需要
+#
+# 安装:
+#   pip install -r requirements-cv.txt
+#
+# 注意:
+#   - 装完后 `import paddle` 可能与 `import autogen` 在同一进程冲突（protobuf 版本）；
+#     若要并存，建议拆成两个独立 worker / venv 跑
+# ─────────────────────────────────────────────────────────────────────────────
+
+paddlepaddle>=2.6,<3.0
+paddleocr>=2.8,<3.0
+mediapipe>=0.10,<0.11
+opencv-python-headless>=4.10,<5.0
