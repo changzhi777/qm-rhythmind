@@ -24,7 +24,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from rhythmind.config import settings
 from rhythmind.core.memory.models import SkillRecord
-from rhythmind.core.memory.manager import AsyncSessionLocal, _build_upsert
+import rhythmind.core.memory.manager as _mem_mgr  # 通过模块引用访问 AsyncSessionLocal，
+                                                   # 兼容 conftest.reset_db 的运行时替换
+from rhythmind.core.memory.manager import _build_upsert
 from rhythmind.core.qmd.client import QMDClient
 
 from .extractor import SkillExtractor
@@ -72,30 +74,45 @@ class SkillEngine:
         将提取到的技能条目同步到 DB + QMD。
 
         两步写入：
-          1. 写 SkillRecord 表（持久化，可离线查询）
-          2. upsert 到 QMD agent_skills collection（语义检索）
+          1. 写 SkillRecord 表，status 由 settings.skill_require_approval 决定
+             - True  → status='pending'，等 admin approve
+             - False → status='approved'，立即可被 QMD 检索
+          2. 仅当 status='approved' 时才推到 QMD agent_skills collection
         """
         if not skills:
             return
 
-        async with AsyncSessionLocal() as session:
+        # 默认视为 approved；require_approval 时新写入进 pending
+        new_status = "pending" if settings.skill_require_approval else "approved"
+
+        async with _mem_mgr.AsyncSessionLocal() as session:
             async with session.begin():
                 for skill in skills:
-                    await self._upsert_db(session, skill)
+                    await self._upsert_db(session, skill, new_status)
 
         # QMD 写入（独立 try，失败不影响主流程）
-        for skill in skills:
-            try:
-                await self._qmd.index_skill(
-                    agent=skill["agent"],
-                    skill_content=skill["content"],
-                    task_type=skill.get("task_type", ""),
-                )
-            except Exception as e:
-                logger.warning("skill.persist_to_qmd qmd_error=%s id=%s", e, skill["id"])
+        # 仅在 approved 路径推 QMD；pending skill 不参与检索
+        if new_status == "approved":
+            for skill in skills:
+                try:
+                    await self._qmd.index_skill(
+                        agent=skill["agent"],
+                        skill_content=skill["content"],
+                        task_type=skill.get("task_type", ""),
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "skill.persist_to_qmd qmd_error=%s id=%s", e, skill["id"]
+                    )
+        else:
+            logger.info(
+                "skill.persist agent=%s count=%d status=pending qmd_skipped",
+                self.agent, len(skills),
+            )
 
         logger.info(
-            "skill.persist agent=%s count=%d", self.agent, len(skills)
+            "skill.persist agent=%s count=%d status=%s",
+            self.agent, len(skills), new_status,
         )
 
     # ── 内部 ──────────────────────────────────────────────────────────────
@@ -104,7 +121,14 @@ class SkillEngine:
     async def _upsert_db(
         session: AsyncSession,
         skill: dict[str, str],
+        new_status: str = "approved",
     ) -> None:
+        """
+        向 SkillRecord 表 upsert 一条记录。
+
+        冲突时（同 agent+hash）只递增 use_count，**不覆盖 status**——
+        避免管理员 reject 之后下次自动提取又被重置为 pending/approved。
+        """
         skill_hash = skill["id"].split("_")[-1]
         is_sqlite = "sqlite" in settings.database_url
         insert = _build_upsert(is_sqlite)
@@ -114,9 +138,11 @@ class SkillEngine:
             content=skill["content"],
             source_task=skill.get("task_type", ""),
             confidence=0.85,
+            status=new_status,
         )
         stmt = stmt.on_conflict_do_update(
             index_elements=["agent", "skill_hash"],
+            # 注意：仅更新 use_count，不动 status / content
             set_={"use_count": SkillRecord.use_count + 1},
         )
         await session.execute(stmt)

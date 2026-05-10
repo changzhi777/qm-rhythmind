@@ -1,0 +1,88 @@
+{{- if .Values.prometheusRule.enabled -}}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "rhythmind.fullname" . }}
+  labels:
+    {{- include "rhythmind.labels" . | nindent 4 }}
+    {{- with .Values.prometheusRule.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    - name: rhythmind.api
+      interval: 30s
+      rules:
+        # ── HTTP 5xx 比例（窗口 5min）─────────────────────────────────────
+        - alert: RhythmindHigh5xxRate
+          expr: |
+            sum(rate(rhythmind_http_requests_total{status=~"5.."}[5m]))
+              /
+            sum(rate(rhythmind_http_requests_total[5m])) > 0.01
+          for: 5m
+          labels: { severity: critical, service: rhythmind }
+          annotations:
+            summary: "rhythmind 5xx 比例 > 1% 持续 5 分钟"
+            runbook_url: "{{ .Values.prometheusRule.runbookUrlBase | default "https://github.com/changzhi777/qm-rhythmind/blob/main/docs/RUNBOOK.md" }}#1-api-整体不可用"
+
+        # ── /readyz 持续 503（K8s 探针角度看由 metrics 派生）──────────────
+        - alert: RhythmindReadyzFailing
+          expr: |
+            sum(rate(rhythmind_http_requests_total{route="/readyz",status="503"}[2m])) > 0
+          for: 2m
+          labels: { severity: critical, service: rhythmind }
+          annotations:
+            summary: "/readyz 返回 503，至少有一个 Pod 不接流量"
+            runbook_url: "{{ .Values.prometheusRule.runbookUrlBase | default "https://github.com/changzhi777/qm-rhythmind/blob/main/docs/RUNBOOK.md" }}#1-api-整体不可用"
+
+        # ── LLM P95 延迟（P3）────────────────────────────────────────────
+        - alert: RhythmindLLMHighLatencyP95
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum(rate(rhythmind_llm_duration_seconds_bucket[10m])) by (le, adapter)
+            ) > 30
+          for: 10m
+          labels: { severity: warning, service: rhythmind }
+          annotations:
+            summary: "{{`{{ $labels.adapter }}`}} 适配器 LLM P95 > 30s 持续 10min"
+            runbook_url: "{{ .Values.prometheusRule.runbookUrlBase | default "https://github.com/changzhi777/qm-rhythmind/blob/main/docs/RUNBOOK.md" }}#5-llm-推理异常"
+
+        # ── LLM 错误率突增 ───────────────────────────────────────────────
+        - alert: RhythmindLLMErrorRateHigh
+          expr: |
+            sum(rate(rhythmind_llm_calls_total{result="error"}[5m]))
+              /
+            clamp_min(sum(rate(rhythmind_llm_calls_total[5m])), 0.001) > 0.10
+          for: 10m
+          labels: { severity: warning, service: rhythmind }
+          annotations:
+            summary: "LLM 调用错误率 > 10%"
+
+        # ── 合规拦截激增（P3）───────────────────────────────────────────
+        - alert: RhythmindComplianceBlocksSpike
+          expr: |
+            sum(increase(rhythmind_compliance_blocks_total[1h]))
+              /
+            clamp_min(sum(increase(rhythmind_compliance_blocks_total[1h] offset 1h)), 1) > 3
+          for: 15m
+          labels: { severity: warning, service: rhythmind }
+          annotations:
+            summary: "合规拦截较前 1h 上涨 ≥ 3×（误拦截或被攻击）"
+            runbook_url: "{{ .Values.prometheusRule.runbookUrlBase | default "https://github.com/changzhi777/qm-rhythmind/blob/main/docs/RUNBOOK.md" }}#7-合规告警"
+
+        # ── Pool 命中率（P4）───────────────────────────────────────────
+        - alert: RhythmindAgentPoolLowHitRatio
+          expr: |
+            sum(rate(rhythmind_agent_pool_hits_total[30m]))
+              /
+            clamp_min(
+              sum(rate(rhythmind_agent_pool_hits_total[30m]))
+              + sum(rate(rhythmind_agent_pool_misses_total[30m])),
+              0.001
+            ) < 0.5
+          for: 30m
+          labels: { severity: info, service: rhythmind }
+          annotations:
+            summary: "AgentPool 命中率 < 50% 持续 30 分钟（容量过小或 user 分布过散）"
+{{- end }}

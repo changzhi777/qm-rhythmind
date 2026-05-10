@@ -173,8 +173,13 @@ class SkillRecord(Base):
     """
     技能记录表。
 
-    SkillEngine 提取的 SKILL.md 片段持久化于此，
-    同时异步同步到 QMD agent_skills collection。
+    SkillEngine 提取的 SKILL.md 片段持久化于此；
+    仅当 status='approved' 时才同步到 QMD agent_skills collection（语义检索来源）。
+
+    审核状态（status，v0.1.6+ 增加）:
+      - "approved" — 已审核，可推 QMD；默认值（保证旧数据视为已审核）
+      - "pending"  — 待审核；settings.skill_require_approval=True 时新写入的状态
+      - "rejected" — 被 admin 拒绝；既不推 QMD 也不再使用
     """
     __tablename__ = "skill_record"
 
@@ -190,12 +195,22 @@ class SkillRecord(Base):
     )
     synced_to_qmd: Mapped[bool] = mapped_column(nullable=False, default=False)
 
+    # 默认值 'approved' 而非 'pending'，确保现有部署/旧数据不被破坏
+    status: Mapped[str] = mapped_column(
+        String(16),
+        nullable=False,
+        default="approved",
+        server_default="approved",
+        index=True,
+    )
+
     __table_args__ = (
         Index("ix_skill_agent_hash", "agent", "skill_hash", unique=True),
+        Index("ix_skill_status", "status"),
     )
 
     def __repr__(self) -> str:
-        return f"<SkillRecord agent={self.agent} hash={self.skill_hash}>"
+        return f"<SkillRecord agent={self.agent} hash={self.skill_hash} status={self.status}>"
 
 
 class HealthFact(Base):

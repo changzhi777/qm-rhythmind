@@ -1,0 +1,51 @@
+{{- if .Values.networkPolicy.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "rhythmind.fullname" . }}
+  labels:
+    {{- include "rhythmind.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "rhythmind.selectorLabels" . | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    # 仅允许：Ingress controller / 同 namespace / Prometheus（来自 monitoring ns）
+    - from:
+        {{- with .Values.networkPolicy.ingressNamespaceSelector }}
+        - namespaceSelector:
+            {{- toYaml . | nindent 12 }}
+        {{- end }}
+        - podSelector:
+            matchLabels:
+              {{- include "rhythmind.selectorLabels" . | nindent 14 }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - { protocol: TCP, port: 8000 }
+  egress:
+    # 允许 DNS
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    # 允许出公网（LiteLLM → Anthropic / DeepSeek）；
+    # 生产建议改成显式的 IPBlock 列表 + egress proxy
+    - to:
+        - ipBlock: { cidr: 0.0.0.0/0 }
+      ports:
+        - { protocol: TCP, port: 443 }
+    # 允许集群内组件（PG/Redis/Influx/QMD/LiteLLM/Ollama）
+    - to:
+        - podSelector: {}
+      ports:
+        - { protocol: TCP, port: 5432 }
+        - { protocol: TCP, port: 6379 }
+        - { protocol: TCP, port: 8086 }
+        - { protocol: TCP, port: 8181 }
+        - { protocol: TCP, port: 4000 }
+        - { protocol: TCP, port: 11434 }
+{{- end }}

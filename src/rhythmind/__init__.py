@@ -6,4 +6,4 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 """律动 RHYTHMIND — Multi-agent AI Health Platform"""
-__version__ = "0.1.0"
+from rhythmind._version import __version__  # noqa: F401  (单一版本来源)

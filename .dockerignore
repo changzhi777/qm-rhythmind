@@ -1,0 +1,68 @@
+# 版本控制
+.git
+.gitignore
+.gitattributes
+.github
+
+# Python 缓存与虚拟环境
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.egg-info
+.eggs
+.venv
+venv
+env
+
+# 测试与覆盖率
+tests
+.pytest_cache
+.coverage
+.coverage.*
+htmlcov
+coverage.xml
+pytest-cache-files-*
+
+# IDE / 编辑器
+.idea
+.vscode
+*.swp
+.DS_Store
+
+# 文档（不需要进镜像）
+docs
+*.md
+!README.md
+LICENSE
+
+# 本地配置（绝不打镜像！）
+.env
+.env.*
+!.env.example
+
+# 本地数据库 / 数据目录
+*.db
+*.sqlite
+*.sqlite3
+data/local
+data/cache
+
+# Hooks / 安装脚本
+.githooks
+setup_*.sh
+init_git_commit.sh
+
+# 构建产物
+dist
+build
+*.tar.gz
+*.whl
+
+# Docker 自身
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Pre-commit 配置
+.pre-commit-config.yaml

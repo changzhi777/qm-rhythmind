@@ -95,6 +95,11 @@ class ComplianceGate:
                 "compliance.BLOCK confidence=%.2f blocked_kws=%s",
                 confidence, blocked_kws,
             )
+            try:
+                from rhythmind.observability import COMPLIANCE_BLOCKS
+                COMPLIANCE_BLOCKS.labels("output_gate").inc()
+            except Exception:
+                pass
             return ComplianceResult(
                 level=level,
                 output=None,
@@ -148,6 +153,11 @@ class ComplianceGate:
         blocked = self._scan(text, self._rules.block_patterns)
         if blocked:
             logger.warning("compliance.pre_check BLOCKED kws=%s", blocked)
+            try:
+                from rhythmind.observability import COMPLIANCE_BLOCKS
+                COMPLIANCE_BLOCKS.labels("prompt_audit").inc()
+            except Exception:
+                pass
             return False
         return True
 

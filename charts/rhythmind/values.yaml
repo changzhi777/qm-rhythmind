@@ -1,0 +1,161 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# rhythmind — default values
+# 覆盖建议（生产）：cp values.yaml values.prod.yaml && 编辑 → helm upgrade -f values.prod.yaml
+# ─────────────────────────────────────────────────────────────────────────────
+
+image:
+  repository: ghcr.io/changzhi777/rhythmind
+  tag: ""                      # 留空则用 .Chart.AppVersion
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+replicaCount: 2
+
+# ── 应用级配置 ───────────────────────────────────────────────────────────────
+env: prod                        # rhythmind 自身的 ENV 字段
+extraEnv: {}                     # 任意附加 env，例如 { LOG_LEVEL: info }
+
+modelPrimarySpec: "ollama://qwen2.5:7b"   # 容器化默认走 ollama
+corsAllowOrigins: "https://app.rhythmind.ai"
+runMigrationsOnStartup: false    # 推荐用下面 migrationJob 而非容器内自跑
+
+# ── Secret（生产建议使用 SealedSecret / ExternalSecret 而非明文）────────────
+# 留空 → chart 不会创建 Secret，需事先 kubectl create secret generic <name>
+secret:
+  create: false                  # true 时由 chart 创建（仅适合 dev/staging）
+  name: rhythmind-secrets        # 引用名（无论谁创建）
+  data: {}                       # create=true 时填这里：{ JWT_SECRET: ..., ... }
+
+# ── 数据连接（DSN 强烈建议来自 Secret）─────────────────────────────────────
+postgres:
+  # 二选一：existingDsnSecret（推荐）/ inlineDsn
+  existingDsnSecret:
+    name: rhythmind-secrets
+    key: DATABASE_URL
+  inlineDsn: ""                  # 仅 dev：postgresql+asyncpg://...
+  poolSize: 10
+  poolMaxOverflow: 20
+
+redis:
+  url: "redis://rhythmind-redis:6379"
+
+influxdb:
+  url: ""                        # 留空表示禁用
+  org: rhythmind
+  bucket: health_metrics
+
+litellm:
+  url: "http://rhythmind-litellm:4000"
+
+# ── 容器资源 ────────────────────────────────────────────────────────────────
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    cpu: "2"
+    memory: 4Gi
+
+# ── 探针 ────────────────────────────────────────────────────────────────────
+livenessProbe:
+  httpGet: { path: /livez, port: http }
+  initialDelaySeconds: 20
+  periodSeconds: 15
+  failureThreshold: 5
+
+readinessProbe:
+  httpGet: { path: /readyz, port: http }
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  failureThreshold: 3
+
+# ── Service ────────────────────────────────────────────────────────────────
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+
+# ── Ingress（默认关闭；上层 LB/ServiceMesh 可以接管）─────────────────────────
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  hosts:
+    - host: api.rhythmind.ai
+      paths: [{ path: /, pathType: Prefix }]
+  tls: []                        # [{secretName: rhythmind-tls, hosts: [api.rhythmind.ai]}]
+
+# ── HPA ─────────────────────────────────────────────────────────────────────
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  # targetMemoryUtilizationPercentage: 80
+
+# ── PDB ─────────────────────────────────────────────────────────────────────
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# ── 安全上下文 ──────────────────────────────────────────────────────────────
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 1001
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+# ── 迁移 Job（推荐：作为单独 init Job 而非容器内并发）──────────────────────
+migrationJob:
+  enabled: true
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 600
+  resources:
+    requests: { cpu: 200m, memory: 256Mi }
+    limits:   { cpu: 1,   memory: 1Gi }
+
+# ── ServiceMonitor（Prometheus Operator）───────────────────────────────────
+serviceMonitor:
+  enabled: false               # 集群装了 prometheus-operator 时改 true
+  interval: 30s
+  scrapeTimeout: 10s
+  labels: {}                   # release/team 标签
+
+# ── PrometheusRule（告警规则；与 dashboard 一并部署）────────────────────────
+prometheusRule:
+  enabled: false
+  labels: {}                   # alertmanager 路由用
+  runbookUrlBase: ""           # 留空使用上游 README 链接
+
+# ── Grafana dashboard（通过 sidecar 自动发现）───────────────────────────────
+# 使用方式：开启后会创建 ConfigMap，标签由 .label 控制（默认 grafana_dashboard）。
+# kube-prometheus-stack 默认配置即会自动加载。
+grafanaDashboard:
+  enabled: false
+  label: "grafana_dashboard"
+
+# ── NetworkPolicy（默认关；启用前确认 ingress controller 命名空间）────────
+networkPolicy:
+  enabled: false
+  ingressNamespaceSelector: {} # 例：{ matchLabels: { name: ingress-nginx } }
+
+# ── Pod 调度 ────────────────────────────────────────────────────────────────
+nodeSelector: {}
+tolerations: []
+affinity: {}
+priorityClassName: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""

@@ -49,10 +49,15 @@ services:
       REDIS_URL: redis://redis:6379
       QMD_URL: http://qmd:8181
       LITELLM_URL: http://litellm:4000
-      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-1234}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:?must set LITELLM_MASTER_KEY in .env}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
-      JWT_SECRET: dev-secret-change-in-prod
+      # 仅用于本地开发；生产请由 K8s Secret / Vault 注入。
+      # 长度 < 32 时 ENV=prod 启动会被拒绝（见 config.py.assert_production_safe）。
+      JWT_SECRET: ${JWT_SECRET:?must set JWT_SECRET in .env (min 32 chars)}
+      DEV_AUTH_BYPASS: "true"   # 仅 dev 容器开启明文 Bearer，方便 curl 调试
+      RUN_MIGRATIONS_ON_STARTUP: "true"
+      CORS_ALLOW_ORIGINS: "http://localhost:3000,http://localhost:5173"
     depends_on:
       postgres:
         condition: service_healthy
@@ -71,7 +76,7 @@ services:
         --port 8000
         --log-level info
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/ping"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/livez"]
       interval: 10s
       timeout: 5s
       retries: 3

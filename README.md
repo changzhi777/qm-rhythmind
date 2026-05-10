@@ -2,7 +2,7 @@
 
 > **Multi-agent AI Health Platform**  
 > 作者：外星动物（常智）/ IoTchange · 邮箱：14455975@qq.com  
-> 许可：[CC BY-NC 4.0](LICENSE) · 版本：`0.1.1`
+> 许可：[CC BY-NC 4.0](LICENSE) · 版本：`0.1.5`
 
 [![CI](https://github.com/changzhi777/qm-rhythmind/actions/workflows/ci.yml/badge.svg)](https://github.com/changzhi777/qm-rhythmind/actions/workflows/ci.yml)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
@@ -12,13 +12,18 @@
 
 ## 项目简介
 
-RHYTHMIND 律动 是一个基于多智能体协作的 AI 健康管理平台，运行于 Apple Silicon（M 系列）本地硬件，数据不出设备。核心特性：
+RHYTHMIND 律动 是一个基于多智能体协作的 AI 健康管理平台，本地优先推理（Apple Silicon），生产部署亦支持 K8s + Ollama / LiteLLM。核心特性：
 
 - **三阶段 Swarm 流水线**：指标采集 → 数据分析 → 健康教练，全程多智能体协作
 - **Hermes Pattern v2**：标准化 6 步智能体执行循环，内置记忆、技能、合规
-- **本地优先推理**：MLX（Qwen3-30B-A3B-4bit）+ Ollama（gemma3:4b）双路模型
+- **多形态推理**：MLX（本地 Apple Silicon）+ Ollama（HTTP）+ LiteLLM（云端网关）三路自动路由
 - **MCP 接口**：Model Context Protocol SSE 服务，对外暴露健康工具
-- **全量测试**：156 个单元测试，GitHub Actions 持续集成
+- **生产就绪运维**：限流（Redis 双层）、Prometheus `/metrics`、OpenTelemetry、`/livez`+`/readyz`、Helm chart、PrometheusRule + Grafana dashboard
+- **测试**：195 单元 + 8 集成 = **203 个测试**，GitHub Actions 持续集成
+
+> 完整运维文档见 [DEPLOYMENT.md](docs/DEPLOYMENT.md) · [RUNBOOK.md](docs/RUNBOOK.md) · [SECURITY.md](docs/SECURITY.md) · [THREAT_MODEL.md](docs/THREAT_MODEL.md)
+> 生产就绪度评估 + 灰度路径见 [PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md)；非技术摘要见 [EXECUTIVE_SUMMARY.md](docs/EXECUTIVE_SUMMARY.md)
+> 贡献者请读 [CONTRIBUTING.md](CONTRIBUTING.md) · Helm chart 见 [charts/rhythmind/](charts/rhythmind/)
 
 ---
 
@@ -187,12 +192,49 @@ uvicorn rhythmind.api.main:app --host 0.0.0.0 --port 8000 --workers 1
 
 ---
 
+## 生产部署
+
+完整步骤见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)。最简 K8s 流程：
+
+```bash
+# 1. 准备 Secret（JWT_SECRET ≥32 字符，且不在默认黑名单）
+kubectl create namespace rhythmind
+kubectl -n rhythmind create secret generic rhythmind-secrets \
+    --from-literal=JWT_SECRET=$(openssl rand -hex 32) \
+    --from-literal=LITELLM_MASTER_KEY=$(openssl rand -hex 16) \
+    --from-literal=DATABASE_URL=postgresql+asyncpg://USER:PWD@HOST:5432/rhythmind \
+    --from-literal=INFLUXDB_TOKEN=$(openssl rand -hex 24)
+
+# 2. 部署 Helm chart
+helm upgrade --install rhythmind ./charts/rhythmind -n rhythmind \
+    --set image.tag=0.1.5 \
+    --set env=prod \
+    --set corsAllowOrigins=https://app.rhythmind.ai \
+    --set serviceMonitor.enabled=true \
+    --set prometheusRule.enabled=true \
+    --set grafanaDashboard.enabled=true
+
+# 3. 验证
+kubectl -n rhythmind port-forward svc/rhythmind 8000:80
+curl http://localhost:8000/readyz   # 应返回 {"status":"ready", "checks": {"db":"ok","redis":"ok"}}
+curl http://localhost:8000/metrics  # Prometheus 指标
+```
+
+---
+
 ## API 接口
 
 ### 健康检查
 
+| 端点 | 用途 |
+|---|---|
+| `GET /livez` | K8s livenessProbe（仅检查进程存活） |
+| `GET /readyz` | K8s readinessProbe（含 DB/Redis 检查） |
+| `GET /metrics` | Prometheus 暴露端点 |
+| `GET /health` | 兼容旧 LB（=`/livez`） |
+
 ```http
-GET /health
+GET /readyz
 ```
 
 ### MCP 接口（Model Context Protocol）

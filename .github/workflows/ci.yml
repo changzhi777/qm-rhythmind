@@ -127,3 +127,106 @@ jobs:
         run: ruff format --check src/ tests/ || true
       - name: Ruff lint
         run: ruff check src/ tests/ || true
+
+  helm-chart:
+    name: Helm chart 校验
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 安装 Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.16.1
+      - name: helm lint
+        run: helm lint charts/rhythmind
+      - name: helm template (默认 values)
+        # 渲染所有可选模板，确保任何排列组合都能编译
+        run: |
+          helm template rhythmind charts/rhythmind \
+            --set serviceMonitor.enabled=true \
+            --set prometheusRule.enabled=true \
+            --set grafanaDashboard.enabled=true \
+            --set ingress.enabled=true \
+            --set networkPolicy.enabled=true \
+            --set secret.create=true \
+            --set 'secret.data.JWT_SECRET=01234567890123456789012345678901' \
+            --set 'secret.data.LITELLM_MASTER_KEY=sk-real' \
+            --set 'secret.data.DATABASE_URL=postgresql+asyncpg://u:p@h/d' \
+            > /tmp/render.yaml
+          echo "rendered $(grep -c '^kind:' /tmp/render.yaml) Kubernetes resources"
+
+  poetry-lock-check:
+    name: Poetry lock 同步检查
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 安装 Poetry
+        run: pipx install poetry==1.8.3
+      - name: 校验 lock 与 pyproject 同步
+        # 不存在 lock → 失败提示运行 scripts/bootstrap_lock.sh
+        # lock 与 pyproject 不一致 → 提醒重新跑 lock
+        run: |
+          if [[ ! -f poetry.lock ]]; then
+            echo "::error::poetry.lock 缺失。请在本地运行 scripts/bootstrap_lock.sh 后提交。"
+            exit 1
+          fi
+          poetry check --lock
+
+  dep-audit:
+    name: 依赖漏洞审计 (pip-audit)
+    runs-on: ubuntu-latest
+    # CRITICAL/HIGH 阻断；豁免列表见 .pip-audit-allowlist。
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 安装 Poetry + pip-audit
+        run: |
+          pipx install poetry==1.8.3
+          pipx install pip-audit
+      - name: 导出 requirements.txt
+        # 排除 cv 与 dev 组：cv 是 Apple-only，dev 仅本地测试
+        run: |
+          poetry export --without cv,dev --without-hashes --format requirements.txt --output /tmp/requirements.txt
+          wc -l /tmp/requirements.txt
+      - name: 跑 pip-audit（含 allowlist）
+        # 在 .pip-audit-allowlist 中维护已知豁免（每条带 expiry 与 issue 链接）
+        run: |
+          IGNORE_ARGS=""
+          if [[ -f .pip-audit-allowlist ]]; then
+            # 过滤注释 / 空行，把每个 ID 转成 --ignore-vuln 参数
+            while IFS= read -r line; do
+              line="${line%%#*}"; line="${line//[[:space:]]/}"
+              [[ -z "$line" ]] && continue
+              IGNORE_ARGS+=" --ignore-vuln $line"
+            done < .pip-audit-allowlist
+          fi
+          echo "ignored: $IGNORE_ARGS"
+          pip-audit -r /tmp/requirements.txt --strict $IGNORE_ARGS
+
+  image-scan:
+    name: 容器镜像漏洞扫描 (trivy)
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: 构建镜像（不推送）
+        run: |
+          if [[ ! -f poetry.lock ]]; then
+            echo "::warning::poetry.lock 缺失，先跑 scripts/bootstrap_lock.sh"
+            exit 1
+          fi
+          docker build -t rhythmind:ci .
+      - name: Trivy 扫描（CRITICAL/HIGH 阻断）
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: rhythmind:ci
+          format: table
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+          trivyignores: ".trivyignore"

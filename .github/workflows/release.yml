@@ -86,6 +86,47 @@ jobs:
           draft: false
           prerelease: ${{ contains(steps.version.outputs.VERSION, 'alpha') || contains(steps.version.outputs.VERSION, 'beta') }}
 
+  sbom:
+    name: 生成 SBOM (CycloneDX)
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 安装 Poetry + cyclonedx-bom
+        run: |
+          pipx install poetry==1.8.3
+          pipx install cyclonedx-bom
+
+      - name: 导出依赖到 requirements.txt
+        run: |
+          poetry export --without cv,dev --without-hashes --format requirements.txt --output /tmp/requirements.txt
+
+      - name: 生成 SBOM (CycloneDX 1.5 JSON)
+        # cyclonedx-bom 直接读 requirements.txt 描述运行时依赖。
+        run: |
+          cyclonedx-py requirements -i /tmp/requirements.txt --of JSON -o /tmp/rhythmind.sbom.json
+          echo "SBOM 大小：$(wc -c < /tmp/rhythmind.sbom.json) bytes"
+          # 简单合规性自检：SBOM 必须包含 "components" 字段且不为空
+          python -c "import json; d=json.load(open('/tmp/rhythmind.sbom.json')); assert d.get('components'), 'empty SBOM'; print('OK', len(d['components']), 'components')"
+
+      - name: 读取版本号
+        id: version
+        run: echo "VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
+
+      - name: 重命名带版本号
+        run: |
+          cp /tmp/rhythmind.sbom.json /tmp/rhythmind-${{ steps.version.outputs.VERSION }}.sbom.json
+
+      - name: 上传到 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v${{ steps.version.outputs.VERSION }}"
+          files: /tmp/rhythmind-${{ steps.version.outputs.VERSION }}.sbom.json
+
   docker-publish:
     name: 构建并推送 Docker 镜像
     needs: create-release
@@ -113,3 +154,6 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository_owner }}/rhythmind:latest
             ghcr.io/${{ github.repository_owner }}/rhythmind:v${{ steps.version.outputs.VERSION }}
+          build-args: |
+            GIT_SHA=${{ github.sha }}
+            BUILD_TIME=${{ github.event.head_commit.timestamp }}

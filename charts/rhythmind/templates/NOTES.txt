@@ -1,0 +1,30 @@
+Thanks for installing {{ .Chart.Name }} v{{ .Chart.AppVersion }}.
+
+1. 检查 Pods 滚动起来：
+   kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }}
+
+2. 端口转发并访问探针：
+   kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "rhythmind.fullname" . }} 8000:{{ .Values.service.port }}
+   curl http://localhost:8000/livez
+   curl http://localhost:8000/readyz   # 应返回 {"status":"ready",...}
+
+3. Prometheus 抓取（已开启 ServiceMonitor 时）：
+   kubectl -n {{ .Release.Namespace }} get servicemonitor {{ include "rhythmind.fullname" . }}
+
+{{- if not .Values.secret.create }}
+
+⚠ 你设置了 secret.create=false。请确保以下 Secret 已经创建：
+   kubectl -n {{ .Release.Namespace }} get secret {{ .Values.secret.name }}
+   必须包含至少：JWT_SECRET (>=32 chars), LITELLM_MASTER_KEY, INFLUXDB_TOKEN, DATABASE_URL
+{{- end }}
+
+{{- if eq .Values.env "prod" }}
+{{- if not .Values.serviceMonitor.enabled }}
+
+⚠ ENV=prod 但 serviceMonitor.enabled=false —— Prometheus 抓不到 metrics。
+{{- end }}
+{{- if not .Values.prometheusRule.enabled }}
+
+⚠ ENV=prod 但 prometheusRule.enabled=false —— RUNBOOK §8 的告警不会生效。
+{{- end }}
+{{- end }}

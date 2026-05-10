@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "rhythmind.fullname" . }}
+  labels:
+    {{- include "rhythmind.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "rhythmind.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "rhythmind.selectorLabels" . | nindent 8 }}
+      annotations:
+        # 触发滚动更新当 secret 改变（外部 secret 操作员场景）
+        checksum/secret-ref: {{ printf "%s/%s" .Values.secret.name (.Values.image.tag | default .Chart.AppVersion) | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "rhythmind.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      containers:
+        - name: api
+          image: "{{ .Values.image.repository }}:{{ include "rhythmind.imageTag" . }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          envFrom:
+            - secretRef:
+                name: {{ .Values.secret.name }}
+          env:
+            - { name: ENV,                       value: {{ .Values.env | quote }} }
+            - { name: RUN_MIGRATIONS_ON_STARTUP, value: {{ .Values.runMigrationsOnStartup | quote }} }
+            - { name: MODEL_PRIMARY_SPEC,        value: {{ .Values.modelPrimarySpec | quote }} }
+            - { name: CORS_ALLOW_ORIGINS,        value: {{ .Values.corsAllowOrigins | quote }} }
+            - { name: REDIS_URL,                 value: {{ .Values.redis.url | quote }} }
+            - { name: LITELLM_URL,               value: {{ .Values.litellm.url | quote }} }
+            - { name: PG_POOL_SIZE,              value: {{ .Values.postgres.poolSize | quote }} }
+            - { name: PG_POOL_MAX_OVERFLOW,      value: {{ .Values.postgres.poolMaxOverflow | quote }} }
+            {{- if .Values.influxdb.url }}
+            - { name: INFLUXDB_URL,              value: {{ .Values.influxdb.url | quote }} }
+            - { name: INFLUXDB_ORG,              value: {{ .Values.influxdb.org | quote }} }
+            - { name: INFLUXDB_BUCKET,           value: {{ .Values.influxdb.bucket | quote }} }
+            {{- end }}
+            {{- /* DATABASE_URL 优先级：existingDsnSecret > inlineDsn */ -}}
+            {{- if .Values.postgres.existingDsnSecret.name }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.postgres.existingDsnSecret.name }}
+                  key:  {{ .Values.postgres.existingDsnSecret.key }}
+            {{- else if .Values.postgres.inlineDsn }}
+            - { name: DATABASE_URL, value: {{ .Values.postgres.inlineDsn | quote }} }
+            {{- end }}
+            {{- range $k, $v := .Values.extraEnv }}
+            - { name: {{ $k }}, value: {{ $v | quote }} }
+            {{- end }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: { sizeLimit: 200Mi }   # readOnlyRootFilesystem 时仍允许 /tmp 写入
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

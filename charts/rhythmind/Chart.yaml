@@ -1,0 +1,17 @@
+apiVersion: v2
+name: rhythmind
+description: 律动 RHYTHMIND — Multi-agent AI Health Platform (AG2 + Hermes)
+type: application
+version: 0.1.0          # chart version (independent from app version)
+appVersion: "0.1.5"     # tracks src/rhythmind/_version.py
+home: https://github.com/changzhi777/qm-rhythmind
+maintainers:
+  - name: 外星动物（常智）/ IoTchange
+    email: 14455975@qq.com
+keywords:
+  - ai
+  - multi-agent
+  - health
+  - hermes
+sources:
+  - https://github.com/changzhi777/qm-rhythmind

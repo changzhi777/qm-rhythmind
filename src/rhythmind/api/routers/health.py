@@ -19,10 +19,18 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sse_starlette.sse import EventSourceResponse
 
 from rhythmind.api.deps import CurrentUserId, PoolDep, RouterDep
+from rhythmind.api.rate_limit import (
+    LIMIT_CHAT_PER_IP,
+    LIMIT_CHAT_PER_USER,
+    LIMIT_UPLOAD_PER_IP,
+    LIMIT_UPLOAD_PER_USER,
+    rate_limit_ip,
+    rate_limit_user,
+)
 from rhythmind.api.schemas.health import (
     HealthChatRequest,
     HealthDataUploadRequest,
@@ -33,6 +41,16 @@ from rhythmind.orchestrator.workflows.swarm_data_coach import SwarmDataCoach
 
 router = APIRouter(prefix="/health", tags=["health"])
 
+# 限流依赖（每路由两层：per-user + per-IP）
+_upload_limits = [
+    Depends(rate_limit_user("upload", *LIMIT_UPLOAD_PER_USER)),
+    Depends(rate_limit_ip("upload", *LIMIT_UPLOAD_PER_IP)),
+]
+_chat_limits = [
+    Depends(rate_limit_user("chat", *LIMIT_CHAT_PER_USER)),
+    Depends(rate_limit_ip("chat", *LIMIT_CHAT_PER_IP)),
+]
+
 _swarm = SwarmDataCoach()
 
 
@@ -42,6 +60,7 @@ _swarm = SwarmDataCoach()
     "/upload",
     response_model=WorkflowResultResponse,
     summary="上传健康数据（同步，等待完整结果）",
+    dependencies=_upload_limits,
 )
 async def upload_health_data(
     body: HealthDataUploadRequest,
@@ -87,6 +106,7 @@ async def upload_health_data(
     "/upload/stream",
     summary="上传健康数据（SSE 流式进度推送）",
     response_class=EventSourceResponse,
+    dependencies=_upload_limits,
     responses={
         200: {
             "description": "SSE 事件流",
@@ -153,6 +173,7 @@ async def upload_health_data_stream(
     "/chat",
     response_model=WorkflowResultResponse,
     summary="文本对话（意图分类 → 路由）",
+    dependencies=_chat_limits,
 )
 async def health_chat(
     body: HealthChatRequest,

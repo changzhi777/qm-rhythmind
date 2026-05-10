@@ -109,13 +109,24 @@ class AdapterRouter:
             spec = settings.model_primary_spec or settings.model_primary
 
         adapter = self.get(spec)
-        return await adapter.chat(
-            messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            response_format=response_format,
-            **kwargs,
-        )
+        adapter_kind = spec.split("://", 1)[0] if "://" in spec else "litellm"
+
+        # Prometheus 埋点（无 prometheus_client 时为 no-op）
+        from rhythmind.observability import LLM_CALLS, LLM_LATENCY
+        with LLM_LATENCY.labels(adapter_kind).time():
+            try:
+                result = await adapter.chat(
+                    messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    response_format=response_format,
+                    **kwargs,
+                )
+                LLM_CALLS.labels(adapter_kind, "success").inc()
+                return result
+            except Exception:
+                LLM_CALLS.labels(adapter_kind, "error").inc()
+                raise
 
     async def health_check(self, model_spec: str | None = None) -> bool:
         """检查指定适配器的健康状态（默认检查主模型）。"""

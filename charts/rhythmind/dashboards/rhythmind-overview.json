@@ -1,0 +1,172 @@
+{
+  "annotations": { "list": [] },
+  "description": "RHYTHMIND 律动 — overview (HTTP / LLM / compliance / pool)",
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "tags": ["rhythmind", "ai", "agents"],
+  "time": { "from": "now-1h", "to": "now" },
+  "timezone": "browser",
+  "title": "rhythmind-overview",
+  "uid": "rhythmind-overview",
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": { "text": "Prometheus", "value": "Prometheus" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "RPS",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "targets": [
+        { "refId": "A", "expr": "sum(rate(rhythmind_http_requests_total[5m]))" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "reqps", "decimals": 2 } }
+    },
+    {
+      "id": 2, "type": "stat", "title": "5xx 比例 (5m)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(rhythmind_http_requests_total{status=~\"5..\"}[5m])) / clamp_min(sum(rate(rhythmind_http_requests_total[5m])), 0.001)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red",   "value": 0.01 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 3, "type": "stat", "title": "/readyz 503 (2m)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(rhythmind_http_requests_total{route=\"/readyz\",status=\"503\"}[2m]))"
+        }
+      ]
+    },
+    {
+      "id": 4, "type": "stat", "title": "LLM P95 (10m, 全 adapter)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum(rate(rhythmind_llm_duration_seconds_bucket[10m])) by (le))"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+
+    {
+      "id": 10, "type": "timeseries", "title": "HTTP 请求按 status",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(rhythmind_http_requests_total[1m])) by (status)",
+          "legendFormat": "{{status}}"
+        }
+      ]
+    },
+    {
+      "id": 11, "type": "timeseries", "title": "HTTP P50/P95/P99",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.5,  sum(rate(rhythmind_http_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p50"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum(rate(rhythmind_http_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95"
+        },
+        {
+          "refId": "C",
+          "expr": "histogram_quantile(0.99, sum(rate(rhythmind_http_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p99"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+
+    {
+      "id": 20, "type": "timeseries", "title": "LLM 调用速率 (按 adapter / result)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(rhythmind_llm_calls_total[1m])) by (adapter, result)",
+          "legendFormat": "{{adapter}} / {{result}}"
+        }
+      ]
+    },
+    {
+      "id": 21, "type": "timeseries", "title": "LLM 时延分位",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.5,  sum(rate(rhythmind_llm_duration_seconds_bucket[5m])) by (le, adapter))",
+          "legendFormat": "p50 {{adapter}}"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum(rate(rhythmind_llm_duration_seconds_bucket[5m])) by (le, adapter))",
+          "legendFormat": "p95 {{adapter}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+
+    {
+      "id": 30, "type": "timeseries", "title": "合规拦截 (按 stage)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "x": 0, "y": 20, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(rhythmind_compliance_blocks_total[5m])) by (stage)",
+          "legendFormat": "{{stage}}"
+        }
+      ]
+    },
+    {
+      "id": 31, "type": "timeseries", "title": "AgentPool 命中率",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "x": 12, "y": 20, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(rhythmind_agent_pool_hits_total[5m])) / clamp_min(sum(rate(rhythmind_agent_pool_hits_total[5m])) + sum(rate(rhythmind_agent_pool_misses_total[5m])), 0.001)",
+          "legendFormat": "hit ratio"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 } }
+    }
+  ]
+}

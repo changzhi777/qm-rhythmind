@@ -15,7 +15,7 @@ git pre-commit 钩子在每次提交时自动将第 3 位（patch）+1。
   python scripts/bump_version.py major   # 0.1.1 → 1.0.0（重大版本）
 """
 
-__version__ = "0.1.5"
+__version__ = "0.1.6"
 __version_info__ = tuple(int(x) for x in __version__.split("."))
 
 # 版本元信息

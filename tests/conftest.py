@@ -20,6 +20,9 @@ os.environ.setdefault("QMD_URL", "http://localhost:8181")
 os.environ.setdefault("JWT_SECRET", "test-secret")
 os.environ.setdefault("LITELLM_MASTER_KEY", "sk-test")
 os.environ.setdefault("LITELLM_URL", "http://localhost:4000")
+# 集成测试默认放行明文 Bearer（仅 ENV != prod 生效）
+os.environ.setdefault("DEV_AUTH_BYPASS", "true")
+os.environ.setdefault("ENFORCE_MODEL_PLATFORM", "false")
 
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 

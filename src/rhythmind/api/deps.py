@@ -40,16 +40,40 @@ async def get_current_user_id(
     """
     解析 Bearer JWT → user_id。
 
-    开发环境（env=dev）允许直接传 user_id 作为 token（便于 curl 测试）::
+    开发便利模式（仅本地）：仅当所有以下条件全部满足时，
+    才接受非 JWT 的明文 user_id 作为 Bearer token：
 
-        curl -H "Authorization: Bearer user_abc" http://localhost:8000/api/v1/health/upload
+      1) settings.env == "dev"
+      2) settings.dev_auth_bypass is True   （需显式开启）
+      3) settings.env != "prod"             （额外冗余守卫）
+
+    生产部署中 dev_auth_bypass 强制为 False，且 config.py 的 validator
+    会在 ENV=prod 且 dev_auth_bypass=True 时直接拒绝启动。
+    任何环境变量误配置都不会再造成"传 alice 即登录 alice"的越权。
     """
     token = credentials.credentials
 
-    if settings.env == "dev" and not token.startswith("eyJ"):
-        logger.debug("deps.dev_mode user_id=%s", token)
+    # ── 严格的开发便利通道（非生产 + 显式开关）─────────────────────────
+    # dev_auth_bypass 的语义是"非生产 + 显式开启"，因此 dev 与 test 都允许。
+    # ENV=prod 时 config.assert_production_safe() 会直接拒绝 dev_auth_bypass=True
+    # 启动，所以这里的 settings.env != "prod" 是冗余防御（深度防御）。
+    if (
+        settings.env != "prod"
+        and getattr(settings, "dev_auth_bypass", False) is True
+        and not token.startswith("eyJ")
+    ):
+        logger.warning(
+            "deps.dev_auth_bypass ENABLED env=%s user_id=%s — never enable in prod",
+            settings.env, token,
+        )
+        try:
+            from rhythmind.audit import AuditEvent, audit_log
+            audit_log(AuditEvent.AUTH_BYPASS_USED, user_id=token, env=settings.env)
+        except Exception:
+            pass
         return token
 
+    # ── 标准 JWT 解析 ────────────────────────────────────────────────────
     try:
         payload = jwt.decode(
             token,

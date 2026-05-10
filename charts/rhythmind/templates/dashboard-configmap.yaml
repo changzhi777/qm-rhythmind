@@ -1,0 +1,14 @@
+{{- if .Values.grafanaDashboard.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "rhythmind.fullname" . }}-dashboard
+  labels:
+    {{- include "rhythmind.labels" . | nindent 4 }}
+    {{- with .Values.grafanaDashboard.label }}
+    {{ . | trim }}: "1"
+    {{- end }}
+data:
+  rhythmind-overview.json: |-
+    {{- .Files.Get "dashboards/rhythmind-overview.json" | nindent 4 }}
+{{- end }}

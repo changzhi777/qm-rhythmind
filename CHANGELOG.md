@@ -9,11 +9,61 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Skill approval workflow (2026-05-10, R-4 closure)
+- New `SkillRecord.status` column (`pending` / `approved` / `rejected`); migration `003_skill_status.py`
+- `settings.skill_require_approval` (default `False` for backward compat)
+- `settings.admin_user_ids` (CSV) + `admin_user_ids_set` property
+- New `/api/v1/admin/skills/pending`, `/approve`, `/reject` endpoints with admin role gate
+- `SkillEngine.persist_to_qmd` now writes `pending` skills to DB but does NOT push them to QMD until approved
+- `AuditEvent.SKILL_APPROVED` / `SKILL_REJECTED` events on every admin action
+- 7 new integration tests (`tests/integration/test_admin_skill_approval.py`)
+- Closes THREAT_MODEL.md R-4
+
+### Added — Production hardening sweep (2026-05-09)
+- **Security**
+  - `assert_production_safe()` startup gate rejects default secrets, weak `JWT_SECRET`, and `mlx://` spec on non-Apple platforms
+  - `dev_auth_bypass` flag explicitly required (default `false`); ENV=prod forbids it
+  - CORS wildcards removed; origins driven by `CORS_ALLOW_ORIGINS` env var
+  - Container entrypoint validates secrets before starting uvicorn
+  - `docs/SECURITY.md` — coordinated disclosure, threat model, residual risk register
+- **Reliability**
+  - `/livez` and `/readyz` probes (split from old `/health`); `/readyz` actually pings DB + Redis
+  - Optional `RUN_MIGRATIONS_ON_STARTUP=true` runs `alembic upgrade head` from entrypoint
+  - Helm chart `migrationJob` runs migrations as a pre-install/pre-upgrade hook
+- **Rate limiting**
+  - Redis fixed-window limiter, per-user + per-IP, applied to `/health/upload` and `/health/chat`
+  - Fail-open if Redis unreachable (matches LoopGuard behavior)
+- **Observability**
+  - `/metrics` Prometheus endpoint with HTTP / LLM / compliance / pool counters and histograms
+  - OpenTelemetry FastAPI instrumentation; OTLP exporter via `OTEL_EXPORTER_OTLP_ENDPOINT`
+  - Sentry SDK actually initialized in lifespan (was previously a dangling dependency); `send_default_pii=False`
+- **Deployment**
+  - Multi-stage non-root Dockerfile (uid 1001) + `HEALTHCHECK` + `.dockerignore`
+  - `scripts/docker-entrypoint.sh` runs Alembic + secret guard
+  - Helm chart `charts/rhythmind/` — Deployment / Service / HPA / PDB / Ingress / NetworkPolicy / ServiceMonitor / PrometheusRule / dashboard ConfigMap / migration Job
+  - Grafana dashboard `rhythmind-overview.json` with HTTP, LLM, compliance, pool panels
+  - Prometheus alerting rules covering RUNBOOK §8 thresholds
+- **Tests**
+  - New `tests/integration/` with full FastAPI ASGI tests (Bearer auth, validation, probes, metrics, rate-limit 429)
+  - LLM-path e2e using `pytest-httpx` to mock Ollama (`AdapterRouter` → `OllamaAdapter` → openai SDK)
+  - **203 tests passing** (195 unit + 8 integration)
+- **Docs**
+  - `docs/DEPLOYMENT.md` (local / docker / K8s / Helm)
+  - `docs/RUNBOOK.md` (oncall procedures, alert thresholds)
+  - `docs/SECURITY.md`
+- **CI**
+  - New `poetry-lock-check` job validates `poetry.lock` is in sync with `pyproject.toml`
+
+### Changed
+- `__version__` is now sourced from `_version.py` only (no more inconsistent literals across `__init__.py` / `main.py` / README)
+- `docker-compose.yml` no longer ships hardcoded `JWT_SECRET` / `LITELLM_MASTER_KEY` defaults; uses `${VAR:?...}` to force `.env` provisioning
+
 ### Planned
 - WebSocket streaming endpoint for real-time agent output
 - Dashboard UI (React) connected to MCP
 - Wearable device ingest (Apple Health / Garmin Connect)
-- Multi-user isolation with JWT-based session management
+- HIPAA / PIPL compliance audit + user data export/delete endpoints
+- PG backup + PITR drill documented in RUNBOOK §2.1
 
 ---
 
