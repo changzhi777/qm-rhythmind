@@ -2,7 +2,7 @@
 
 import type { Report } from '@/types/health';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8888/qm';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/qm/api';
 
 interface ApiResponse<T> {
   status: string;
