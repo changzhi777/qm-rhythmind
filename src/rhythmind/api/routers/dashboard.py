@@ -295,7 +295,7 @@ async def download_report_pdf(
         tip_style,
     ))
     story.append(Paragraph(
-        "湖南青沐生命科技有限公司 | 报告已经过处理和区块链数字水印加密可溯源",
+        "湖南青沐生命科技有限公司 | 报告已经过脱敏处理和区块链数字水印加密可溯源",
         tip_style,
     ))
 
