@@ -1,7 +1,7 @@
 # CLAUDE.md — RHYTHMIND 律动
 
 > **项目版本:** 0.1.8
-> **最后扫描:** 2026-05-12T15:18:57+08:00
+> **最后扫描:** 2026-05-15T19:43:42+08:00
 > **语言:** Python 3.12+
 > **包管理:** Poetry
 
@@ -9,6 +9,7 @@
 
 ## 变更记录 (Changelog)
 
+- **2026-05-15** 增量更新：新增 ingestion 模块、dashboard/PDF 报告路由、前端 CLAUDE.md、部署到 aisport.tech/qm
 - **2026-05-12** Phase 1/2/3/4 实现完成，版本升至 0.1.9
 - **2026-05-12** 完整扫描完成，覆盖率 69% (55/80 文件)，新增子模块详情
 - **2026-05-12** 首次 AI 上下文初始化，模块结构扫描完成
@@ -44,6 +45,7 @@ RHYTHMIND 律动是一个基于多智能体协作的 AI 健康管理平台，本
 graph TD
     ROOT["(根) qm-rhythmind"] --> API["rhythmind/api"]
     ROOT --> ADAPTERS["rhythmind/adapters"]
+    ROOT --> INGESTION["rhythmind/ingestion"]
     ROOT --> AGENTS["rhythmind/agents"]
     ROOT --> CORE["rhythmind/core"]
     ROOT --> ORCHESTRATOR["rhythmind/orchestrator"]
@@ -55,6 +57,7 @@ graph TD
 
     API --> MAIN["api/main.py<br/>FastAPI 入口"]
     API --> HEALTH["api/routers/health.py"]
+    API --> DASHBOARD["api/routers/dashboard.py<br/>仪表盘 + PDF 报告"]
     API --> PRIVACY_ROUTER["api/routers/privacy.py"]
     API --> ADMIN["api/routers/admin.py"]
     API --> DEPS["api/deps.py"]
@@ -67,6 +70,10 @@ graph TD
     ADAPTERS --> LITE_LLM["litellm_adapter.py<br/>LiteLLM 代理"]
     ADAPTERS --> INFLUX["influx_client.py<br/>时序指标"]
     ADAPTERS --> MODEL_ADAPTER["model_adapter.py<br/>ABC 基类"]
+
+    INGESTION --> ING_BASE["ingestion/base.py<br/>适配器 ABC + 数据模型"]
+    INGESTION --> ING_ENGINE["ingestion/engine.py<br/>入库 + AI 分析引擎"]
+    INGESTION --> ING_GARMIN["ingestion/garmin_adapter.py<br/>Garmin 数据适配器"]
 
     AGENTS --> DATA["data_agent.py<br/>数据分析 Agent"]
     AGENTS --> COACH["coach_agent.py<br/>健康教练 Agent"]
@@ -117,7 +124,8 @@ graph TD
 |---------|------|---------|---------|---------|
 | `rhythmind/adapters` | 多模型适配层（MLX/Ollama/LiteLLM）+ InfluxDB | `adapter_router.py` | `tests/unit/adapters/` (未创建) | - |
 | `rhythmind/agents` | AG2 Swarm 智能体（metrics/data/coach）| `metrics_agent.py`, `data_agent.py`, `coach_agent.py` | `tests/unit/` | - |
-| `rhythmind/api` | FastAPI REST API + SSE | `main.py` | `tests/` | - |
+| `rhythmind/api` | FastAPI REST API + SSE + Dashboard/PDF | `main.py` | `tests/` | - |
+| `rhythmind/ingestion` | 数据入库引擎（Garmin）+ AI 分析 | `engine.py` | `tests/integration/` | - |
 | `rhythmind/audit` | 防篡改审计日志 | `logger.py` | `tests/` | - |
 | `rhythmind/core` | Hermes 核心（基类/记忆/技能/合规/QMD）| `hermes_base.py` | `tests/unit/` | - |
 | `rhythmind/db` | SQLAlchemy + Alembic 迁移 | `models.py` | `tests/` | `alembic.ini` |
@@ -206,6 +214,10 @@ python scripts/bump_version.py minor   # 0.1.8 → 0.2.0
 | `test_mcp_server.py` | mcp/server | ~18K |
 | `test_swarm_data_coach.py` | orchestrator/workflows | ~14K |
 | `test_qmd_isolation.py` | core/qmd (隔离测试) | ~4K |
+| `test_agent_pool.py` | orchestrator/pool | ~3K |
+| `test_influx_client.py` | adapters/influx_client | ~4K |
+| `test_rate_limit.py` | api/rate_limit | ~3K |
+| `test_observability.py` | observability | ~3K |
 
 ### 集成测试 (tests/integration/)
 
@@ -218,7 +230,9 @@ python scripts/bump_version.py minor   # 0.1.8 → 0.2.0
 | `test_ollama_adapter_e2e.py` | Ollama 真实 HTTP 调用 |
 | `test_audit_log.py` | 审计日志写入 |
 | `test_version_and_readyz.py` | 版本探测 + probes |
-| `test_health_upload_e2e.py` | 上传流程 |
+| `test_dashboard_reports.py` | Dashboard + 报告 API |
+| `test_health_ingest.py` | 数据入库流程 |
+| `test_health_stream_ws.py` | WebSocket 流式上传 |
 
 ### 压测 (tests/load/)
 
@@ -230,11 +244,11 @@ python scripts/bump_version.py minor   # 0.1.8 → 0.2.0
 
 | 指标 | 数值 |
 |------|------|
-| 估算总文件数 | 80 |
-| 已扫描文件数 | 80 |
+| 估算总文件数 | 85 |
+| 已扫描文件数 | 85 |
 | 覆盖百分比 | **100%** |
-| 模块数量 | 10 |
-| 子模块数量 | 38 |
+| 模块数量 | 11 |
+| 子模块数量 | 41 |
 
 ### 无缺口
 

@@ -6,7 +6,7 @@
 
 ## 模块职责
 
-FastAPI 应用入口，提供 REST API、MCP SSE 路由、健康检查、认证中间件、限流等。
+FastAPI 应用入口，提供 REST API、MCP SSE 路由、健康检查、认证中间件、限流、仪表盘数据、PDF 报告生成等。
 
 ---
 
@@ -36,6 +36,7 @@ uvicorn rhythmind.api.main:app --reload --port 8000
 | `health_router` | `/api/v1` | 健康检查相关 |
 | `privacy_router` | `/api/v1` | 用户数据导出/删除 |
 | `admin_router` | `/api/v1` | Admin 技能审批 |
+| `dashboard_router` | `/qm` | 仪表盘 + AI 报告 + PDF 下载 |
 | `mcp_router` | `/mcp/*` | MCP SSE + 消息处理 |
 
 ### 健康检查端点
@@ -66,6 +67,23 @@ uvicorn rhythmind.api.main:app --reload --port 8000
 | `POST /api/v1/health/chat` | 文本对话（意图分类） |
 | `GET /api/v1/health/memory` | 用户记忆摘要（仅 debug） |
 | `GET /api/v1/health/pool/stats` | Agent 池诊断（仅 debug） |
+
+### Dashboard 端点
+
+| 端点 | 用途 |
+|------|------|
+| `GET /qm/dashboard` | 仪表盘汇总数据 |
+| `GET /qm/reports` | AI 分析报告列表 |
+| `GET /qm/reports/{id}` | 单篇报告详情 |
+| `GET /qm/reports/{id}/download` | 下载报告 PDF（含 QR 码） |
+| `POST /qm/analyze` | 触发本地模型重新分析 |
+
+**PDF 生成特性**：
+- 使用 ReportLab + STHeiti Light 中文字体
+- 自动清理 LaTeX 数学表达式
+- 右上角二维码（`rhythmind.cn` 链接）
+- 页数控制在 2 页内
+- 底部 Pro 订阅提示 + 公司版权声明
 
 ---
 
@@ -121,6 +139,7 @@ src/rhythmind/api/
 ├── middleware.py        # 请求体大小限制中间件
 ├── routers/
 │   ├── health.py        # 健康数据上传 / SSE 流 / 文本对话
+│   ├── dashboard.py     # 仪表盘 / AI 报告 / PDF 下载
 │   ├── privacy.py       # GDPR/PIPL 数据导出删除
 │   └── admin.py         # Admin 技能审批
 └── schemas/
@@ -132,4 +151,5 @@ src/rhythmind/api/
 ## 变更记录 (Changelog)
 
 - **2026-05-12** 完整扫描完成，新增端点详情和数据模型
+- **2026-05-15** 新增 dashboard 路由（仪表盘 + PDF 报告生成），更新端点列表
 - **2026-05-12** 首次 AI 上下文初始化
