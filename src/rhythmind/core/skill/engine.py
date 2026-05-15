@@ -18,15 +18,16 @@ core/skill/engine.py — SkillEngine
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from rhythmind.config import settings
-from rhythmind.core.memory.models import SkillRecord
 import rhythmind.core.memory.manager as _mem_mgr  # 通过模块引用访问 AsyncSessionLocal，
-                                                   # 兼容 conftest.reset_db 的运行时替换
+from rhythmind.config import settings
+
+# 兼容 conftest.reset_db 的运行时替换
 from rhythmind.core.memory.manager import _build_upsert
+from rhythmind.core.memory.models import SkillRecord
 from rhythmind.core.qmd.client import QMDClient
 
 from .extractor import SkillExtractor
@@ -85,10 +86,9 @@ class SkillEngine:
         # 默认视为 approved；require_approval 时新写入进 pending
         new_status = "pending" if settings.skill_require_approval else "approved"
 
-        async with _mem_mgr.AsyncSessionLocal() as session:
-            async with session.begin():
-                for skill in skills:
-                    await self._upsert_db(session, skill, new_status)
+        async with _mem_mgr.AsyncSessionLocal() as session, session.begin():
+            for skill in skills:
+                await self._upsert_db(session, skill, new_status)
 
         # QMD 写入（独立 try，失败不影响主流程）
         # 仅在 approved 路径推 QMD；pending skill 不参与检索

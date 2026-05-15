@@ -20,7 +20,7 @@ chat endpoint, /readyz, /metrics, and 429 paths over the next iterations.
 """
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -92,8 +92,9 @@ async def test_upload_happy_path_returns_full_swarm_output(app_client):
     """
     from contextlib import asynccontextmanager
     from types import SimpleNamespace
-    from rhythmind.api.main import app
+
     from rhythmind.api.deps import get_pool
+    from rhythmind.api.main import app
 
     metrics_mock = SimpleNamespace(run=AsyncMock(return_value=_ok_result(METRICS_OUTPUT, "metrics_agent")))
     data_mock    = SimpleNamespace(run=AsyncMock(return_value=_ok_result(DATA_OUTPUT,    "data_agent")))

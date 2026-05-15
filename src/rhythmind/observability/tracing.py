@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def install_tracing(app: "FastAPI", service_name: str = "rhythmind-api") -> None:
+def install_tracing(app: FastAPI, service_name: str = "rhythmind-api") -> None:
     """在 FastAPI app 上启用 OpenTelemetry FastAPI instrumentation。
 
     若 opentelemetry-sdk 未安装 → 静默 no-op。

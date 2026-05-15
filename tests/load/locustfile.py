@@ -26,10 +26,8 @@ from __future__ import annotations
 
 import os
 import random
-import time
 
 from locust import HttpUser, between, events, tag, task
-
 
 # ── 全局配置 ────────────────────────────────────────────────────────────────
 
@@ -138,7 +136,5 @@ def _check_slo(environment, **_kwargs) -> None:
     print(summary, flush=True)
 
     # 失败率 > 1% 即视为压测失败（429 已被 catch_response 标 success）
-    if fail_ratio > 0.01:
-        environment.process_exit_code = 1
-    elif p95_ms > 30_000:
+    if fail_ratio > 0.01 or p95_ms > 30_000:
         environment.process_exit_code = 1

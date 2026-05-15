@@ -24,7 +24,6 @@ from rhythmind.mcp.server import (
     build_mcp_server,
 )
 
-
 # ── 工具清单 ──────────────────────────────────────────────────────────────────
 
 class TestToolDefinitions:
@@ -416,6 +415,7 @@ class TestBuildMcpServer:
     async def test_call_tool_unknown_returns_error_json(self):
         """未知工具名 → _HANDLERS 缺失 → 返回 error: unknown_tool 的 JSON TextContent。"""
         from mcp.types import TextContent
+
         from rhythmind.mcp.server import _HANDLERS
 
         # 直接调用 call_tool 内部逻辑（绕过 Server 的 JSON-RPC 封装）

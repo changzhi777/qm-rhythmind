@@ -28,11 +28,10 @@ api/rate_limit.py — Redis 固定窗口限流器（per-user / per-IP / per-rout
 from __future__ import annotations
 
 import logging
-import time
-from typing import Callable
+from collections.abc import Callable
 
 import redis.asyncio as aioredis
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import HTTPException, Request, status
 
 from rhythmind.api.deps import CurrentUserId
 from rhythmind.config import settings
@@ -130,7 +129,7 @@ def rate_limit_ip(
             )
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="来源 IP 请求过于频繁，请稍后重试",
+                detail=f"来源 IP 请求过于频繁，请 {retry_after} 秒后重试",
                 headers={"Retry-After": str(retry_after)},
             )
     return _dep

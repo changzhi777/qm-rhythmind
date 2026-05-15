@@ -15,8 +15,9 @@ Coverage:
 """
 from __future__ import annotations
 
-import pytest
+from unittest.mock import AsyncMock, patch
 
+import pytest
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -89,11 +90,12 @@ async def test_admin_lists_pending_skills(app_client, patched_redis, monkeypatch
 async def test_admin_approves_skill_updates_status_and_audit(
     app_client, patched_redis, monkeypatch,
 ):
-    from rhythmind.audit import AuditEvent, InMemorySink, install_audit_sink, get_sink
+    from sqlalchemy import select
+
+    from rhythmind.audit import AuditEvent, InMemorySink, get_sink, install_audit_sink
     from rhythmind.config import settings
     from rhythmind.core.memory.manager import AsyncSessionLocal
     from rhythmind.core.memory.models import SkillRecord
-    from sqlalchemy import select
 
     monkeypatch.setattr(settings, "admin_user_ids", "alice")
     await _seed_skill("metrics_agent", "h_approve")
@@ -129,11 +131,12 @@ async def test_admin_approves_skill_updates_status_and_audit(
 async def test_admin_rejects_skill_updates_status_and_audit(
     app_client, patched_redis, monkeypatch,
 ):
-    from rhythmind.audit import AuditEvent, InMemorySink, install_audit_sink, get_sink
+    from sqlalchemy import select
+
+    from rhythmind.audit import AuditEvent, InMemorySink, get_sink, install_audit_sink
     from rhythmind.config import settings
     from rhythmind.core.memory.manager import AsyncSessionLocal
     from rhythmind.core.memory.models import SkillRecord
-    from sqlalchemy import select
 
     monkeypatch.setattr(settings, "admin_user_ids", "alice")
     await _seed_skill("metrics_agent", "h_reject")
@@ -174,6 +177,95 @@ async def test_approve_unknown_hash_404(app_client, patched_redis, monkeypatch):
     assert resp.status_code == 404
 
 
+@pytest.mark.asyncio
+async def test_reject_unknown_hash_404(app_client, patched_redis, monkeypatch):
+    """拒绝不存在的 skill 应返回 404。"""
+    from rhythmind.config import settings
+    monkeypatch.setattr(settings, "admin_user_ids", "alice")
+    resp = await app_client.post(
+        "/api/v1/admin/skills/does_not_exist/reject",
+        headers={"Authorization": "Bearer alice"},
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_approve_already_approved_is_idempotent(app_client, patched_redis, monkeypatch):
+    """已 approved 的 skill 再次 approve 应幂等成功（不报错）。"""
+    from rhythmind.config import settings
+    monkeypatch.setattr(settings, "admin_user_ids", "alice")
+    await _seed_skill("data_agent", "h_already_approved", status="approved")
+
+    # 再次 approve
+    resp = await app_client.post(
+        "/api/v1/admin/skills/h_already_approved/approve",
+        headers={"Authorization": "Bearer alice"},
+    )
+    assert resp.status_code == 204
+
+
+@pytest.mark.asyncio
+async def test_list_pending_respects_pagination(app_client, patched_redis, monkeypatch):
+    """pending 列表应支持 limit 和 offset。"""
+    from rhythmind.config import settings
+    monkeypatch.setattr(settings, "admin_user_ids", "alice")
+
+    # 创建 5 个 pending skills
+    for i in range(5):
+        await _seed_skill("coach_agent", f"h_page_{i}", status="pending")
+
+    # limit=2
+    resp = await app_client.get(
+        "/api/v1/admin/skills/pending",
+        headers={"Authorization": "Bearer alice"},
+        params={"limit": 2},
+    )
+    body = resp.json()
+    assert len(body["items"]) == 2
+    assert body["total"] == 5  # total 不受 limit 影响
+
+
+@pytest.mark.asyncio
+async def test_list_pending_respects_offset(app_client, patched_redis, monkeypatch):
+    """pending 列表 offset 应跳过前 N 条。"""
+    from rhythmind.config import settings
+    monkeypatch.setattr(settings, "admin_user_ids", "alice")
+
+    for i in range(5):
+        await _seed_skill("coach_agent", f"h_offset_{i}", status="pending")
+
+    # offset=3
+    resp = await app_client.get(
+        "/api/v1/admin/skills/pending",
+        headers={"Authorization": "Bearer alice"},
+        params={"offset": 3},
+    )
+    body = resp.json()
+    assert len(body["items"]) == 2  # 5 - 3 = 2
+
+
+@pytest.mark.asyncio
+async def test_reject_does_not_push_to_qmd(app_client, patched_redis, monkeypatch):
+    """拒绝的 skill 不应推送到 QMD。"""
+    from rhythmind.config import settings
+    monkeypatch.setattr(settings, "admin_user_ids", "alice")
+    await _seed_skill("metrics_agent", "h_no_qmd", status="pending")
+
+    # 用 mock QMD 验证不会调用 index_skill
+    with patch("rhythmind.api.routers.admin.QMDClient") as mock_qmd_class:
+        mock_qmd = AsyncMock()
+        mock_qmd_class.return_value = mock_qmd
+
+        resp = await app_client.post(
+            "/api/v1/admin/skills/h_no_qmd/reject",
+            headers={"Authorization": "Bearer alice"},
+        )
+        assert resp.status_code == 204
+
+        # QMD 不应被调用（因为 reject 不推送）
+        mock_qmd.index_skill.assert_not_called()
+
+
 # ── 6. SkillEngine require_approval flow end-to-end ────────────────────────
 
 @pytest.mark.asyncio
@@ -186,6 +278,7 @@ async def test_skill_engine_writes_pending_when_require_approval(
     a query for status='approved' returns the skill.
     """
     from sqlalchemy import select
+
     from rhythmind.config import settings
     from rhythmind.core.memory.manager import AsyncSessionLocal
     from rhythmind.core.memory.models import SkillRecord

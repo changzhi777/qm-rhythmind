@@ -19,6 +19,9 @@ Alembic 本身是同步的，通过 run_sync 桥接 asyncio。
 from __future__ import annotations
 
 import asyncio
+
+# 加载应用配置（必须在 import models 之前）
+import os
 from logging.config import fileConfig
 
 from alembic import context
@@ -26,8 +29,6 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-# 加载应用配置（必须在 import models 之前）
-import os
 os.environ.setdefault("ENV", "dev")
 
 from rhythmind.config import settings

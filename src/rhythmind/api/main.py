@@ -21,8 +21,8 @@ api/main.py — FastAPI 应用入口
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 import structlog
 from fastapi import FastAPI, Request
@@ -30,13 +30,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from rhythmind import __version__ as RHYTHMIND_VERSION
-from rhythmind.config import settings
-from rhythmind.core.memory import init_db
 
 # 路由
 from rhythmind.api.routers.admin import router as admin_router
+from rhythmind.api.routers.dashboard import router as dashboard_router
 from rhythmind.api.routers.health import router as health_router
 from rhythmind.api.routers.privacy import router as privacy_router
+from rhythmind.config import settings
+from rhythmind.core.memory import init_db
 from rhythmind.mcp.router import router as mcp_router
 
 log = structlog.get_logger(__name__)
@@ -193,6 +194,7 @@ else:
 
 # ── 请求体大小硬上限（早于业务路由）──────────────────────────────────────
 from rhythmind.api.middleware import RequestSizeLimitMiddleware  # noqa: E402
+
 app.add_middleware(RequestSizeLimitMiddleware)
 
 
@@ -221,6 +223,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(privacy_router, prefix="/api/v1")  # /privacy/export, /delete, /policy
 app.include_router(admin_router, prefix="/api/v1")    # /admin/skills/* (R-4)
+app.include_router(dashboard_router)    # /api/dashboard, /api/reports, /api/analyze
 app.include_router(mcp_router)  # /mcp/sse  +  /mcp/messages/
 
 
@@ -253,6 +256,7 @@ async def readyz() -> JSONResponse:
     # DB
     try:
         from sqlalchemy import text
+
         from rhythmind.core.memory.manager import AsyncSessionLocal
         async with AsyncSessionLocal() as session:
             await session.execute(text("SELECT 1"))
@@ -276,7 +280,7 @@ async def readyz() -> JSONResponse:
         checks["redis"] = f"fail: {exc.__class__.__name__}"
         overall_ok = False
 
-    # 可选：LLM 上游（LiteLLM + Ollama）
+    # 可选：LLM 上游（LiteLLM + oMLX）
     # 默认关闭，避免每次 K8s 探针打第三方 API。
     if settings.readyz_check_llm_upstream:
         import asyncio as _aio
@@ -292,21 +296,24 @@ async def readyz() -> JSONResponse:
             except Exception as exc:
                 return f"fail: {exc.__class__.__name__}"
 
-        async def _check_ollama() -> str:
+        async def _check_omlX() -> str:
             try:
                 import httpx
                 async with httpx.AsyncClient(timeout=settings.readyz_llm_timeout) as cli:
-                    resp = await cli.get(f"{settings.ollama_base_url}/api/tags")
+                    resp = await cli.get(
+                        f"{settings.omlX_base_url.rstrip('/')}/v1/models",
+                        headers={"Authorization": f"Bearer {settings.omlX_api_key}"},
+                    )
                     if resp.status_code < 500:
                         return "ok"
                     return f"fail: status={resp.status_code}"
             except Exception as exc:
                 return f"fail: {exc.__class__.__name__}"
 
-        litellm_status, ollama_status = await _aio.gather(_check_litellm(), _check_ollama())
+        litellm_status, omlX_status = await _aio.gather(_check_litellm(), _check_omlX())
         checks["litellm"] = litellm_status
-        checks["ollama"]  = ollama_status
-        if not litellm_status.startswith("ok") and not ollama_status.startswith("ok"):
+        checks["omlX"]     = omlX_status
+        if not litellm_status.startswith("ok") and not omlX_status.startswith("ok"):
             # 两者全挂才算 not_ready：单个挂掉时 adapter_router 内部会 fallback
             overall_ok = False
 

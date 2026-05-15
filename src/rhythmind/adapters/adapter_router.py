@@ -11,7 +11,7 @@ adapters/adapter_router.py — Model Adapter 路由层
 根据 model_spec 前缀选择对应的 ModelAdapter 实现：
 
   "mlx://<hf_repo_or_local_path>"  → MLXAdapter
-  "ollama://<model_name>"          → OllamaAdapter
+  "omlX://<model_name>"          → OMLXAdapter
   其他任何字符串                    → LiteLLMAdapter
 
 Adapter 实例缓存：同一 model_spec 只创建一个 Adapter 实例（轻量对象）。
@@ -24,7 +24,7 @@ MLXAdapter 的模型文件通过 _MODEL_CACHE 在进程级缓存（详见 mlx_ad
   text = await adapter_router.chat(messages)
 
   # 指定 spec
-  text = await adapter_router.chat(messages, model_spec="ollama://gemma3:4b")
+  text = await adapter_router.chat(messages, model_spec="omlX://gemma-4-e4b-it-4bit")
 
   # 直接获取 Adapter 实例
   adapter = adapter_router.get("mlx://mlx-community/Qwen3-30B-A3B-4bit")
@@ -71,10 +71,10 @@ class AdapterRouter:
             model_path = model_spec[len("mlx://"):]
             return MLXAdapter(model_path)
 
-        if model_spec.startswith("ollama://"):
-            from rhythmind.adapters.ollama_adapter import OllamaAdapter
-            model_name = model_spec[len("ollama://"):]
-            return OllamaAdapter(model_name)
+        if model_spec.startswith("omlX://"):
+            from rhythmind.adapters.omlX_adapter import OMLXAdapter
+            model_name = model_spec[len("omlX://"):]
+            return OMLXAdapter(model_name)
 
         # 其余全部走 LiteLLM（处理 openai/, anthropic/, 及别名如 "primary"）
         from rhythmind.adapters.litellm_adapter import LiteLLMAdapter

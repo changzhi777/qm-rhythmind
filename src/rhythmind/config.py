@@ -40,17 +40,17 @@ class Settings(BaseSettings):
     model_primary: str = "primary"       # claude-sonnet-4-6  — 高质量推理
     model_fast: str = "fast"             # deepseek-chat       — 快速/廉价
     model_local: str = "local"           # qwen2.5:7b          — 本地备用
-    model_compliance: str = "compliance" # gemma-4-e4b (ollama) — prompt 合规审查
+    model_compliance: str = "compliance" # gemma-4-e4b (omlX) — prompt 合规审查
 
     # ── Model Adapter 路由规范（优先于 LiteLLM 别名）────────────────────
     # 格式：
     #   "mlx://<hf_repo>"        → MLXAdapter（本地 Apple Silicon 推理）
-    #   "ollama://<model_name>"  → OllamaAdapter（Ollama HTTP）
+    #   "omlX://<model_name>"    → OMLXAdapter（本地 oMLX 服务）
     #   其他字符串               → LiteLLMAdapter（透传给 LiteLLM proxy）
     #
     # 空字符串 = 回退到 model_primary / model_compliance LiteLLM 别名
     model_primary_spec: str = "mlx://mlx-community/Qwen3-30B-A3B-4bit"
-    model_compliance_spec: str = "ollama://gemma3:4b"
+    model_compliance_spec: str = "omlX://gemma-4-e4b-it-4bit"
 
     # MLX 推理参数
     mlx_thinking_mode: bool = False       # Qwen3 thinking 模式，默认关闭（速度优先）
@@ -58,8 +58,9 @@ class Settings(BaseSettings):
     mlx_temperature: float = 0.3
     mlx_semaphore_limit: int = 1          # M4 16GB：同时只跑 1 个重型推理
 
-    # Ollama 服务地址（compliance 审查专用，也可作本地备用）
-    ollama_base_url: str = "http://localhost:11434"
+    # oMLX 本地模型服务
+    omlX_base_url: str = "http://localhost:8000"
+    omlX_api_key: str = Field(default="ak47", repr=False)
 
     # 合规审查器行为开关
     compliance_audit_enabled: bool = True   # 生产 True，压测时可临时关闭
@@ -75,10 +76,18 @@ class Settings(BaseSettings):
     # 单元测试覆盖：sqlite+aiosqlite:///:memory:
 
     # PostgreSQL 连接池参数
-    pg_pool_size: int = 10          # 常驻连接数
-    pg_pool_max_overflow: int = 20  # 峰值溢出连接数（总上限 30）
-    pg_pool_timeout: float = 30.0   # 等待连接超时（秒）
-    pg_pool_recycle: int = 1800     # 连接最长存活时间（秒），防止 PG idle timeout
+    #
+    # 调优原则：
+    #   pool_size        — 常驻连接数 = CPU cores * 2 ~ 10（HTTP 无状态，10 够用）
+    #   max_overflow     — 峰值额外连接，30 并发用户时 → 每人 1 连接有余
+    #   pool_timeout     — 30s 足够，避免瞬时排队时用户体感超时
+    #   pool_recycle     — 1800s < PG idle_timeout(默认 30min)，防止被服务端踢掉
+    #   pool_pre_ping    — 取连接前 ping 一下，保证连接活性（新增）
+    pg_pool_size: int = 10
+    pg_pool_max_overflow: int = 20
+    pg_pool_timeout: float = 30.0
+    pg_pool_recycle: int = 1800
+    pg_pool_pre_ping: bool = True  # 健康检查：取连接前验证活性，避免断连误用
 
     # ── Redis ────────────────────────────────────────────────────────────
     redis_url: str = "redis://localhost:6379"
@@ -145,7 +154,7 @@ class Settings(BaseSettings):
     max_request_body_bytes: int = 1_048_576  # 1 MiB
 
     # ── /readyz 上游 LLM 检查（可选，避免每次探针都打第三方）────────────
-    # True 时 /readyz 会顺带 ping LiteLLM 与 Ollama；任一不可达 -> 503
+    # True 时 /readyz 会顺带 ping LiteLLM 与 oMLX；任一不可达 -> 503
     # 默认关闭：DB / Redis 已经足够代表"准备好接流量"，LLM 上游用 Alert 监控更省成本
     readyz_check_llm_upstream: bool = False
     readyz_llm_timeout: float = 2.0
@@ -159,6 +168,12 @@ class Settings(BaseSettings):
     # admin 用户白名单（user_id 逗号分隔）。空 = 没有 admin。
     # 例：ADMIN_USER_IDS="alice,bob"
     admin_user_ids: str = ""
+
+    # ── AgentPool（LRU 实例缓存）────────────────────────────────────────
+    # 控制同一时刻最多缓存多少用户的 Agent 实例
+    agent_pool_max_users: int = 500
+    # Agent 实例空闲 TTL（秒），超过后被清理
+    agent_pool_ttl: float = 1800.0
 
     # ── 危险默认值黑名单（任何一个出现在生产即拒绝启动）───────────────
     _SECRET_DEFAULTS_BLOCKLIST = frozenset({
@@ -229,7 +244,7 @@ class Settings(BaseSettings):
                 problems.append(
                     f"model_primary_spec='{self.model_primary_spec}' requires Apple Silicon "
                     f"(macOS arm64), but running on {sysname}/{mach}. "
-                    "Override with MODEL_PRIMARY_SPEC=ollama://... or a LiteLLM alias."
+                    "Override with OMLX_SPEC=omlX://... or a LiteLLM alias."
                 )
 
         if problems:
@@ -252,8 +267,10 @@ class Settings(BaseSettings):
             return [
                 "http://localhost",
                 "http://localhost:3000",
+                "http://localhost:3001",
                 "http://localhost:5173",
                 "http://127.0.0.1:3000",
+                "http://127.0.0.1:3001",
             ]
         return []
 

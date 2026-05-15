@@ -13,8 +13,9 @@ core/memory/types.py — 记忆类型枚举与数据结构
 """
 from __future__ import annotations
 
-from datetime import datetime
 import sys
+from datetime import datetime
+
 if sys.version_info >= (3, 11):
     from enum import StrEnum
 else:

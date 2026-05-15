@@ -8,8 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from rhythmind.core.memory import FactManager, HealthFact
-
+from rhythmind.core.memory import FactManager
 
 # ── 1. 基础写入与当前查询 ─────────────────────────────────────────────────────
 

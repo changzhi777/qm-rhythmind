@@ -35,7 +35,7 @@ import logging
 from typing import Any
 
 from mcp.server import Server
-from mcp.types import CallToolResult, TextContent, Tool
+from mcp.types import TextContent, Tool
 
 # ── 业务层依赖（模块级导入，便于 unittest.mock.patch 拦截）──────────────────────
 # 使用 try/except 允许在纯测试环境下缺少部分依赖时仍可导入 server 模块

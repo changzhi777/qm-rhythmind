@@ -44,12 +44,16 @@ MetricsAnalysis 输出格式（AgentResult.output）：
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import structlog
 
-from rhythmind.adapters.influx_client import InfluxClient, InfluxUnavailableError, MetricPoint
+from rhythmind.adapters.influx_client import (
+    InfluxClient,
+    InfluxUnavailableError,
+    MetricPoint,
+)
 from rhythmind.core.hermes_base import AgentContext, AgentResult, HermesBase
 from rhythmind.core.memory import MemoryRecallResult
 
@@ -115,7 +119,7 @@ class MetricsAgent(HermesBase):
         metrics = self._parse_metrics(ctx.input_data)
         source = ctx.input_data.get("source", "manual")
         sport_type = ctx.input_data.get("sport_type", "general")
-        now_utc = datetime.now(tz=timezone.utc)
+        now_utc = datetime.now(tz=UTC)
 
         # ── 2. 写入 InfluxDB ──────────────────────────────────────────────
         write_ok = False

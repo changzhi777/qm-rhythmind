@@ -3,15 +3,12 @@ tests/unit/test_compliance_gate.py — ComplianceGate 三级分级测试
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
-import pytest
-
 from rhythmind.core.compliance.gate import ComplianceGate, ComplianceLevel
 from rhythmind.core.compliance.keywords import KeywordRules
-import re
-
 
 # ── 测试用 AgentResult stub ───────────────────────────────────────────────
 

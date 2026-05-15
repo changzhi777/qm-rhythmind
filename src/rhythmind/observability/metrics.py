@@ -36,15 +36,15 @@ logger = logging.getLogger(__name__)
 
 class _NoopMetric:
     """prometheus_client 未安装时的占位实现，所有调用都是 no-op。"""
-    def labels(self, *args: Any, **kwargs: Any) -> "_NoopMetric": return self
+    def labels(self, *args: Any, **kwargs: Any) -> _NoopMetric: return self
     def inc(self, amount: float = 1) -> None: pass
     def observe(self, value: float) -> None: pass
     def set(self, value: float) -> None: pass
-    def time(self) -> "_NoopTimer": return _NoopTimer()
+    def time(self) -> _NoopTimer: return _NoopTimer()
 
 
 class _NoopTimer:
-    def __enter__(self) -> "_NoopTimer": return self
+    def __enter__(self) -> _NoopTimer: return self
     def __exit__(self, *a: Any) -> None: pass
 
 
@@ -87,7 +87,7 @@ HTTP_LATENCY = Histogram(
 LLM_CALLS = Counter(
     "rhythmind_llm_calls_total",
     "LLM 调用总数",
-    ["adapter", "result"],   # adapter=mlx|ollama|litellm; result=success|error
+    ["adapter", "result"],   # adapter=mlx|omlX|litellm; result=success|error
 )
 
 LLM_LATENCY = Histogram(

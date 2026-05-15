@@ -1,0 +1,272 @@
+/* RHYTHMIND 律动 — 暗色主题仪表盘 */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #0d1117;
+  --card: #161b22;
+  --border: #30363d;
+  --text: #c9d1d9;
+  --text-dim: #8b949e;
+  --accent: #58a6ff;
+  --accent2: #4fc3f7;
+  --success: #3fb950;
+  --warning: #d29922;
+  --danger: #f85149;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 0;
+}
+
+/* 导航 */
+.nav {
+  display: flex;
+  align-items: center;
+  padding: 12px 24px;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  gap: 16px;
+}
+.nav-brand {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.nav-tabs { display: flex; gap: 4px; flex: 1; }
+.nav-tabs button {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text-dim);
+  padding: 6px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+.nav-tabs button.active,
+.nav-tabs button:hover {
+  background: var(--border);
+  color: var(--text);
+  border-color: var(--border);
+}
+.btn-analyze {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: opacity 0.2s;
+}
+.btn-analyze:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-analyze:hover:not(:disabled) { opacity: 0.85; }
+
+/* 布局 */
+.dashboard, .reports { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+.row { display: flex; gap: 16px; margin-bottom: 16px; }
+.half { flex: 1 1 0; min-width: 0; width: 50%; }
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 16px;
+  flex: 1;
+}
+.card.half { flex: 0 0 calc(50% - 8px); }
+.card h3 {
+  font-size: 15px;
+  color: var(--text);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 用户画像 */
+.profile-card {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+#voxel-canvas {
+  width: 220px;
+  height: 280px;
+  border-radius: 10px;
+  background: radial-gradient(ellipse at center, #1a2332 0%, transparent 70%);
+  flex-shrink: 0;
+}
+.profile-info h2 {
+  font-size: 16px;
+  margin-bottom: 12px;
+  color: var(--accent);
+}
+.profile-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 20px;
+}
+.stat { display: flex; justify-content: space-between; padding: 4px 0; }
+.stat .label { color: var(--text-dim); font-size: 13px; }
+.stat .value { font-weight: 600; font-size: 14px; }
+
+/* 赛事预测 */
+.race-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.race-item {
+  background: rgba(88,166,255,0.08);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+}
+.race-dist { font-size: 12px; color: var(--text-dim); margin-bottom: 4px; }
+.race-time { font-size: 22px; font-weight: 700; color: var(--accent2); }
+
+/* 训练指标 */
+.training-metrics { display: flex; flex-direction: column; gap: 10px; }
+.metric-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+.metric-row strong { color: var(--accent2); font-size: 16px; min-width: 60px; }
+.tag {
+  background: rgba(63,185,80,0.15);
+  color: var(--success);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* 睡眠 */
+.sleep-stats {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+  padding: 10px 20px;
+}
+.sleep-stat {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+}
+.sleep-stat span { color: var(--text-dim); }
+.sleep-stat strong { color: var(--accent2); }
+
+/* 图表 */
+.chart-container { width: 100%; height: 280px; }
+
+/* 报告 */
+.report-list { display: flex; flex-direction: column; gap: 12px; }
+.report-list .card {
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.report-list .card:hover { border-color: var(--accent); }
+.report-list .card.current { border-left: 3px solid var(--success); }
+.report-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.report-time { color: var(--text-dim); font-size: 13px; }
+.report-preview { color: var(--text-dim); font-size: 13px; line-height: 1.6; }
+.report-detail { max-width: 900px; margin: 0 auto; }
+.btn-back {
+  background: var(--border);
+  color: var(--text);
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.report-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.btn-pdf {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: opacity 0.2s;
+}
+.btn-pdf:hover { opacity: 0.85; }
+.report-meta {
+  display: flex;
+  gap: 20px;
+  color: var(--text-dim);
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+.report-content {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 28px;
+  line-height: 1.8;
+  font-size: 15px;
+}
+.report-content h1, .report-content h2, .report-content h3 {
+  color: var(--accent);
+  margin-top: 20px;
+  margin-bottom: 10px;
+}
+.report-content h1 { font-size: 20px; }
+.report-content h2 { font-size: 18px; }
+.report-content h3 { font-size: 16px; }
+.report-content ul, .report-content ol { padding-left: 20px; margin: 8px 0; }
+.report-content li { margin: 4px 0; }
+.report-content strong { color: var(--accent2); }
+.report-content p { margin: 8px 0; }
+
+.btn-small {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--accent);
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  margin-left: auto;
+}
+.btn-small:hover { background: var(--border); }
+
+/* PDF 导出用亮色样式 */
+.pdf-export {
+  background: #fff;
+  color: #1a1a2e;
+  padding: 24px 32px;
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  line-height: 1.8;
+  font-size: 14px;
+  max-width: 760px;
+}
+.pdf-export h1 { font-size: 20px; color: #0d47a1; border-bottom: 2px solid #1565c0; padding-bottom: 8px; }
+.pdf-export h2 { font-size: 17px; color: #1565c0; margin-top: 18px; }
+.pdf-export h3 { font-size: 15px; color: #1976d2; }
+.pdf-export strong { color: #0d47a1; }
+.pdf-export p { margin: 6px 0; }
+.pdf-export ul, .pdf-export ol { padding-left: 20px; margin: 6px 0; }
+.pdf-export hr { border: none; border-top: 1px solid #ccc; margin: 12px 0; }
+
+/* 响应式 */
+@media (max-width: 900px) {
+  .row { flex-direction: column; }
+  .card.half { flex: 1; }
+  .profile-card { flex-direction: column; }
+  #voxel-canvas { width: 100%; height: 240px; }
+}

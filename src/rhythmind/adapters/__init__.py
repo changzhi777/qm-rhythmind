@@ -5,12 +5,12 @@
 # 许可：CC BY-NC 4.0  |  商业授权：14455975@qq.com
 # ─────────────────────────────────────────────────────────────────────────────
 
-from .influx_client import InfluxClient, InfluxUnavailableError, MetricPoint
-from .model_adapter import ModelAdapter
-from .mlx_adapter import MLXAdapter
-from .ollama_adapter import OllamaAdapter
-from .litellm_adapter import LiteLLMAdapter
 from .adapter_router import AdapterRouter, adapter_router
+from .influx_client import InfluxClient, InfluxUnavailableError, MetricPoint
+from .litellm_adapter import LiteLLMAdapter
+from .mlx_adapter import MLXAdapter
+from .model_adapter import ModelAdapter
+from .omlX_adapter import OMLXAdapter
 
 __all__ = [
     # InfluxDB
@@ -20,7 +20,7 @@ __all__ = [
     # Model Adapter
     "ModelAdapter",
     "MLXAdapter",
-    "OllamaAdapter",
+    "OMLXAdapter",
     "LiteLLMAdapter",
     "AdapterRouter",
     "adapter_router",

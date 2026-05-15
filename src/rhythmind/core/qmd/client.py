@@ -213,6 +213,67 @@ class QMDClient:
             top_k=top_k,
         )
 
+    async def purge_user(self, user_id: str) -> bool:
+        """
+        删除用户所有相关数据（GDPR/PIPL 删除权实现）。
+
+        删除以下集合：
+          - user_{user_id}_memory
+          - user_{user_id}_facts
+
+        Args:
+            user_id: 用户 ID
+
+        Returns:
+            True 所有集合删除成功，False 任一失败（不抛出异常）。
+        """
+        collections_to_delete = [
+            _user_collection(user_id, "memory"),
+            _user_collection(user_id, "facts"),
+        ]
+
+        results: list[bool] = []
+        for collection in collections_to_delete:
+            try:
+                # 先尝试通过 /mcp/delete 端点删除整个集合
+                success = await self._delete_collection(collection, user_id)
+                results.append(success)
+            except Exception as e:
+                logger.error(
+                    "qmd.purge_user failed collection=%s user_id=%s: %s",
+                    collection, user_id, e,
+                )
+                results.append(False)
+
+        all_success = all(results)
+        logger.info(
+            "qmd.purge_user user_id=%s collections=%d success=%s",
+            user_id, len(collections_to_delete), all_success,
+        )
+        return all_success
+
+    async def _delete_collection(self, collection: str, user_ns: str) -> bool:
+        """
+        删除整个集合或按条件删除文档。
+
+        QMD MCP 协议支持 /mcp/delete 端点。
+        """
+        safe_collection = self._enforce_namespace(collection, user_ns)
+        payload: dict[str, Any] = {
+            "collection": safe_collection,
+            # 传空 filter 表示删除整个集合（如果 QMD 支持）
+            # 否则会删除该集合下所有文档
+            "filter": {},
+        }
+        try:
+            resp = await self._get_client().post("/mcp/delete", json=payload)
+            resp.raise_for_status()
+            logger.debug("qmd._delete_collection ok collection=%s", safe_collection)
+            return True
+        except (httpx.ConnectError, httpx.HTTPStatusError) as e:
+            logger.error("qmd._delete_collection failed collection=%s: %s", safe_collection, e)
+            return False
+
     async def close(self) -> None:
         """应用关闭时调用，释放连接池。"""
         if self._client is not None:

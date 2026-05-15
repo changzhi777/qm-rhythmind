@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -30,7 +29,6 @@ from rhythmind.core.compliance.prompt_auditor import (
     PromptAuditor,
     _build_audit_prompt,
 )
-
 
 # ── 辅助工厂 ─────────────────────────────────────────────────────────────────
 

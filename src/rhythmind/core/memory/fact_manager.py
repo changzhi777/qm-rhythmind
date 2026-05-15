@@ -30,11 +30,12 @@ core/memory/fact_manager.py — 健康时序知识图谱管理器
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import and_, select, update
 
+from rhythmind.core.cache import FactCache
 from rhythmind.core.memory.models import HealthFact
 
 
@@ -77,43 +78,44 @@ class FactManager:
         Returns:
             新写入的 HealthFact 实例。
         """
-        now = valid_from or datetime.now(tz=timezone.utc)
-        async with _get_session() as session:
-            async with session.begin():
-                # 1. invalidate 所有同 subject+predicate 的旧记录
-                await session.execute(
-                    update(HealthFact)
-                    .where(
-                        and_(
-                            HealthFact.user_id == self.user_id,
-                            HealthFact.subject == subject,
-                            HealthFact.predicate == predicate,
-                            HealthFact.valid_until.is_(None),
-                        )
+        now = valid_from or datetime.now(tz=UTC)
+        async with _get_session() as session, session.begin():
+            # 1. invalidate 所有同 subject+predicate 的旧记录
+            await session.execute(
+                update(HealthFact)
+                .where(
+                    and_(
+                        HealthFact.user_id == self.user_id,
+                        HealthFact.subject == subject,
+                        HealthFact.predicate == predicate,
+                        HealthFact.valid_until.is_(None),
                     )
-                    .values(valid_until=now)
                 )
+                .values(valid_until=now)
+            )
 
-                # 2. 写入新事实
-                fact = HealthFact(
-                    user_id=self.user_id,
-                    subject=subject,
-                    predicate=predicate,
-                    object_json=object_value,
-                    source=source,
-                    confidence=confidence,
-                    valid_from=now,
-                    valid_until=None,  # 当前有效
-                )
-                session.add(fact)
-                await session.flush()
-                await session.refresh(fact)
+            # 2. 写入新事实
+            fact = HealthFact(
+                user_id=self.user_id,
+                subject=subject,
+                predicate=predicate,
+                object_json=object_value,
+                source=source,
+                confidence=confidence,
+                valid_from=now,
+                valid_until=None,  # 当前有效
+            )
+            session.add(fact)
+            await session.flush()
+            await session.refresh(fact)
 
-                logger.debug(
-                    "fact.write user=%s (%s, %s) id=%s",
-                    self.user_id, subject, predicate, fact.id,
-                )
-                return fact
+            logger.debug(
+                "fact.write user=%s (%s, %s) id=%s",
+                self.user_id, subject, predicate, fact.id,
+            )
+            # invalidate fact cache after write
+            await FactCache.invalidate(self.user_id, subject, predicate)
+            return fact
 
     async def write_fact_additive(
         self,
@@ -130,21 +132,20 @@ class FactManager:
           多个伤病部位同时有效 (injury, restricts, {area: 膝盖})
                                (injury, restricts, {area: 腰部})
         """
-        async with _get_session() as session:
-            async with session.begin():
-                fact = HealthFact(
-                    user_id=self.user_id,
-                    subject=subject,
-                    predicate=predicate,
-                    object_json=object_value,
-                    source=source,
-                    confidence=confidence,
-                    valid_until=None,
-                )
-                session.add(fact)
-                await session.flush()
-                await session.refresh(fact)
-                return fact
+        async with _get_session() as session, session.begin():
+            fact = HealthFact(
+                user_id=self.user_id,
+                subject=subject,
+                predicate=predicate,
+                object_json=object_value,
+                source=source,
+                confidence=confidence,
+                valid_until=None,
+            )
+            session.add(fact)
+            await session.flush()
+            await session.refresh(fact)
+            return fact
 
     # ── 过期（Invalidate）────────────────────────────────────────────────────
 
@@ -155,24 +156,24 @@ class FactManager:
         Returns:
             True 成功过期，False 未找到或已过期。
         """
-        now = datetime.now(tz=timezone.utc)
-        async with _get_session() as session:
-            async with session.begin():
-                result = await session.execute(
-                    update(HealthFact)
-                    .where(
-                        and_(
-                            HealthFact.id == fact_id,
-                            HealthFact.user_id == self.user_id,
-                            HealthFact.valid_until.is_(None),
-                        )
+        now = datetime.now(tz=UTC)
+        async with _get_session() as session, session.begin():
+            result = await session.execute(
+                update(HealthFact)
+                .where(
+                    and_(
+                        HealthFact.id == fact_id,
+                        HealthFact.user_id == self.user_id,
+                        HealthFact.valid_until.is_(None),
                     )
-                    .values(valid_until=now)
                 )
-                updated = result.rowcount > 0
-                if updated:
-                    logger.debug("fact.invalidate id=%s user=%s", fact_id, self.user_id)
-                return updated
+                .values(valid_until=now)
+            )
+            updated = result.rowcount > 0
+            if updated:
+                logger.debug("fact.invalidate id=%s user=%s", fact_id, self.user_id)
+                await FactCache.invalidate_user(self.user_id)
+            return updated
 
     async def invalidate_by_subject(
         self,
@@ -188,7 +189,7 @@ class FactManager:
         Returns:
             被过期的记录数量。
         """
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         conditions = [
             HealthFact.user_id == self.user_id,
             HealthFact.subject == subject,
@@ -197,19 +198,19 @@ class FactManager:
         if predicate is not None:
             conditions.append(HealthFact.predicate == predicate)
 
-        async with _get_session() as session:
-            async with session.begin():
-                result = await session.execute(
-                    update(HealthFact)
-                    .where(and_(*conditions))
-                    .values(valid_until=now)
-                )
-                count = result.rowcount
-                logger.debug(
-                    "fact.invalidate_by_subject user=%s subject=%s predicate=%s count=%d",
-                    self.user_id, subject, predicate, count,
-                )
-                return count
+        async with _get_session() as session, session.begin():
+            result = await session.execute(
+                update(HealthFact)
+                .where(and_(*conditions))
+                .values(valid_until=now)
+            )
+            count = result.rowcount
+            logger.debug(
+                "fact.invalidate_by_subject user=%s subject=%s predicate=%s count=%d",
+                self.user_id, subject, predicate, count,
+            )
+            await FactCache.invalidate_user(self.user_id)
+            return count
 
     # ── 查询 ─────────────────────────────────────────────────────────────────
 
@@ -222,7 +223,18 @@ class FactManager:
         查询当前有效事实（valid_until IS NULL）。
 
         最常用的查询入口：获取用户当前的目标、限制、基线等。
+        命中缓存时直接返回（降低 DB 查询压力）。
         """
+        # Check cache first
+        if predicate is None:
+            cached = await FactCache.get(self.user_id, subject, "all")
+            if cached is not None:
+                return [HealthFact(**r) for r in cached]
+        else:
+            cached = await FactCache.get(self.user_id, subject, predicate)
+            if cached is not None:
+                return [HealthFact(**cached)]
+
         conditions = [
             HealthFact.user_id == self.user_id,
             HealthFact.subject == subject,
@@ -237,7 +249,25 @@ class FactManager:
                 .where(and_(*conditions))
                 .order_by(HealthFact.valid_from.desc())
             )
-            return list(result.scalars().all())
+            facts = list(result.scalars().all())
+
+        # Cache results
+        if facts:
+            if predicate is None:
+                await FactCache.set(
+                    self.user_id, subject, "all",
+                    [{"id": f.id, "subject": f.subject, "predicate": f.predicate,
+                      "object_json": f.object_json} for f in facts],
+                )
+            else:
+                f = facts[0]
+                await FactCache.set(
+                    self.user_id, subject, predicate,
+                    {"id": f.id, "subject": f.subject, "predicate": f.predicate,
+                     "object_json": f.object_json},
+                )
+
+        return facts
 
     async def query_history(
         self,

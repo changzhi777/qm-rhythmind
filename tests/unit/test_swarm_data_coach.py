@@ -19,16 +19,16 @@ tests/unit/test_swarm_data_coach.py — SwarmDataCoach 单元测试
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
 from rhythmind.core.compliance.gate import ComplianceLevel, ComplianceResult
 from rhythmind.core.hermes_base import AgentContext, HermesRunResult
-from rhythmind.orchestrator.workflows.swarm_data_coach import SwarmDataCoach, SwarmResult
-
+from rhythmind.orchestrator.workflows.swarm_data_coach import (
+    SwarmDataCoach,
+    SwarmResult,
+)
 
 # ── 工厂：构造 HermesRunResult ────────────────────────────────────────────────
 

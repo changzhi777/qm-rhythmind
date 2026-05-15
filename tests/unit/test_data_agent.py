@@ -19,14 +19,13 @@ tests/unit/test_data_agent.py — DataAgent 单元测试
 from __future__ import annotations
 
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from rhythmind.agents.data_agent import DataAgent
 from rhythmind.core.hermes_base import AgentContext, ComplianceBlockedError
 from rhythmind.core.memory.types import MemoryEntry, MemoryRecallResult, MemoryType
-
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 

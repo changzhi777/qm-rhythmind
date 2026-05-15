@@ -65,3 +65,13 @@ async def app_client(patched_redis):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         yield client
+
+
+@pytest_asyncio.fixture
+async def ws_test_client(patched_redis):
+    """返回一个同步 TestClient 用于 WebSocket 测试。"""
+    from fastapi.testclient import TestClient
+
+    from rhythmind.api.main import app
+    with TestClient(app) as client:
+        yield client

@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from rhythmind.config import settings
@@ -70,7 +70,7 @@ class MetricPoint:
 
     def __post_init__(self) -> None:
         if self.ts is None:
-            self.ts = datetime.now(tz=timezone.utc)
+            self.ts = datetime.now(tz=UTC)
         # 过滤非法 field
         self.fields = {
             k: v for k, v in self.fields.items()
@@ -147,46 +147,55 @@ class InfluxClient:
 
     # ── 写入 ──────────────────────────────────────────────────────────────
 
-    async def write_metrics(self, point: MetricPoint) -> bool:
+    async def write_metrics(self, point: MetricPoint | list[MetricPoint]) -> bool:
         """
-        写入单次健康数据。
+        写入单条或批量健康数据。
+
+        Args:
+            point: 单条 MetricPoint 或 list[MetricPoint]（批量写入）
 
         Returns:
-            True 写入成功，False 失败（不抛出，业务继续）。
+            True 全部成功，False 有失败（部分成功也返回 False）
         """
-        if not point.fields:
-            logger.debug("influx.write skip: no valid fields for user=%s", point.user_id)
-            return False
-
-        try:
-            from influxdb_client.client.write.point import Point as InfluxPoint
-            from influxdb_client.domain.write_precision import WritePrecision
-
-            p = (
-                InfluxPoint("health_metrics")
-                .tag("user_id", point.user_id)
-                .tag("source", point.source)
-                .tag("sport_type", point.sport_type)
-                .time(point.ts, WritePrecision.SECONDS)
-            )
-            for k, v in point.fields.items():
-                p = p.field(k, float(v))
-
-            async with self._get_client() as client:
-                write_api = client.write_api()
-                await write_api.write(bucket=self._bucket, record=p)
-
-            logger.info(
-                "influx.write ok user=%s source=%s fields=%s",
-                point.user_id, point.source, list(point.fields.keys()),
-            )
+        points = [point] if isinstance(point, MetricPoint) else point
+        if not points:
             return True
 
-        except InfluxUnavailableError:
-            raise
-        except Exception as e:
-            logger.error("influx.write error: %s", e)
-            return False
+        all_ok = True
+        for p in points:
+            if not p.fields:
+                logger.debug("influx.write skip: no valid fields for user=%s", p.user_id)
+                continue
+
+            try:
+                from influxdb_client.client.write.point import Point as InfluxPoint
+                from influxdb_client.domain.write_precision import WritePrecision
+
+                influx_pt = (
+                    InfluxPoint("health_metrics")
+                    .tag("user_id", p.user_id)
+                    .tag("source", p.source)
+                    .tag("sport_type", p.sport_type)
+                    .time(p.ts, WritePrecision.S)
+                )
+                for k, v in p.fields.items():
+                    influx_pt = influx_pt.field(k, float(v))
+
+                async with self._get_client() as client:
+                    write_api = client.write_api()
+                    await write_api.write(bucket=self._bucket, record=influx_pt)
+
+                logger.info(
+                    "influx.write ok user=%s source=%s fields=%s",
+                    p.user_id, p.source, list(p.fields.keys()),
+                )
+            except InfluxUnavailableError:
+                raise
+            except Exception as e:
+                logger.error("influx.write error: %s", e)
+                all_ok = False
+
+        return all_ok
 
     # ── 查询 ──────────────────────────────────────────────────────────────
 
@@ -298,6 +307,43 @@ from(bucket: "{self._bucket}")
         except Exception as e:
             logger.error("influx.query_latest error: %s", e)
             return {}
+
+    async def delete_user_data(self, user_id: str) -> bool:
+        """
+        删除指定用户的所有时序数据（GDPR/PIPL 删除权实现）。
+
+        使用 InfluxDB DeletePredicate API，按 user_id tag 过滤删除。
+        注意：InfluxDB 删除是软删除（mark-and-sweep），实际删除发生在 TSM compaction 阶段。
+
+        Args:
+            user_id: 用户 ID
+
+        Returns:
+            True 删除请求成功提交，False 失败（不抛出异常）。
+        """
+        try:
+            async with self._get_client() as client:
+                delete_api = client.delete_api()
+                # 删除条件：user_id tag 等于目标用户
+                predicate = f'user_id="{user_id}"'
+                # 时间范围：全部（从 epoch 到未来）
+                start = "1970-01-01T00:00:00Z"
+                stop = "2100-01-01T00:00:00Z"
+                await delete_api.delete(
+                    start=start,
+                    stop=stop,
+                    predicate=predicate,
+                    bucket=self._bucket,
+                    org=self._org,
+                )
+            logger.info("influx.delete_user_data ok user_id=%s", user_id)
+            return True
+
+        except InfluxUnavailableError:
+            raise
+        except Exception as e:
+            logger.error("influx.delete_user_data error user_id=%s: %s", user_id, e)
+            return False
 
     async def close(self) -> None:
         if self._client is not None:

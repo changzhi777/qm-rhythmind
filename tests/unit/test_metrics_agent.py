@@ -7,17 +7,16 @@ tests/unit/test_metrics_agent.py — MetricsAgent 单元测试
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from rhythmind.adapters.influx_client import InfluxUnavailableError, TrendSeries
-from rhythmind.agents.metrics_agent import MetricsAgent, _ANOMALY_RULES
+from rhythmind.agents.metrics_agent import _ANOMALY_RULES, MetricsAgent
 from rhythmind.core.compliance.gate import ComplianceLevel
 from rhythmind.core.hermes_base import AgentContext, HermesRunResult
-
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -113,7 +112,7 @@ class TestMetricsAgentHappyPath:
         """InfluxDB 返回趋势数据时，output["trends"] 应有内容。"""
         mock_qmd.return_value = []
 
-        ts = datetime(2024, 1, 1, tzinfo=timezone.utc)
+        ts = datetime(2024, 1, 1, tzinfo=UTC)
         mock_influx.query_range.return_value = {
             "heart_rate_avg": TrendSeries(
                 field="heart_rate_avg",
@@ -301,7 +300,7 @@ class TestLoadClassification:
         """7 日 distance_km 均值 = 10km/day × 7 = 70km → high"""
         mock_qmd.return_value = []
 
-        ts = datetime(2024, 1, 1, tzinfo=timezone.utc)
+        ts = datetime(2024, 1, 1, tzinfo=UTC)
         mock_influx.query_range.return_value = {
             "distance_km": TrendSeries(
                 field="distance_km",

@@ -6,14 +6,18 @@ tests/unit/test_hermes_base.py — HermesBase 闭环流程测试
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from rhythmind.core.hermes_base import AgentContext, AgentResult, HermesBase, HermesRunResult
-from rhythmind.core.memory import MemoryRecallResult
 from rhythmind.core.compliance.gate import ComplianceLevel
-
+from rhythmind.core.hermes_base import (
+    AgentContext,
+    AgentResult,
+    HermesBase,
+    HermesRunResult,
+)
+from rhythmind.core.memory import MemoryRecallResult
 
 # ── 最简 Agent 实现（仅用于测试基类行为）────────────────────────────────
 

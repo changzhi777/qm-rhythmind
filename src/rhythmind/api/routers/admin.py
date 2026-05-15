@@ -81,8 +81,13 @@ async def list_pending_skills(
         )
         rows = (await sess.execute(stmt)).scalars().all()
 
+        # total 需要单独计数查询（不受 limit/offset 影响）
+        count_stmt = select(SkillRecord).where(SkillRecord.status == "pending")
+        total = (await sess.execute(count_stmt)).scalars().all()
+        total_count = len(total)
+
     return {
-        "total": len(rows),
+        "total": total_count,
         "items": [
             {
                 "id":          r.id,
@@ -103,6 +108,7 @@ async def list_pending_skills(
 @router.post(
     "/skills/{skill_hash}/approve",
     status_code=status.HTTP_204_NO_CONTENT,
+    response_model=None,
     summary="批准 skill 并推到 QMD",
 )
 async def approve_skill(
@@ -156,6 +162,7 @@ async def approve_skill(
 @router.post(
     "/skills/{skill_hash}/reject",
     status_code=status.HTTP_204_NO_CONTENT,
+    response_model=None,
     summary="拒绝 skill（不推 QMD，不再使用）",
 )
 async def reject_skill(

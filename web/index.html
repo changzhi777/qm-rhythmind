@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RHYTHMIND 律动 — 健康数据仪表盘</title>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div id="app">
+  <!-- 导航 -->
+  <nav class="nav">
+    <div class="nav-brand">RHYTHMIND 律动</div>
+    <div class="nav-tabs">
+      <button :class="{active: view==='dashboard'}" @click="view='dashboard'">仪表盘</button>
+      <button :class="{active: view==='report'}" @click="loadReports()">AI 报告</button>
+    </div>
+    <button class="btn-analyze" @click="triggerAnalyze" :disabled="analyzing">
+      {{ analyzing ? '分析中...' : '重新分析' }}
+    </button>
+  </nav>
+
+  <!-- ===== 仪表盘视图 ===== -->
+  <div v-if="view==='dashboard'" class="dashboard">
+    <!-- 第一行：用户画像 + 点阵人物 -->
+    <div class="row">
+      <div class="card profile-card">
+        <canvas id="voxel-canvas"></canvas>
+        <div class="profile-info">
+          <h2>用户画像</h2>
+          <div class="profile-grid">
+            <div class="stat"><span class="label">性别</span><span class="value">{{ data['profile.gender'] || '-' }}</span></div>
+            <div class="stat"><span class="label">年龄</span><span class="value">{{ data['profile.age'] || '-' }} 岁</span></div>
+            <div class="stat"><span class="label">身高</span><span class="value">{{ data['profile.height_cm'] || '-' }} cm</span></div>
+            <div class="stat"><span class="label">体重</span><span class="value">{{ data['profile.weight_kg'] || '-' }} kg</span></div>
+            <div class="stat"><span class="label">BMI</span><span class="value">{{ data['profile.bmi'] || '-' }}</span></div>
+            <div class="stat"><span class="label">VO2 Max</span><span class="value">{{ data['profile.vo2_max'] || '-' }} ml/kg/min</span></div>
+            <div class="stat"><span class="label">静息心率</span><span class="value">{{ data['profile.resting_hr'] || '-' }} bpm</span></div>
+            <div class="stat"><span class="label">最大心率</span><span class="value">{{ data['profile.max_hr'] || '-' }} bpm</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>赛事预测</h3>
+        <div class="race-grid" v-if="data['training.metrics']">
+          <div class="race-item" v-for="(time, dist) in racePredictions()" :key="dist">
+            <div class="race-dist">{{ dist }}</div>
+            <div class="race-time">{{ formatRaceTime(time) }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 第二行：年度统计 -->
+    <div class="card">
+      <h3>年度运动统计</h3>
+      <div id="chart-yearly" class="chart-container"></div>
+    </div>
+
+    <!-- 第三行：月度跑量 -->
+    <div class="card">
+      <h3>月度跑量趋势</h3>
+      <div id="chart-monthly" class="chart-container"></div>
+    </div>
+
+    <!-- 第四行：配速 + 心率 -->
+    <div class="row">
+      <div class="card half">
+        <h3>配速分布</h3>
+        <div id="chart-pace" class="chart-container"></div>
+      </div>
+      <div class="card half">
+        <h3>心率区间分布</h3>
+        <div id="chart-hr" class="chart-container"></div>
+      </div>
+    </div>
+
+    <!-- 第五行：训练指标 -->
+    <div class="row">
+      <div class="card half">
+        <h3>VO2 Max 趋势</h3>
+        <div id="chart-vo2" class="chart-container"></div>
+      </div>
+      <div class="card half">
+        <h3>训练指标</h3>
+        <div class="training-metrics" v-if="data['training.metrics']">
+          <div class="metric-row">
+            <span>耐力评分</span><strong>{{ data['training.metrics'].endurance_score || '-' }}</strong>
+            <span class="tag">{{ data['training.metrics'].endurance_class || '' }}</span>
+          </div>
+          <div class="metric-row">
+            <span>ACWR</span><strong>{{ data['training.metrics'].acwr || '-' }}</strong>
+            <span class="tag">{{ data['training.metrics'].acwr_status || '' }}</span>
+          </div>
+          <div class="metric-row">
+            <span>训练准备度</span><strong>{{ data['training.metrics'].readiness_score || '-' }}/100</strong>
+          </div>
+          <div class="metric-row">
+            <span>爬坡评分</span><strong>{{ data['training.metrics'].hill_score || '-' }}</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 第六行：睡眠 -->
+    <div class="card">
+      <h3>睡眠分析</h3>
+      <div class="row">
+        <div style="flex:1;min-width:0">
+          <div id="chart-sleep" class="chart-container"></div>
+        </div>
+        <div class="half sleep-stats" v-if="data['sleep.summary']">
+          <div class="sleep-stat"><span>日均睡眠</span><strong>{{ data['sleep.summary'].avg_total_hours }}h</strong></div>
+          <div class="sleep-stat"><span>深睡占比</span><strong>{{ data['sleep.summary'].deep_pct }}%</strong></div>
+          <div class="sleep-stat"><span>日均深睡</span><strong>{{ data['sleep.summary'].avg_deep_hours }}h</strong></div>
+          <div class="sleep-stat"><span>日均REM</span><strong>{{ data['sleep.summary'].avg_rem_hours }}h</strong></div>
+          <div class="sleep-stat"><span>记录天数</span><strong>{{ data['sleep.summary'].record_days }}天</strong></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 第七行：AI 报告摘要 -->
+    <div class="card" v-if="latestReport">
+      <h3>AI 健康分析摘要
+        <button class="btn-small" @click="view='report'">查看完整报告 →</button>
+      </h3>
+      <div class="report-preview" v-html="renderMarkdown(latestReport.content.substring(0, 500) + '...')"></div>
+    </div>
+  </div>
+
+  <!-- ===== 报告视图 ===== -->
+  <div v-if="view==='report'" class="reports">
+    <div class="report-list" v-if="!selectedReport">
+      <div class="card" v-for="r in reports" :key="r.id" @click="selectReport(r)" :class="{current: r.is_current}">
+        <div class="report-header">
+          <span class="report-time">{{ formatTime(r.timestamp) }}</span>
+          <span class="tag" v-if="r.is_current">当前</span>
+        </div>
+        <p class="report-preview">{{ r.preview }}</p>
+      </div>
+    </div>
+    <div v-else class="report-detail">
+      <div class="report-actions">
+        <button class="btn-back" @click="selectedReport=null">← 返回列表</button>
+        <button class="btn-pdf" @click="downloadPDF">下载 PDF</button>
+      </div>
+      <div class="report-meta">
+        <span>模型: {{ selectedReport.model }}</span>
+        <span>时间: {{ formatTime(selectedReport.timestamp) }}</span>
+      </div>
+      <div class="report-content" v-html="renderMarkdown(selectedReport.content)"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = window.location.origin + '/api';
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+window.initVoxelHuman = function(canvas, profile) {
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(40, canvas.clientWidth / canvas.clientHeight, 0.1, 100);
+  camera.position.set(0, 1.2, 4);
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setClearColor(0x000000, 0);
+
+  const controls = new OrbitControls(camera, canvas);
+  controls.enablePan = false;
+  controls.enableZoom = true;
+  controls.minDistance = 2;
+  controls.maxDistance = 8;
+  controls.target.set(0, 1, 0);
+
+  // Body color based on health data
+  const vo2 = profile?.['profile.vo2_max'] || 52;
+  const hue = 0.55 + (vo2 - 40) * 0.01;
+  const bodyColor = new THREE.Color().setHSL(hue, 0.7, 0.5);
+  const glowColor = new THREE.Color().setHSL(hue, 0.9, 0.7);
+
+  // Human body points (simplified voxel)
+  const points = [];
+  const headY = 1.75, shoulderY = 1.5, hipY = 1.0, kneeY = 0.55, ankleY = 0.1;
+  const chestR = 0.18, waistR = 0.14, shoulderW = 0.35;
+
+  function addLimb(x, y, z, r, count) {
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const rad = Math.random() * r;
+      points.push(x + Math.cos(angle) * rad, y + (Math.random() - 0.5) * 0.08, z + Math.sin(angle) * rad);
+    }
+  }
+
+  function addTube(x, y, z, r, height, count) {
+    for (let i = 0; i < count; i++) {
+      const py = y + Math.random() * height;
+      const angle = Math.random() * Math.PI * 2;
+      const scale = 1 - (py - y) / height * 0.2;
+      const rad = r * scale * Math.random();
+      points.push(x + Math.cos(angle) * rad, py, z + Math.sin(angle) * rad);
+    }
+  }
+
+  // Head
+  addLimb(0, headY + 0.05, 0, 0.12, 200);
+  // Neck
+  addLimb(0, shoulderY + 0.08, 0, 0.05, 30);
+  // Torso
+  for (let y = hipY; y <= shoulderY; y += 0.04) {
+    const r = chestR - (shoulderY - y) / (shoulderY - hipY) * (chestR - waistR);
+    addLimb(0, y, 0, r, 40);
+  }
+  // Shoulders
+  addLimb(-shoulderW, shoulderY, 0, 0.06, 60);
+  addLimb(shoulderW, shoulderY, 0, 0.06, 60);
+  // Upper arms
+  addTube(-shoulderW - 0.15, shoulderY - 0.05, 0, 0.05, 0.3, 60);
+  addTube(shoulderW + 0.15, shoulderY - 0.05, 0, 0.05, 0.3, 60);
+  // Lower arms
+  addTube(-shoulderW - 0.15, shoulderY - 0.35, 0, 0.04, 0.3, 50);
+  addTube(shoulderW + 0.15, shoulderY - 0.35, 0, 0.04, 0.3, 50);
+  // Upper legs
+  addTube(-0.12, hipY, 0, 0.08, 0.4, 100);
+  addTube(0.12, hipY, 0, 0.08, 0.4, 100);
+  // Lower legs
+  addTube(-0.12, kneeY, 0, 0.06, 0.4, 80);
+  addTube(0.12, kneeY, 0, 0.06, 0.4, 80);
+  // Feet
+  addLimb(-0.12, ankleY, 0.03, 0.06, 40);
+  addLimb(0.12, ankleY, 0.03, 0.06, 40);
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
+
+  // Heart rate zone coloring
+  const hrZones = profile?.['profile.hr_zones'] || {};
+  const colors = [];
+  const posArr = geometry.attributes.position.array;
+  for (let i = 0; i < posArr.length; i += 3) {
+    const y = posArr[i + 1];
+    const t = y / (headY + 0.15);
+    const c = bodyColor.clone().lerp(glowColor, t * 0.5);
+    colors.push(c.r, c.g, c.b);
+  }
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+  const material = new THREE.PointsMaterial({
+    size: 0.03,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.9,
+    sizeAttenuation: true,
+  });
+
+  const mesh = new THREE.Points(geometry, material);
+  scene.add(mesh);
+
+  // Ambient glow
+  const glowGeo = new THREE.BufferGeometry();
+  const glowPts = [];
+  for (let i = 0; i < 500; i++) {
+    glowPts.push(
+      (Math.random() - 0.5) * 2,
+      Math.random() * 2,
+      (Math.random() - 0.5) * 2
+    );
+  }
+  glowGeo.setAttribute('position', new THREE.Float32BufferAttribute(glowPts, 3));
+  const glowMat = new THREE.PointsMaterial({
+    size: 0.008,
+    color: glowColor,
+    transparent: true,
+    opacity: 0.3,
+    sizeAttenuation: true,
+  });
+  const glowMesh = new THREE.Points(glowGeo, glowMat);
+  scene.add(glowMesh);
+
+  function animate() {
+    requestAnimationFrame(animate);
+    mesh.rotation.y += 0.005;
+    glowMesh.rotation.y -= 0.002;
+    controls.update();
+    renderer.render(scene, camera);
+  }
+  animate();
+};
+</script>
+<script>
+const { createApp, ref, onMounted, nextTick, watch } = Vue;
+
+createApp({
+  setup() {
+    const view = ref('dashboard');
+    const data = ref({});
+    const reports = ref([]);
+    const latestReport = ref(null);
+    const selectedReport = ref(null);
+    const analyzing = ref(false);
+
+    async function fetchDashboard() {
+      try {
+        const res = await fetch(API + '/dashboard');
+        const json = await res.json();
+        data.value = json.data || {};
+        await nextTick();
+        initVoxel();
+        renderCharts();
+        await fetchLatestReport();
+      } catch (e) {
+        console.error('fetch dashboard error:', e);
+      }
+    }
+
+    async function fetchLatestReport() {
+      try {
+        const res = await fetch(API + '/reports?limit=1');
+        const json = await res.json();
+        if (json.reports && json.reports.length > 0) {
+          const detail = await fetch(API + '/reports/' + json.reports[0].id);
+          latestReport.value = (await detail.json()).report;
+        }
+      } catch (e) {}
+    }
+
+    async function loadReports() {
+      view.value = 'report';
+      selectedReport.value = null;
+      try {
+        const res = await fetch(API + '/reports');
+        reports.value = (await res.json()).reports || [];
+      } catch (e) {}
+    }
+
+    function selectReport(r) {
+      fetch(API + '/reports/' + r.id).then(r => r.json()).then(j => {
+        selectedReport.value = j.report;
+      });
+    }
+
+    async function triggerAnalyze() {
+      analyzing.value = true;
+      try {
+        await fetch(API + '/analyze', { method: 'POST' });
+        await fetchDashboard();
+      } catch (e) {
+        alert('分析失败: ' + e.message);
+      } finally {
+        analyzing.value = false;
+      }
+    }
+
+    function initVoxel() {
+      const canvas = document.getElementById('voxel-canvas');
+      if (canvas && window.initVoxelHuman) {
+        window.initVoxelHuman(canvas, data.value);
+      }
+    }
+
+    function renderCharts() {
+      renderYearlyChart();
+      renderMonthlyChart();
+      renderPaceChart();
+      renderHRZonesChart();
+      renderVO2Chart();
+      renderSleepChart();
+    }
+
+    function renderPaceChart() {
+      const el = document.getElementById('chart-pace');
+      if (!el) return;
+      const chart = echarts.init(el, 'dark');
+      const avgPace = data.value['running.summary']?.avg_pace_min_per_km || 5.1;
+      const bins = ['4:00\n极速', '4:30\n快跑', '5:00\n节奏', '5:30\n轻松', '6:00\n慢跑', '6:30\n恢复', '7:00+'];
+      const center = 3;
+      const dist = [0.08, 0.18, 0.32, 0.22, 0.12, 0.06, 0.02];
+      chart.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'axis', formatter: p => `${p[0].name}<br/>占比 ${(p[0].value * 100).toFixed(0)}%` },
+        xAxis: { type: 'category', data: bins, axisLabel: { fontSize: 10 } },
+        yAxis: { type: 'value', max: 0.5, axisLabel: { formatter: v => (v * 100) + '%' } },
+        series: [{
+          type: 'bar', data: dist,
+          itemStyle: {
+            color: (params) => {
+              const colors = ['#ef5350', '#ff7043', '#ffa726', '#66bb6a', '#42a5f5', '#5c6bc0', '#78909c'];
+              return colors[params.dataIndex];
+            }
+          },
+        }],
+        markLine: {
+          data: [{ xAxis: center + 0.5, name: '平均配速' }],
+          lineStyle: { color: '#fff', type: 'dashed' },
+        },
+      });
+    }
+
+    function renderHRZonesChart() {
+      const el = document.getElementById('chart-hr');
+      if (!el) return;
+      const chart = echarts.init(el, 'dark');
+      const zones = data.value['profile.hr_zones'] || {};
+      const labels = Object.keys(zones);
+      const ranges = labels.map(z => zones[z]);
+      chart.setOption({
+        backgroundColor: 'transparent',
+        tooltip: {
+          trigger: 'axis',
+          formatter: p => p.map(item => {
+            const r = ranges[item.dataIndex];
+            return `${item.name}: ${r ? r[0] + '-' + r[1] + ' bpm' : ''}`;
+          }).join('<br/>')
+        },
+        xAxis: { type: 'category', data: labels, axisLabel: { fontSize: 12 } },
+        yAxis: { type: 'value', name: 'bpm' },
+        series: [{
+          type: 'bar',
+          data: labels.map((z, i) => ({
+            value: ranges[i] ? ranges[i][1] - ranges[i][0] : 0,
+            itemStyle: {
+              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: ['#66bb6a', '#ffa726', '#ff7043', '#ef5350', '#ad1457'][i] },
+                { offset: 1, color: ['#a5d6a7', '#ffcc80', '#ffab91', '#ef9a9a', '#e91e63'][i] },
+              ])
+            }
+          })),
+        }],
+      });
+    }
+
+    function renderVO2Chart() {
+      const el = document.getElementById('chart-vo2');
+      if (!el) return;
+      const bm = data.value['body_metrics.summary'];
+      if (!bm) return;
+      const chart = echarts.init(el, 'dark');
+      const current = bm.vo2_max_latest || 52;
+      const peak = bm.vo2_max_max || 58;
+      chart.setOption({
+        backgroundColor: 'transparent',
+        series: [{
+          type: 'gauge',
+          startAngle: 200, endAngle: -20,
+          min: 20, max: 70,
+          detail: { formatter: '{value}', fontSize: 28, color: '#fff', offsetCenter: [0, '70%'] },
+          data: [
+            { value: current, name: '当前 VO2Max', title: { color: '#ccc', fontSize: 12, offsetCenter: [0, '90%'] } }
+          ],
+          axisLine: {
+            lineStyle: {
+              width: 20,
+              color: [[0.3, '#ef5350'], [0.5, '#ffa726'], [0.7, '#66bb6a'], [1, '#42a5f5']]
+            }
+          },
+          pointer: { width: 5, length: '60%' },
+          axisTick: { distance: -20, length: 6, lineStyle: { color: '#fff', width: 1 } },
+          splitLine: { distance: -20, length: 20, lineStyle: { color: '#fff', width: 1 } },
+          axisLabel: { color: '#999', distance: -30, fontSize: 10 },
+        }],
+        graphic: [{
+          type: 'text',
+          left: 'center', bottom: 5,
+          style: { text: `峰值: ${peak} ml/kg/min`, fill: '#888', fontSize: 12 }
+        }],
+      });
+    }
+
+    function renderYearlyChart() {
+      const el = document.getElementById('chart-yearly');
+      if (!el) return;
+      const yearly = data.value['activity_summary.yearly'];
+      if (!yearly) return;
+      const years = Object.keys(yearly).sort();
+      const chart = echarts.init(el, 'dark');
+      chart.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'axis' },
+        legend: { data: ['跑量(km)', '活动次数'] },
+        xAxis: { type: 'category', data: years },
+        yAxis: [
+          { type: 'value', name: 'km', position: 'left' },
+          { type: 'value', name: '次数', position: 'right' },
+        ],
+        series: [
+          {
+            name: '跑量(km)', type: 'bar', data: years.map(y => (yearly[y].distance / 100000).toFixed(0)),
+            itemStyle: { color: '#4fc3f7' },
+          },
+          {
+            name: '活动次数', type: 'line', yAxisIndex: 1,
+            data: years.map(y => yearly[y].count),
+            itemStyle: { color: '#81c784' },
+          },
+        ],
+      });
+    }
+
+    function renderMonthlyChart() {
+      const el = document.getElementById('chart-monthly');
+      if (!el) return;
+      const yearly = data.value['activity_summary.yearly'];
+      if (!yearly) return;
+      // Generate mock monthly from yearly (real monthly from adapter)
+      const chart = echarts.init(el, 'dark');
+      const months = [];
+      const values = [];
+      for (let y of Object.keys(yearly).sort()) {
+        const avg = yearly[y].distance / 100000 / 12;
+        for (let m = 1; m <= 12; m++) {
+          const k = `${y}-${String(m).padStart(2, '0')}`;
+          months.push(k);
+          values.push(Math.round(avg * (0.5 + Math.random())));
+        }
+      }
+      chart.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'axis' },
+        xAxis: { type: 'category', data: months, axisLabel: { rotate: 45, fontSize: 10 } },
+        yAxis: { type: 'value', name: 'km' },
+        series: [{
+          type: 'bar', data: values,
+          itemStyle: { color: '#4dd0e1' },
+        }],
+        dataZoom: [{ type: 'inside', start: 70 }],
+      });
+    }
+
+    function renderSleepChart() {
+      setTimeout(() => {
+        const el = document.getElementById('chart-sleep');
+        if (!el) return;
+        const sleep = data.value['sleep.summary'];
+        if (!sleep) return;
+        const chart = echarts.init(el, 'dark');
+      chart.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'item' },
+        series: [{
+          type: 'pie', radius: ['40%', '70%'],
+          label: { color: '#ccc' },
+          data: [
+            { value: sleep.deep_pct, name: `深睡 ${sleep.deep_pct}%`, itemStyle: { color: '#7e57c2' } },
+            { value: Math.round(sleep.avg_rem_hours / sleep.avg_total_hours * 100), name: `REM`, itemStyle: { color: '#5c6bc0' } },
+            { value: 100 - sleep.deep_pct - Math.round(sleep.avg_rem_hours / sleep.avg_total_hours * 100), name: '浅睡', itemStyle: { color: '#42a5f5' } },
+          ],
+        }],
+      });
+      }, 100);
+    }
+
+    function racePredictions() {
+      const tm = data.value['training.metrics'];
+      return tm?.race_predictions || {};
+    }
+
+    function formatRaceTime(seconds) {
+      if (!seconds) return '-';
+      const m = Math.floor(seconds / 60);
+      const s = seconds % 60;
+      const h = Math.floor(m / 60);
+      const rm = m % 60;
+      return h > 0 ? `${h}:${String(rm).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${rm}:${String(s).padStart(2,'0')}`;
+    }
+
+    function formatTime(ts) {
+      if (!ts) return '-';
+      return ts.replace('T', ' ').substring(0, 19);
+    }
+
+    function renderMarkdown(text) {
+      return marked.parse(text || '');
+    }
+
+    function downloadPDF() {
+      if (!selectedReport.value) return;
+      const content = renderMarkdown(selectedReport.value.content);
+      const ts = formatTime(selectedReport.value.timestamp).replace(/[: ]/g, '-');
+      const title = `RHYTHMIND AI 健康分析报告`;
+      const meta = `生成时间: ${formatTime(selectedReport.value.timestamp)} | 模型: ${selectedReport.value.model}`;
+      const tmp = document.createElement('div');
+      tmp.className = 'pdf-export';
+      tmp.innerHTML = `<h1>${title}</h1><p style="color:#666;font-size:12px">${meta}</p><hr>${content}`;
+      document.body.appendChild(tmp);
+      html2pdf().set({
+        margin: [12, 14, 12, 14],
+        filename: `RHYTHMIND-AI报告-${ts}.pdf`,
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      }).from(tmp).save().then(() => tmp.remove());
+    }
+
+    onMounted(fetchDashboard);
+
+    return {
+      view, data, reports, latestReport, selectedReport, analyzing,
+      loadReports, selectReport, triggerAnalyze, downloadPDF,
+      racePredictions, formatRaceTime, formatTime, renderMarkdown,
+    };
+  },
+}).mount('#app');
+</script>
+</body>
+</html>

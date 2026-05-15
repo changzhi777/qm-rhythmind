@@ -13,17 +13,14 @@ Plus value-clipping (PII guard) and the InMemorySink contract.
 """
 from __future__ import annotations
 
-import json
-
 import pytest
-
 
 # ── Fixtures ────────────────────────────────────────────────────────────────
 
 @pytest.fixture
 def memsink():
     """Install an InMemorySink for the duration of one test, then restore."""
-    from rhythmind.audit import InMemorySink, install_audit_sink, get_sink
+    from rhythmind.audit import InMemorySink, get_sink, install_audit_sink
     prev = get_sink()
     sink = InMemorySink()
     install_audit_sink(sink)
@@ -120,7 +117,11 @@ async def test_mcp_unauth_emits_when_flag_off(app_client, patched_redis, memsink
 
 def test_install_audit_sink_swaps():
     from rhythmind.audit import (
-        AuditEvent, InMemorySink, audit_log, get_sink, install_audit_sink,
+        AuditEvent,
+        InMemorySink,
+        audit_log,
+        get_sink,
+        install_audit_sink,
     )
     prev = get_sink()
     a = InMemorySink()
@@ -139,7 +140,13 @@ def test_install_audit_sink_swaps():
 # ── 6. Long string fields are clipped (PII guard) ──────────────────────────
 
 def test_audit_log_clips_long_strings():
-    from rhythmind.audit import AuditEvent, InMemorySink, audit_log, install_audit_sink, get_sink
+    from rhythmind.audit import (
+        AuditEvent,
+        InMemorySink,
+        audit_log,
+        get_sink,
+        install_audit_sink,
+    )
     prev = get_sink()
     sink = InMemorySink()
     install_audit_sink(sink)
@@ -159,7 +166,13 @@ def test_audit_log_clips_long_strings():
 # ── 7. audit_log is exception-safe ─────────────────────────────────────────
 
 def test_audit_log_swallows_sink_errors(monkeypatch):
-    from rhythmind.audit import AuditEvent, AuditSink, audit_log, install_audit_sink, get_sink
+    from rhythmind.audit import (
+        AuditEvent,
+        AuditSink,
+        audit_log,
+        get_sink,
+        install_audit_sink,
+    )
 
     class _BoomSink(AuditSink):
         def emit(self, record):

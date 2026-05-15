@@ -10,17 +10,17 @@ api/schemas/health.py — 健康数据 API 请求/响应模型
 """
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
 
 class HRZones(BaseModel):
-    z1: Optional[float] = None
-    z2: Optional[float] = None
-    z3: Optional[float] = None
-    z4: Optional[float] = None
-    z5: Optional[float] = None
+    z1: float | None = None
+    z2: float | None = None
+    z3: float | None = None
+    z4: float | None = None
+    z5: float | None = None
 
 
 class HealthDataUploadRequest(BaseModel):
@@ -37,33 +37,33 @@ class HealthDataUploadRequest(BaseModel):
     user_goal: str = Field(default="健康维护", description="用户目标")
 
     # 心率
-    heart_rate_avg: Optional[float] = Field(None, ge=20, le=250)
-    heart_rate_max: Optional[float] = Field(None, ge=20, le=250)
-    heart_rate_zones: Optional[HRZones] = None
+    heart_rate_avg: float | None = Field(None, ge=20, le=250)
+    heart_rate_max: float | None = Field(None, ge=20, le=250)
+    heart_rate_zones: HRZones | None = None
 
     # 运动
-    steps: Optional[int] = Field(None, ge=0)
-    distance_km: Optional[float] = Field(None, ge=0)
-    calories: Optional[int] = Field(None, ge=0)
+    steps: int | None = Field(None, ge=0)
+    distance_km: float | None = Field(None, ge=0)
+    calories: int | None = Field(None, ge=0)
 
     # 睡眠
-    sleep_hours: Optional[float] = Field(None, ge=0, le=24)
+    sleep_hours: float | None = Field(None, ge=0, le=24)
 
     # 心率变异性
-    hrv: Optional[float] = Field(None, ge=0)
+    hrv: float | None = Field(None, ge=0)
 
     # 体成分（来自体脂秤 OCR）
-    body_fat_pct: Optional[float] = Field(None, ge=0, le=100)
-    muscle_mass_kg: Optional[float] = Field(None, ge=0)
-    water_pct: Optional[float] = Field(None, ge=0, le=100)
-    visceral_fat: Optional[int] = Field(None, ge=0)
+    body_fat_pct: float | None = Field(None, ge=0, le=100)
+    muscle_mass_kg: float | None = Field(None, ge=0)
+    water_pct: float | None = Field(None, ge=0, le=100)
+    visceral_fat: int | None = Field(None, ge=0)
 
     # 原始数据透传（存档用）
     source_raw: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("heart_rate_max")
     @classmethod
-    def max_gte_avg(cls, v: Optional[float], info: Any) -> Optional[float]:
+    def max_gte_avg(cls, v: float | None, info: Any) -> float | None:
         avg = info.data.get("heart_rate_avg")
         if v is not None and avg is not None and v < avg:
             raise ValueError("heart_rate_max 不能小于 heart_rate_avg")

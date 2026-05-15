@@ -26,10 +26,10 @@ audit — Tamper-evident operational audit log
   - 任何 sink 实现都必须是非阻塞 fire-and-forget；耗时 I/O 走 background task
 """
 from rhythmind.audit.events import AuditEvent  # noqa: F401
-from rhythmind.audit.logger import audit_log, install_audit_sink, get_sink  # noqa: F401
+from rhythmind.audit.logger import audit_log, get_sink, install_audit_sink  # noqa: F401
 from rhythmind.audit.sinks import (  # noqa: F401
     AuditSink,
     InMemorySink,
-    StructlogSink,
     S3JsonlSink,
+    StructlogSink,
 )

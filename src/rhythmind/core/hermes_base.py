@@ -313,7 +313,7 @@ class HermesBase(ABC):
                 len(audit.extra_constraints),
             )
 
-        # ── 调用主模型（通过 AdapterRouter 路由到 MLX / Ollama / LiteLLM）──
+        # ── 调用主模型（通过 AdapterRouter 路由到 MLX / oMLX / LiteLLM）──
         from rhythmind.adapters.adapter_router import adapter_router
 
         # model 参数：None → 读 settings.model_primary_spec（默认 Qwen3-30B-A3B MLX）

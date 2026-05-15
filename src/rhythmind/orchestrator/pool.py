@@ -37,9 +37,9 @@ import asyncio
 import logging
 import time
 from collections import OrderedDict
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import AsyncGenerator
 
 from rhythmind.adapters.influx_client import InfluxClient
 from rhythmind.agents.coach_agent import CoachAgent

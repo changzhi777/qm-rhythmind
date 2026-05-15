@@ -16,3 +16,29 @@ repos:
       - id: check-merge-conflict
       - id: no-commit-to-branch
         args: [--branch, main, --branch, prod]
+
+  # ── 安全扫描 ────────────────────────────────────────────────────────────
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        args: [--baseline, .secrets.baseline, --exclude-files, "poetry.lock", --exclude-files, "*.lock"]
+        # 首次启用时运行：detect-secrets scan > .secrets.baseline
+        # 添加新 secret 后：detect-secrets audit .secrets.baseline
+
+  # ── 最佳实践：禁止某些不安全的模式 ────────────────────────────────────
+  - repo: local
+    hooks:
+      - id: forbid-unsafe-test-files
+        name: 禁止提交包含真实凭证的测试文件
+        entry: bash -c 'grep -r "sk-test\\|sk-1234\\|change-me-in-prod" tests/ && echo "禁止在测试文件中使用真实默认值" && exit 1 || exit 0'
+        language: system
+        pass_filenames: false
+        types: [python]
+
+      - id: forbid-debug-print
+        name: 禁止提交 print() 调试代码（应使用 structlog）
+        entry: grep -r "print(" src/ --include="*.py" && echo "禁止使用 print()，使用 structlog.logger" && exit 1 || exit 0
+        language: system
+        pass_filenames: false
+        types: [python]

@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 # ── mlx-lm 模块级导入（便于 unittest.mock.patch 拦截）───────────────────────
 # mlx-lm 仅在 Apple Silicon 上安装；测试环境通过 patch 注入 mock
 try:
-    from mlx_lm import load, generate  # type: ignore[import]
+    from mlx_lm import generate, load  # type: ignore[import]
 except ImportError:  # pragma: no cover
     load = None      # type: ignore[assignment]
     generate = None  # type: ignore[assignment]
@@ -65,7 +65,11 @@ _THINK_PATTERN = re.compile(r"<think>.*?</think>", re.DOTALL)
 
 
 def _strip_think_tags(text: str) -> str:
-    return _THINK_PATTERN.sub("", text).strip()
+    # 第一步：剥离完整块（不论是否闭合）
+    text = _THINK_PATTERN.sub("", text)
+    # 第二步：清除残余的未闭合标签（模型输出截断时可能出现）
+    text = re.sub(r"<think>|", "", text).strip()
+    return text
 
 
 class MLXAdapter(ModelAdapter):

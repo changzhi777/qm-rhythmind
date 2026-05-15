@@ -21,9 +21,9 @@ Three threats from THREAT_MODEL.md, exercised end-to-end:
 from __future__ import annotations
 
 import json
+from datetime import UTC
 
 import pytest
-
 
 # ── 1. Cross-user authorization ─────────────────────────────────────────────
 
@@ -38,7 +38,8 @@ async def test_user_a_cannot_export_or_delete_user_b_data(app_client, patched_re
     rows — NEVER bob's. A failure here would mean the privacy service is
     not filtering by the authenticated user.
     """
-    from datetime import datetime, timezone
+    from datetime import datetime
+
     from rhythmind.core.memory.manager import AsyncSessionLocal
     from rhythmind.core.memory.models import AgentMemory, HealthFact
 
@@ -54,7 +55,7 @@ async def test_user_a_cannot_export_or_delete_user_b_data(app_client, patched_re
             HealthFact(
                 user_id="alice", subject="baseline", predicate="resting_hr",
                 object_json={"value": 58}, confidence=0.95,
-                valid_from=datetime.now(timezone.utc),
+                valid_from=datetime.now(UTC),
             ),
             # bob's data — must NOT leak into alice's export
             AgentMemory(
@@ -66,7 +67,7 @@ async def test_user_a_cannot_export_or_delete_user_b_data(app_client, patched_re
             HealthFact(
                 user_id="bob", subject="injury", predicate="restricts",
                 object_json={"area": "knee"}, confidence=0.9,
-                valid_from=datetime.now(timezone.utc),
+                valid_from=datetime.now(UTC),
             ),
         ])
         await sess.commit()
@@ -163,8 +164,9 @@ async def test_normal_sized_post_is_accepted(app_client, patched_redis):
     from contextlib import asynccontextmanager
     from types import SimpleNamespace
     from unittest.mock import AsyncMock
-    from rhythmind.api.main import app
+
     from rhythmind.api.deps import get_pool
+    from rhythmind.api.main import app
     from rhythmind.core.compliance.gate import ComplianceLevel, ComplianceResult
     from rhythmind.core.hermes_base import HermesRunResult
 

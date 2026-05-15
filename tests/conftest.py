@@ -9,6 +9,7 @@ tests/conftest.py — 全局测试配置与 fixtures
 from __future__ import annotations
 
 import os
+
 import pytest
 import pytest_asyncio
 
@@ -24,11 +25,10 @@ os.environ.setdefault("LITELLM_URL", "http://localhost:4000")
 os.environ.setdefault("DEV_AUTH_BYPASS", "true")
 os.environ.setdefault("ENFORCE_MODEL_PLATFORM", "false")
 
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from rhythmind.core.memory.models import Base
-from rhythmind.core.memory.manager import AsyncSessionLocal
 import rhythmind.core.memory.manager as mem_manager
+from rhythmind.core.memory.models import Base
 
 
 @pytest_asyncio.fixture(autouse=True)

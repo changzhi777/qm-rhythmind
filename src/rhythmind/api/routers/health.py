@@ -9,17 +9,30 @@
 api/routers/health.py — 健康数据路由
 
 Endpoints:
-  POST /health/upload         — 上传健康数据（同步返回完整结果）
-  POST /health/upload/stream  — 上传健康数据（SSE 流式进度推送）
-  POST /health/chat           — 文本对话（意图分类 → 路由工作流）
-  GET  /health/memory         — 查看当前用户记忆摘要（调试用）
-  GET  /health/pool/stats     — Agent 池诊断（调试用）
+  POST /health/upload            — 上传健康数据（同步返回完整结果）
+  POST /health/upload/stream     — 上传健康数据（SSE 流式进度推送）
+  WS  /health/upload/stream/ws   — 上传健康数据（WebSocket 流式）
+  POST /health/ingest            — 可穿戴设备 CSV 数据摄入
+  POST /health/chat              — 文本对话（意图分类 → 路由工作流）
+  GET  /health/memory            — 查看当前用户记忆摘要（调试用）
+  GET  /health/pool/stats        — Agent 池诊断（调试用）
 """
 from __future__ import annotations
 
+import contextlib
 import uuid
+from datetime import UTC
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    UploadFile,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
 from sse_starlette.sse import EventSourceResponse
 
 from rhythmind.api.deps import CurrentUserId, PoolDep, RouterDep
@@ -167,6 +180,131 @@ async def upload_health_data_stream(
     return EventSourceResponse(event_generator())
 
 
+# ── WebSocket /health/upload/stream/ws ─────────────────────────────────────────
+
+@router.websocket("/upload/stream/ws")
+async def upload_health_data_stream_ws(websocket: WebSocket) -> None:
+    """
+    WebSocket 流式版本。协议：
+
+    1. 客户端连接 ``ws://host/api/v1/health/upload/stream/ws?token=<jwt>``
+    2. 服务端返回 ``{"type": "connected", "data": {"session_id": "..."}}``
+    3. 客户端发送 JSON: ``{"input_data": {...}}``
+    4. 服务端流式推送（与 SSE 相同的事件序列）::
+
+         {"type": "start",         "data": {...}}
+         {"type": "metrics_done",  "data": {...}}
+         {"type": "data_done",     "data": {...}}
+         {"type": "coach_done",    "data": {...}}
+         {"type": "error",         "data": {"step": "...", "message": "..."}}
+         {"type": "done",          "data": {...完整 SwarmResult.final_output>}}
+
+    5. 服务端发送 ``{"type": "close"}`` 后关闭 WebSocket 连接
+
+    前端 JS 示例::
+
+        const ws = new WebSocket('ws://localhost:8000/api/v1/health/upload/stream/ws?token=' + token);
+        ws.onopen = () => ws.send(JSON.stringify({input_data: payload}));
+        ws.onmessage = (e) => {
+            const msg = JSON.parse(e.data);
+            if (msg.type === 'done') { /* 完整结果在 msg.data */ }
+        };
+    """
+    import json as _json
+
+    # ── 1. JWT 鉴权（query param）───────────────────────────────────────
+    token = websocket.query_params.get("token", "")
+    if not token:
+        await websocket.close(code=4001, reason="Missing token")
+        return
+
+    try:
+        from jose import jwt as _jwt
+
+        from rhythmind.config import settings
+        payload = _jwt.decode(
+            token,
+            settings.jwt_secret,
+            algorithms=[settings.jwt_algorithm],
+        )
+        user_id: str = payload.get("sub", "")
+        if not user_id:
+            await websocket.close(code=4001, reason="Invalid token: missing sub")
+            return
+    except Exception:
+        await websocket.close(code=4001, reason="Token validation failed")
+        return
+
+    # ── 2. 接受连接 ─────────────────────────────────────────────────────
+    await websocket.accept()
+
+    # ── 3. 接收客户端消息（input_data）──────────────────────────────────
+    try:
+        client_msg = await websocket.receive_json()
+    except Exception:
+        await websocket.send_json({"type": "error", "data": {"message": "Invalid JSON"}})
+        await websocket.close()
+        return
+
+    input_data = client_msg.get("input_data")
+    if not input_data:
+        await websocket.send_json({"type": "error", "data": {"message": "Missing input_data"}})
+        await websocket.close()
+        return
+
+    # ── 4. 限流检查 ─────────────────────────────────────────────────────
+    # 延迟导入：让测试能正确 monkeypatch（模块级导入在加载时被绑定）
+    from rhythmind.api import rate_limit as rate_limit_mod
+    limit_user_key = f"rl:user:upload:{user_id}"
+    allowed, _, _ = await rate_limit_mod._check_and_incr(limit_user_key, *LIMIT_UPLOAD_PER_USER)
+    if not allowed:
+        await websocket.send_json({
+            "type": "error",
+            "data": {"message": "Rate limit exceeded. Please try again later."},
+        })
+        await websocket.close()
+        return
+
+    # ── 5. 执行 Swarm 流式工作流 ─────────────────────────────────────────
+    from rhythmind.api.deps import get_pool
+    pool = get_pool()
+    session_id = str(uuid.uuid4())
+
+    await websocket.send_json({
+        "type": "connected",
+        "data": {"session_id": session_id, "user_id": user_id},
+    })
+
+    try:
+        async with pool.acquire(user_id) as agents:
+            async for event in _swarm.run_stream(
+                user_id=user_id,
+                session_id=session_id,
+                input_data=input_data,
+                metrics_agent=agents.metrics,
+                data_agent=agents.data,
+                coach_agent=agents.coach,
+            ):
+                # 将 SSE 格式 {"event": "xxx", "data": {...}}
+                # 转换为 WebSocket JSON 帧 {"type": "xxx", "data": {...}}
+                await websocket.send_json({
+                    "type": event.get("event", "unknown"),
+                    "data": _json.loads(event.get("data", "{}")),
+                })
+    except WebSocketDisconnect:
+        pass  # 客户端主动关闭
+    except Exception as exc:
+        with contextlib.suppress(Exception):
+            await websocket.send_json({
+                "type": "error",
+                "data": {"step": "stream", "message": str(exc)},
+            })
+    finally:
+        with contextlib.suppress(Exception):
+            await websocket.send_json({"type": "close"})
+        await websocket.close()
+
+
 # ── POST /health/chat ─────────────────────────────────────────────────────────
 
 @router.post(
@@ -243,3 +381,131 @@ async def pool_stats(
     if not settings.debug:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
     return pool.stats()
+
+
+# ── POST /health/ingest ───────────────────────────────────────────────────────
+
+@router.post(
+    "/ingest",
+    summary="接收可穿戴设备导出数据（CSV）",
+    responses={
+        200: {"description": "数据摄入成功"},
+        400: {"description": "CSV 格式错误"},
+        401: {"description": "未授权"},
+        422: {"description": "数据校验失败"},
+    },
+)
+async def ingest_wearable_data(
+    file: UploadFile,
+    user_id: CurrentUserId,
+    source: str = Query(
+        default="manual",
+        description="数据来源：apple_health / google_health / fitbit / manual",
+    ),
+) -> dict:
+    """
+    接收可穿戴设备（Apple Health / Google Health / Fitbit）导出的 CSV，
+    解析后写入 InfluxDB，作为 MetricsAgent 的数据源之一。
+
+    CSV 格式（必需列：timestamp）：
+      timestamp,heart_rate,steps,sleep_minutes,spo2,blood_pressure_systolic,blood_pressure_diastolic
+      2026-05-12T08:00:00Z,65,1200,0,98,
+      2026-05-12T09:00:00Z,72,300,480,97,120,80
+
+    关联 PR：WEARABLE_DEVICE_RESEARCH.md §P0
+    """
+    import csv
+    import io
+    from datetime import datetime
+
+    # ── 1. 读取并解析 CSV ────────────────────────────────────────────
+    if not file.filename.endswith(".csv"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only .csv files are supported",
+        )
+
+    content = await file.read()
+    try:
+        text = content.decode("utf-8")
+    except UnicodeDecodeError:
+        text = content.decode("utf-8-sig")  # 尝试带 BOM 的 UTF-8
+
+    reader = csv.DictReader(io.StringIO(text))
+    if not reader.fieldnames:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Empty or invalid CSV",
+        )
+
+    # ── 2. 解析行 → InfluxDB 数据点 ─────────────────────────────────
+    from rhythmind.adapters.influx_client import InfluxClient, MetricPoint
+
+    influx = InfluxClient()
+    points: list[MetricPoint] = []
+    errors: list[str] = []
+
+    for row_num, row in enumerate(reader, start=2):
+        try:
+            ts_str = row.get("timestamp", "").strip()
+            if not ts_str:
+                errors.append(f"Row {row_num}: missing timestamp")
+                continue
+
+            # 解析时间（支持 ISO 8601 和常见格式）
+            try:
+                ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+            except ValueError:
+                ts = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
+                ts = ts.replace(tzinfo=UTC)
+
+            hr_str = row.get("heart_rate", "").strip()
+            steps_str = row.get("steps", "").strip()
+            sleep_str = row.get("sleep_minutes", "").strip()
+            spo2_str = row.get("spo2", "").strip()
+            bp_sys_str = row.get("blood_pressure_systolic", "").strip()
+            bp_dia_str = row.get("blood_pressure_diastolic", "").strip()
+
+            # 跳过全空行
+            if not any([hr_str, steps_str, sleep_str, spo2_str, bp_sys_str]):
+                continue
+
+            point = MetricPoint(
+                user_id=user_id,
+                source=source,
+                sport_type="general",
+                fields={
+                    k: v
+                    for k, v in {
+                        "heart_rate": int(hr_str) if hr_str else None,
+                        "steps": int(steps_str) if steps_str else None,
+                        "sleep_minutes": int(sleep_str) if sleep_str else None,
+                        "spo2": float(spo2_str) if spo2_str else None,
+                        "blood_pressure_systolic": int(bp_sys_str) if bp_sys_str else None,
+                        "blood_pressure_diastolic": int(bp_dia_str) if bp_dia_str else None,
+                    }.items()
+                    if v is not None
+                },
+                ts=ts,
+            )
+            points.append(point)
+        except Exception as exc:
+            errors.append(f"Row {row_num}: {exc}")
+
+    if not points:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"No valid data points. Errors: {errors[:5]}",
+        )
+
+    # ── 3. 批量写入 InfluxDB ─────────────────────────────────────────
+    write_ok = await influx.write_metrics(points)
+
+    return {
+        "status": "success" if write_ok else "partial",
+        "user_id": user_id,
+        "source": source,
+        "rows_parsed": len(points),
+        "errors": errors[:10],  # 最多返回 10 条
+        "write_ok": write_ok,
+    }

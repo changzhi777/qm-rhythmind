@@ -28,7 +28,6 @@ import logging
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import Response
 
 from rhythmind.config import settings
 

@@ -5,7 +5,8 @@
 # 许可：CC BY-NC 4.0  |  商业授权：14455975@qq.com
 # ─────────────────────────────────────────────────────────────────────────────
 
-from .data_agent import DataAgent
 from .coach_agent import CoachAgent
+from .data_agent import DataAgent
+from .metrics_agent import MetricsAgent
 
-__all__ = ["DataAgent", "CoachAgent"]
+__all__ = ["DataAgent", "CoachAgent", "MetricsAgent"]

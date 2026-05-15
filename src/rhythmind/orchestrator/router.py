@@ -20,10 +20,12 @@ orchestrator/router.py — HealthRouter：AG2 编排入口
 """
 from __future__ import annotations
 
+import hashlib
 import logging
+import sys
 import uuid
 from dataclasses import dataclass, field
-import sys
+
 if sys.version_info >= (3, 11):
     from enum import StrEnum
 else:
@@ -32,10 +34,13 @@ else:
         pass
 from typing import Any
 
-from rhythmind.config import settings
+from rhythmind.core.cache import IntentCache, SessionCache
 from rhythmind.core.compliance import ComplianceGate
 from rhythmind.orchestrator.loop_guard import LoopGuard
-from rhythmind.orchestrator.workflows.swarm_data_coach import SwarmDataCoach, SwarmResult
+from rhythmind.orchestrator.workflows.swarm_data_coach import (
+    SwarmDataCoach,
+    SwarmResult,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +61,7 @@ class WorkflowResult:
     user_id: str = ""
 
     @classmethod
-    def blocked(cls, reason: str, user_id: str = "") -> "WorkflowResult":
+    def blocked(cls, reason: str, user_id: str = "") -> WorkflowResult:
         return cls(
             status=WorkflowStatus.BLOCKED,
             message=f"合规检查不通过：{reason}",
@@ -64,7 +69,7 @@ class WorkflowResult:
         )
 
     @classmethod
-    def throttled(cls, user_id: str = "") -> "WorkflowResult":
+    def throttled(cls, user_id: str = "") -> WorkflowResult:
         return cls(
             status=WorkflowStatus.THROTTLED,
             message="操作过于频繁，请稍后再试。",
@@ -72,7 +77,7 @@ class WorkflowResult:
         )
 
     @classmethod
-    def error(cls, msg: str, user_id: str = "") -> "WorkflowResult":
+    def error(cls, msg: str, user_id: str = "") -> WorkflowResult:
         return cls(
             status=WorkflowStatus.ERROR,
             message=msg,
@@ -142,8 +147,14 @@ class HealthRouter:
             log_ctx.warning("router.pre_check BLOCKED")
             return WorkflowResult.blocked("输入包含不允许的内容", user_id=user_id)
 
-        # ── 意图分类 ──────────────────────────────────────────────────────
-        intent = self._classify_intent(raw_input)
+        # ── 意图分类（带缓存） ──────────────────────────────────────────────
+        text_hash = hashlib.sha256(
+            " ".join(str(v) for v in raw_input.values() if isinstance(v, str)).encode()
+        ).hexdigest()[:16]
+        intent = await IntentCache.get(user_id, text_hash)
+        if intent is None:
+            intent = self._classify_intent(raw_input)
+            await IntentCache.set(user_id, text_hash, intent)
         workflow_id = INTENT_MAP.get(intent, INTENT_MAP["__default__"])
         log_ctx.info("router.intent=%s workflow=%s", intent, workflow_id)
 
@@ -182,9 +193,20 @@ class HealthRouter:
                 input_data=raw_input,
             )
             if not result.success:
+                await SessionCache.set(user_id, session_id, {
+                    "status": WorkflowStatus.BLOCKED.value,
+                    "intent": intent,
+                    "error": "compliance_blocked",
+                })
                 return WorkflowResult.blocked(
                     "数据解读合规检查未通过", user_id=user_id
                 )
+            # 缓存成功结果（30min TTL）
+            await SessionCache.set(user_id, session_id, {
+                "status": WorkflowStatus.SUCCESS.value,
+                "intent": intent,
+                "data": result.final_output,
+            })
             return WorkflowResult(
                 status=WorkflowStatus.SUCCESS,
                 data=result.final_output,

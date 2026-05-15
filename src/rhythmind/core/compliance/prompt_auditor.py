@@ -12,7 +12,7 @@ core/compliance/prompt_auditor.py — Gemma-4-E4B 本地 Prompt 合规审查器
 数据流：  messages → gemma-4-e4b(本地) → AuditResult → 决策
 
 设计约束：
-  1. 数据零外泄：gemma 运行在本机 Ollama，不走互联网
+  1. 数据零外泄：gemma 运行在本机 oMLX，不走互联网
   2. 轻量 prompt：只需输出 JSON 风险评估，max_tokens=512
   3. 超时降级：gemma 超时或不可用 → AuditResult.level=PASS（宁放行勿阻断）
   4. 不替代 output 合规：这是"前置拦截"，后置 ComplianceGate 仍保留
@@ -110,14 +110,14 @@ def _build_audit_prompt(messages: list[dict[str, Any]]) -> str:
 
 class PromptAuditor:
     """
-    本地合规审查器（默认使用 gemma3:4b via OllamaAdapter）。
+    本地合规审查器（默认使用 gemma-4-e4b-it-4bit via OMLXAdapter）。
 
     无状态，可在多 Agent 间共享同一实例。
-    通过 OllamaAdapter 调用本地 Ollama，数据零外泄。
+    通过 OMLXAdapter 调用本地 oMLX，数据零外泄。
 
     model_spec 格式遵循 AdapterRouter 规范：
-      "ollama://gemma3:4b"  → OllamaAdapter（默认）
-      "mlx://..."           → MLXAdapter（如果把审查模型换成 MLX 本地模型）
+      "omlX://gemma-4-e4b-it-4bit"  → OMLXAdapter（默认）
+      "mlx://..."                  → MLXAdapter（如果把审查模型换成 MLX 本地模型）
     """
 
     def __init__(self, model_spec: str | None = None) -> None:
@@ -128,7 +128,7 @@ class PromptAuditor:
         # 审查模型 spec：默认读 settings.model_compliance_spec
         self._model_spec: str = (
             model_spec or settings.model_compliance_spec or
-            f"ollama://{settings.model_compliance}"
+            f"omlX://{settings.model_compliance}"
         )
 
     def _get_adapter(self):
@@ -168,7 +168,7 @@ class PromptAuditor:
             )
             return self._parse_response(raw)
 
-        except (asyncio.TimeoutError, TimeoutError):
+        except TimeoutError:
             # Python 3.10: asyncio.TimeoutError ≠ built-in TimeoutError；同时捕获两者
             logger.warning(
                 "prompt_auditor.timeout after=%.1fs fallback=PASS", self._timeout

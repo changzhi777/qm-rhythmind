@@ -7,6 +7,52 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [Unreleased] — 待外部资源
+
+### ⚠️ S3 审计日志桶配置（TBD — 需要 AWS 账号）
+- `S3JsonlSink` 防篡改审计日志，需要创建 S3 bucket + Object Lock
+- 详见 `docs/RUNBOOK.md` §2.1
+
+### ⚠️ HIPAA/PIPL 法律审查（TBD — 需要法务团队）
+- 健康数据保留期限、数据处理协议、用户同意书、通报流程
+- 详见 `docs/RUNBOOK.md` §7.3
+
+---
+
+## [0.1.9] — 2026-05-12
+
+### Added — Phase 1/2/3/4 Implementation Sprint
+
+**Phase 1: Production Hardening (continued)**
+- InfluxDB `delete_user_data()` for GDPR/PIPL (R-3 closure via `privacy_delete`)
+- QMD `purge_user()` for user data deletion
+- `docs/RUNBOOK.md` §2.1 PITR 恢复演练 + §10 密钥轮换流程
+
+**Phase 2: Test Coverage**
+- `tests/unit/test_loop_guard.py` — 8 scenarios (cooling/reset/redis-fail-open/ttl)
+- `tests/unit/test_rate_limit.py` — 6 scenarios (under/over/fail-open/first-call)
+- `tests/unit/test_influx_client.py` — 9 scenarios (write/query/delete/trend)
+- `tests/unit/test_agent_pool.py` — 9 scenarios (acquire/lru/evict/invalidate/stats)
+- `tests/unit/test_audit_sinks.py` — 12 scenarios (record/sink/buffer/rollback)
+- `tests/integration/test_admin_skill_approval.py` — 5 new tests (idempotent/pagination/reject-no-qmd)
+- `tests/integration/test_privacy_endpoints.py` — 4 new tests (report-structure/stores-clean)
+
+**Phase 3: Streaming + Wearable**
+- `WS /api/v1/health/upload/stream/ws` — WebSocket streaming endpoint (JWT query param, SSE-to-WS protocol translation)
+- `POST /api/v1/health/ingest` — CSV wearable data ingestion endpoint (Apple Health / Google Health / Fitbit export)
+- `docs/DASHBOARD_UI_ARCHITECTURE.md` — React/Vite + Zustand + Recharts design doc
+- `docs/WEARABLE_DEVICE_RESEARCH.md` — HealthKit/Health Connect/Fitbit analysis + P0 CSV recommendation
+
+**Phase 4: Observability + Security**
+- `rhythmind_loop_guard_calls_total` Prometheus Counter (labels: intent, result=allowed/throttled/error)
+- `tests/unit/test_observability.py` — 12 test scenarios for metrics/middleware/noop降级
+- `.pre-commit-config.yaml` — detect-secrets + forbid-unsafe-test-files + forbid-debug-print hooks
+
+**Config**
+- `settings.agent_pool_max_users` / `agent_pool_ttl` now explicit in config.py
+
+---
+
 ## [Unreleased]
 
 ### Added — Skill approval workflow (2026-05-10, R-4 closure)

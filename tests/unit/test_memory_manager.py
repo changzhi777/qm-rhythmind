@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from rhythmind.core.memory import MemoryManager, MemoryType
+from rhythmind.core.memory import MemoryManager
 
 
 class TestMemoryManager:

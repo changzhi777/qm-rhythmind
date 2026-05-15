@@ -1,84 +1,73 @@
-[tool.poetry]
+# ─────────────────────────────────────────────────────────────────────────────
+# RHYTHMIND 律动 — Multi-agent AI Health Platform
+# 作者：外星动物（常智）/ IoTchange  |  邮箱：14455975@qq.com
+# 版权所有 (C) 2024-2025 外星动物（常智）/ IoTchange
+# 许可：CC BY-NC 4.0  |  商业授权：14455975@qq.com
+# ─────────────────────────────────────────────────────────────────────────────
+
+[project]
 name = "qm-rhythmind"
-version = "0.1.7"
+version = "0.1.9"
 description = "律动 RHYTHMIND — Multi-agent AI Health Platform (AG2 + Hermes)"
-authors = ["Qingmu Life Tech <dev@qingmu.ai>"]
 readme = "README.md"
-packages = [{ include = "rhythmind", from = "src" }]
+requires-python = ">=3.12"
+authors = [{ name = "Qingmu Life Tech", email = "dev@qingmu.ai" }]
+license = { text = "CC BY-NC 4.0" }
 
-[tool.poetry.dependencies]
-python = "^3.12"
+dependencies = [
+    "autogen-agentchat>=0.4,<0.5",
+    "autogen-ext>=0.4,<0.5",
+    "litellm>=1.40,<2.0",
+    "pydantic>=2.7,<3.0",
+    "pydantic-settings>=2.3,<3.0",
+    "fastapi>=0.115,<0.116",
+    "uvicorn[standard]>=0.30,<0.31",
+    "sse-starlette>=2.1,<3.0",
+    "mcp>=1.0",
+    "httpx>=0.27,<0.28",
+    "sqlalchemy[asyncio]>=2.0,<3.0",
+    "aiosqlite>=0.20,<0.21",
+    "asyncpg>=0.29,<0.30",
+    "alembic>=1.13,<2.0",
+    "redis[asyncio]>=5.0,<6.0",
+    "influxdb-client[async]>=1.44,<1.45",
+    "pandas>=2.2,<3.0",
+    "numpy>=1.26,<2.0",
+    "pillow>=11.0,<12.0",
+    "aiofiles>=23.2,<24.0",
+    "python-multipart>=0.0.9,<0.1",
+    "python-jose[cryptography]>=3.3,<3.4",
+    "passlib[bcrypt]>=1.7,<1.8",
+    "structlog>=24.1,<25.0",
+    "opentelemetry-sdk>=1.27,<2.0",
+    "opentelemetry-instrumentation-fastapi>=0.48b0",
+    "sentry-sdk[fastapi]>=2.5,<2.6",
+    "reportlab>=4.2,<5.0",
+]
 
-# ── Multi-agent orchestration ──────────────────────────────────────────────
-autogen-agentchat = "^0.4"
-autogen-ext = { version = "^0.4", extras = ["openai"] }
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=5.0",
+    "pytest-httpx>=0.30",
+    "ruff>=0.4",
+    "mypy>=1.10",
+    "pre-commit>=3.7",
+    "factory-boy>=3.3",
+]
+cv = [
+    "paddlepaddle",
+    "paddleocr",
+    "mediapipe",
+    "opencv-python-headless",
+]
 
-# ── LLM gateway ───────────────────────────────────────────────────────────
-litellm = "^1.40"
+[project.urls]
+Homepage = "https://github.com/qingmu-ai/qm-rhythmind"
 
-# ── Data validation & settings ────────────────────────────────────────────
-pydantic = "^2.7"
-pydantic-settings = "^2.3"
-
-# ── Web framework ─────────────────────────────────────────────────────────
-fastapi = "^0.115"
-uvicorn = { version = "^0.30", extras = ["standard"] }
-sse-starlette = "^2.1"
-
-# ── MCP Server ────────────────────────────────────────────────────────────
-mcp = ">=1.0"
-
-# ── HTTP client (async) ───────────────────────────────────────────────────
-httpx = "^0.27"
-
-# ── Database ──────────────────────────────────────────────────────────────
-sqlalchemy = { version = "^2.0", extras = ["asyncio"] }
-aiosqlite = "^0.20"           # dev SQLite driver
-asyncpg = "^0.29"             # prod PostgreSQL driver
-alembic = "^1.13"
-
-# ── Cache / message queue ─────────────────────────────────────────────────
-redis = { version = "^5.0", extras = ["asyncio"] }
-
-# ── Time-series (wearable streaming) ──────────────────────────────────────
-influxdb-client = { version = "^1.44", extras = ["async"] }
-
-# ── Data processing ───────────────────────────────────────────────────────
-pandas = "^2.2"
-numpy = "^1.26"
-
-# ── File handling ─────────────────────────────────────────────────────────
-# Pillow 11.0 (2024-10) 是 AutoGen 0.4.x 强制依赖；保持 ^11 即可
-pillow = "^11.0"
-aiofiles = "^23.2"
-python-multipart = "^0.0.9"   # FastAPI form/file upload
-
-# ── Auth ──────────────────────────────────────────────────────────────────
-python-jose = { version = "^3.3", extras = ["cryptography"] }
-passlib = { version = "^1.7", extras = ["bcrypt"] }
-
-# ── Observability ─────────────────────────────────────────────────────────
-structlog = "^24.1"
-# AutoGen 0.4.x 强制 opentelemetry-api >=1.27；这里跟着升
-opentelemetry-sdk = "^1.27"
-opentelemetry-instrumentation-fastapi = ">=0.48b0"
-sentry-sdk = { version = "^2.5", extras = ["fastapi"] }
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.2"
-pytest-asyncio = "^0.23"
-pytest-cov = "^5.0"
-pytest-httpx = "^0.30"        # mock httpx for QMDClient tests
-ruff = "^0.4"
-mypy = "^1.10"
-pre-commit = "^3.7"
-factory-boy = "^3.3"          # test fixtures
-
-# ── CV 依赖（已从 Poetry 移出）─────────────────────────────────────────────
-# paddlepaddle / paddleocr / mediapipe / opencv-python-headless 锁死了 protobuf 3.x，
-# 与 autogen 0.4.x 要求的 protobuf 4/5.x 不兼容；Poetry lock 即使 optional 组也仍会解析，
-# 因此把它们整体移到独立 requirements 文件 `requirements-cv.txt`，
-# 在 Apple Silicon 上需要 OCR / 姿态识别功能时手动 `pip install -r requirements-cv.txt`。
+[project.scripts]
+rhythmind = "rhythmind.api.main:app"
 
 # ── Tool config ────────────────────────────────────────────────────────────
 [tool.ruff]
@@ -105,3 +94,8 @@ plugins = ["pydantic.mypy"]
 [tool.coverage.run]
 source = ["src/rhythmind"]
 omit = ["*/migrations/*", "*/tests/*"]
+
+[dependency-groups]
+dev = [
+    "fakeredis>=2.35.1",
+]

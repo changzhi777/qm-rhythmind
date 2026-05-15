@@ -24,10 +24,9 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from rhythmind.agents.coach_agent import CoachAgent, GOAL_FOCUS_MAP
+from rhythmind.agents.coach_agent import GOAL_FOCUS_MAP, CoachAgent
 from rhythmind.core.hermes_base import AgentContext, ComplianceBlockedError
 from rhythmind.core.memory.types import MemoryEntry, MemoryRecallResult, MemoryType
-
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 

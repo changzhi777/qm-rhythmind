@@ -14,11 +14,11 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import time
 import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from datetime import UTC
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -160,8 +160,8 @@ class S3JsonlSink(AuditSink):
         if not self._buffer or self._client is None:
             return
         records, self._buffer = self._buffer, []
-        from datetime import datetime, timezone
-        day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        from datetime import datetime
+        day = datetime.now(UTC).strftime("%Y-%m-%d")
         key = f"{self.prefix}{day}/{int(time.time()*1000)}-{uuid.uuid4().hex[:8]}.jsonl"
         body = "\n".join(json.dumps(r.to_dict(), ensure_ascii=False, default=str)
                          for r in records).encode("utf-8")

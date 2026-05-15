@@ -22,7 +22,7 @@ upsert 策略：
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import NullPool, delete, select, update
@@ -45,7 +45,7 @@ def _build_engine() -> Any:
 
     kwargs: dict[str, Any] = {
         "echo": settings.debug,
-        "pool_pre_ping": not is_sqlite,  # SQLite 不支持 pool_pre_ping
+        "pool_pre_ping": settings.pg_pool_pre_ping if not is_sqlite else False,
     }
     if is_sqlite:
         # 单元测试：NullPool，每次测试独立连接，无跨 test 共享
@@ -136,7 +136,7 @@ class MemoryManager:
                     AgentMemory.agent == self.agent,
                     AgentMemory.deleted_at.is_(None),
                     (AgentMemory.expires_at.is_(None))
-                    | (AgentMemory.expires_at > datetime.now(tz=timezone.utc)),
+                    | (AgentMemory.expires_at > datetime.now(tz=UTC)),
                 )
                 .order_by(AgentMemory.updated_at.desc())
                 .limit(limit)
@@ -172,7 +172,7 @@ class MemoryManager:
             mem_type = MemoryType(mem_type)
 
         namespace = f"{self._prefix}.{self._safe(key)}"
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         expires_at: datetime | None = (
             now + timedelta(hours=ttl_hours) if ttl_hours else None
         )
@@ -206,9 +206,8 @@ class MemoryManager:
             },
         )
 
-        async with AsyncSessionLocal() as session:
-            async with session.begin():
-                await session.execute(stmt)
+        async with AsyncSessionLocal() as session, session.begin():
+            await session.execute(stmt)
 
         logger.debug("memory.write ns=%s key=%s type=%s", namespace, key, mem_type)
 
@@ -220,16 +219,15 @@ class MemoryManager:
     async def delete(self, key: str) -> None:
         """软删除（设置 deleted_at）。"""
         namespace = f"{self._prefix}.{self._safe(key)}"
-        async with AsyncSessionLocal() as session:
-            async with session.begin():
-                await session.execute(
-                    update(AgentMemory)
-                    .where(
-                        AgentMemory.namespace == namespace,
-                        AgentMemory.key == key,
-                    )
-                    .values(deleted_at=datetime.now(tz=timezone.utc))
+        async with AsyncSessionLocal() as session, session.begin():
+            await session.execute(
+                update(AgentMemory)
+                .where(
+                    AgentMemory.namespace == namespace,
+                    AgentMemory.key == key,
                 )
+                .values(deleted_at=datetime.now(tz=UTC))
+            )
 
     async def purge_expired(self) -> int:
         """
@@ -238,13 +236,12 @@ class MemoryManager:
         Returns:
             删除的行数。
         """
-        async with AsyncSessionLocal() as session:
-            async with session.begin():
-                result = await session.execute(
-                    delete(AgentMemory).where(
-                        AgentMemory.expires_at < datetime.now(tz=timezone.utc)
-                    )
+        async with AsyncSessionLocal() as session, session.begin():
+            result = await session.execute(
+                delete(AgentMemory).where(
+                    AgentMemory.expires_at < datetime.now(tz=UTC)
                 )
+            )
         count: int = result.rowcount  # type: ignore[assignment]
         logger.info("memory.purge_expired deleted=%d", count)
         return count

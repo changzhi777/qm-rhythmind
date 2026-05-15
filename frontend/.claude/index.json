@@ -1,0 +1,96 @@
+{
+  "project": "frontend",
+  "version": "0.1.9",
+  "lastScan": "2026-05-15T14:22:35+08:00",
+  "language": "TypeScript",
+  "framework": "Next.js 16 (App Router)",
+  "modules": [
+    {
+      "path": "src/app/dashboard",
+      "responsibility": "仪表盘页面",
+      "entry": "page.tsx",
+      "interfaces": ["KpiCard", "LineChart"],
+      "test": null
+    },
+    {
+      "path": "src/app/bigscreen",
+      "responsibility": "数据大屏页面",
+      "entry": "page.tsx",
+      "interfaces": ["KpiCard (6列)", "LineChart (年度跑量)"],
+      "test": null
+    },
+    {
+      "path": "src/app/report",
+      "responsibility": "AI 健康报告页面",
+      "entry": "page.tsx",
+      "interfaces": ["Markdown 渲染", "报告列表"],
+      "test": null
+    },
+    {
+      "path": "src/app/api",
+      "responsibility": "API 路由代理",
+      "entry": null,
+      "interfaces": null,
+      "test": null
+    },
+    {
+      "path": "src/components/charts",
+      "responsibility": "ECharts 图表封装",
+      "entry": "line-chart.tsx",
+      "interfaces": ["LineChart"],
+      "test": null
+    },
+    {
+      "path": "src/components/ui",
+      "responsibility": "UI 组件",
+      "entry": "toast.tsx",
+      "interfaces": ["Toast"],
+      "test": null
+    },
+    {
+      "path": "src/components/dashboard",
+      "responsibility": "仪表盘组件",
+      "entry": "kpi-card.tsx",
+      "interfaces": ["KpiCard"],
+      "test": null
+    },
+    {
+      "path": "src/lib/stores",
+      "responsibility": "Zustand 状态管理",
+      "entry": "health-store.ts, report-store.ts",
+      "interfaces": ["HealthState", "ReportState"],
+      "test": null
+    },
+    {
+      "path": "src/lib/hooks",
+      "responsibility": "React Hooks",
+      "entry": "use-error-toast.ts",
+      "interfaces": ["useToastStore", "useErrorToast"],
+      "test": null
+    },
+    {
+      "path": "src/lib/api",
+      "responsibility": "API 调用封装",
+      "entry": "api.ts",
+      "interfaces": ["api", "fetchWithAuth"],
+      "test": null
+    }
+  ],
+  "coverage": {
+    "estimatedTotal": 25,
+    "scanned": 18,
+    "percentage": 72,
+    "truncated": false
+  },
+  "ignoreStats": {
+    "topDirs": ["node_modules", ".next", "build"],
+    "reasons": ["标准 Next.js 忽略规则"]
+  },
+  "gaps": [
+    "src/components/dashboard/ — 仅扫描 kpi-card.tsx",
+    "src/app/api/ — API route 文件实际路径未确认",
+    "tests/ — 未发现测试目录"
+  ],
+  "claudeMdGenerated": 3,
+  "breadcrumbs": ["src/lib/stores", "src/components/charts"]
+}

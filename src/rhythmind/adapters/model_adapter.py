@@ -10,7 +10,7 @@ adapters/model_adapter.py — ModelAdapter 抽象基类
 
 所有 LLM 后端适配器的统一接口：
   MLXAdapter     — Apple Silicon 本地推理（mlx-lm 直接 API）
-  OllamaAdapter  — Ollama HTTP 服务（本地合规审查 / 小模型）
+  OMLXAdapter   — oMLX 本地模型服务（本地合规审查 / 小模型）
   LiteLLMAdapter — LiteLLM proxy（远端 API：OpenAI / Anthropic / DeepSeek 等）
 
 调用方（HermesBase.call_llm / PromptAuditor）只依赖本接口，
@@ -19,7 +19,8 @@ adapters/model_adapter.py — ModelAdapter 抽象基类
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 
 
 class ModelAdapter(ABC):

@@ -36,8 +36,9 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass
-from typing import Any, AsyncGenerator
+from typing import Any
 
 from rhythmind.agents.coach_agent import CoachAgent
 from rhythmind.agents.data_agent import DataAgent
@@ -353,11 +354,14 @@ async def run_ag2_swarm(
 
         from autogen_agentchat.agents import AssistantAgent
         from autogen_agentchat.base import TaskResult
-        from autogen_agentchat.conditions import MaxMessageTermination, TextMentionTermination
+        from autogen_agentchat.conditions import (
+            MaxMessageTermination,
+            TextMentionTermination,
+        )
         from autogen_agentchat.messages import HandoffMessage
         from autogen_agentchat.teams import Swarm
-        from autogen_ext.models.openai import OpenAIChatCompletionClient
         from autogen_core.tools import FunctionTool
+        from autogen_ext.models.openai import OpenAIChatCompletionClient
 
         from rhythmind.config import settings
 
@@ -527,7 +531,7 @@ async def run_ag2_swarm(
 
 def _empty_run_result(user_id: str, session_id: str, agent: str) -> HermesRunResult:
     """构造一个空的失败结果（避免 None 值）。"""
-    from rhythmind.core.compliance.gate import ComplianceResult, ComplianceLevel
+    from rhythmind.core.compliance.gate import ComplianceLevel, ComplianceResult
     return HermesRunResult(
         compliance=ComplianceResult(
             level=ComplianceLevel.BLOCK,

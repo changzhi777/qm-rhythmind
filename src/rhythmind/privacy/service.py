@@ -31,16 +31,17 @@ privacy/service.py — 用户数据导出 / 删除
 """
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass, field
+from datetime import UTC
 from typing import Any
 
 import structlog
 from sqlalchemy import delete, select
 
-from rhythmind.config import settings
 import rhythmind.core.memory.manager as _mem_mgr  # 通过模块引用，
-                                                   # 兼容 conftest.reset_db 的运行时替换
+from rhythmind.config import settings
+
+# 兼容 conftest.reset_db 的运行时替换
 from rhythmind.core.memory.models import AgentMemory, HealthFact
 
 log = structlog.get_logger(__name__)
@@ -133,11 +134,11 @@ class PrivacyService:
 
     async def export_user_data(self, user_id: str) -> UserDataExport:
         """收集所有 user_id 标记的数据返回 JSON 友好结构。"""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         bundle = UserDataExport(
             user_id=user_id,
-            exported_at=datetime.now(timezone.utc).isoformat(),
+            exported_at=datetime.now(UTC).isoformat(),
         )
 
         # 1) agent_memory
@@ -198,7 +199,7 @@ class PrivacyService:
         """
         不可逆删除。confirm_token 必须等于 user_id 才执行（防误删）。
         """
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         if confirm_token != user_id:
             raise ValueError(
@@ -207,7 +208,7 @@ class PrivacyService:
 
         report = DeletionReport(
             user_id=user_id,
-            deleted_at=datetime.now(timezone.utc).isoformat(),
+            deleted_at=datetime.now(UTC).isoformat(),
         )
 
         # 1) PG: agent_memory
@@ -286,12 +287,18 @@ class PrivacyService:
         if self._influx is None:
             from rhythmind.adapters.influx_client import InfluxClient
             self._influx = InfluxClient()
-        # 复用 query_range：拉所有指标列再 count（小用户量足够；大用户改 Flux count() agg）
+        # 取所有允许字段中最近 30d 的 last 值（count 逻辑复用）
+        all_fields = list({"heart_rate_avg", "heart_rate_max", "steps", "distance_km",
+                            "calories", "sleep_hours", "hrv", "body_fat_pct",
+                            "muscle_mass_kg", "water_pct", "visceral_fat"})
         try:
             data = await self._influx.query_range(
-                user_id=user_id, metric="*", start="0", stop="now()"
+                user_id=user_id,
+                fields=all_fields,
+                start="-30d",
+                stop="now()",
             )
-            return sum(len(series) for series in (data or {}).values())
+            return sum(len(series.values) for series in (data or {}).values())
         except Exception:
             return 0
 
@@ -302,13 +309,12 @@ class PrivacyService:
         if self._influx is None:
             from rhythmind.adapters.influx_client import InfluxClient
             self._influx = InfluxClient()
-        if not hasattr(self._influx, "delete_user_data"):
-            # adapter 还未实现该方法，降级为不可达 → raise，让上层记录 failure
-            raise NotImplementedError(
-                "InfluxClient.delete_user_data() not implemented; manual cleanup required"
-            )
-        await self._influx.delete_user_data(user_id)
-        return True
+        try:
+            await self._influx.delete_user_data(user_id)
+            return True
+        except NotImplementedError:
+            # adapter 未实现该方法，降级为不可达 → skip
+            return False
 
     async def _purge_qmd_namespaces(self, user_id: str) -> None:
         if self._qmd is None:

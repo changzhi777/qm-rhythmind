@@ -25,11 +25,10 @@ import json
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, Float, Index, Integer, String, Text, func
+from sqlalchemy import BigInteger, DateTime, Float, Index, Integer, String, Text, JSON, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy.types import TypeDecorator, TEXT
-
+from sqlalchemy.types import TEXT, TypeDecorator
 
 # ── 方言感知 JSON 列类型 ──────────────────────────────────────────────────
 
@@ -297,3 +296,70 @@ class HealthFact(Base):
             f"({self.subject}, {self.predicate}) "
             f"status={status}>"
         )
+
+
+class AuditLog(Base):
+    """
+    运营审计日志表（PG 持久化，配合 migration 004）。
+
+    存储所有 audit_log() 调用记录，用于：
+      - 合规审计追溯（R-3 防篡改要求）
+      - 安全事件调查（登录异常、权限变更）
+      - 操作审计（skill approve/reject、privacy delete 等）
+
+    注意：只存元数据，不存 PII（user_id + event + fields）。
+    """
+    __tablename__ = "audit_log"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    record_id: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    event: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    user_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    fields: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        index=True,
+    )
+
+    __table_args__ = (
+        Index("ix_audit_user_created", "user_id", "created_at"),
+        Index("ix_audit_event_created", "event", "created_at"),
+    )
+
+
+class UserSession(Base):
+    """
+    用户会话表（PG 备份，配合 migration 004）。
+
+    用于：
+      - 审计追溯（谁在什么时候做了什么）
+      - 用户行为分析（intents_used 聚合）
+      - 会话时长统计（duration_ms）
+
+    与 Redis SessionCache 成主备关系：
+      - Redis：实时热数据（TTL 30min）
+      - PG：持久化冷数据（长期分析用）
+    """
+    __tablename__ = "user_session"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    user_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    user_agent: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    intents_used: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    outcome: Mapped[str] = mapped_column(String(32), nullable=False, default="success")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        index=True,
+    )
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    duration_ms: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+
+    __table_args__ = (
+        Index("ix_session_user_created", "user_id", "created_at"),
+    )
