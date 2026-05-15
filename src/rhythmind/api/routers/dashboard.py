@@ -26,7 +26,7 @@ from rhythmind.core.memory.models import HealthFact
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="", tags=["dashboard"])
+router = APIRouter(prefix="/qm", tags=["dashboard"])
 
 
 def _fm(user_id: str) -> FactManager:
