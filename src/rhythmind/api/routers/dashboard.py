@@ -22,7 +22,6 @@ from fastapi.responses import Response
 
 from rhythmind.api.deps import CurrentUserId
 from rhythmind.core.memory.fact_manager import FactManager
-from rhythmind.core.memory.models import HealthFact
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +98,7 @@ async def download_report_pdf(
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import mm
-    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+    from reportlab.platypus import Paragraph, Spacer
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
 
@@ -149,7 +148,6 @@ async def download_report_pdf(
 
     # 构建 PDF - 使用 BaseDocTemplate + PageTemplate 控制页面
     from reportlab.platypus import BaseDocTemplate, Frame, PageTemplate
-    from reportlab.platypus.flowables import Image
     from reportlab.lib.units import mm
 
     buffer = io.BytesIO()
@@ -517,8 +515,6 @@ async def download_test_report(report_id: str, filename: str, user_id: CurrentUs
 import base64
 import csv
 import io as _io
-import shutil
-import tempfile
 
 from fastapi import File, UploadFile
 

@@ -68,10 +68,10 @@ async def test_readyz_with_upstream_check_returns_503_when_both_fail(
     body = resp.json()
     checks = body["checks"]
     assert "litellm" in checks
-    assert "ollama" in checks
+    assert "omlX" in checks
     # Both should be failures (we have no servers running in the test env)
     assert checks["litellm"].startswith("fail")
-    assert checks["ollama"].startswith("fail")
+    assert checks["omlX"].startswith("fail")
     assert resp.status_code == 503
     assert body["status"] == "not_ready"
 
@@ -81,14 +81,14 @@ async def test_readyz_with_only_one_upstream_failing_still_ready(
     app_client, patched_redis, monkeypatch, httpx_mock,
 ):
     """
-    If only one of LiteLLM / Ollama is reachable, readyz stays ready
+    If only one of LiteLLM / oMLX is reachable, readyz stays ready
     (the adapter router can still route). Only when BOTH fail do we 503.
     """
     from rhythmind.config import settings
     monkeypatch.setattr(settings, "readyz_check_llm_upstream", True)
     monkeypatch.setattr(settings, "readyz_llm_timeout", 0.5)
 
-    # LiteLLM responds OK; Ollama responds 500 → adapter sees failure
+    # LiteLLM responds OK; oMLX responds 500 → adapter sees failure
     httpx_mock.add_response(
         url=f"{settings.litellm_url}/health",
         method="GET",
@@ -96,7 +96,7 @@ async def test_readyz_with_only_one_upstream_failing_still_ready(
         json={"status": "ok"},
     )
     httpx_mock.add_response(
-        url=f"{settings.ollama_base_url}/api/tags",
+        url=f"{settings.omlX_base_url.rstrip('/')}/v1/models",
         method="GET",
         status_code=500,
     )
@@ -105,6 +105,6 @@ async def test_readyz_with_only_one_upstream_failing_still_ready(
     body = resp.json()
     checks = body["checks"]
     assert checks["litellm"] == "ok"
-    assert checks["ollama"].startswith("fail")
+    assert checks["omlX"].startswith("fail")
     # 单挂仍 200 — adapter_router 可走 LiteLLM
     assert resp.status_code == 200

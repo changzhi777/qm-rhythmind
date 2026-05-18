@@ -106,7 +106,7 @@ async def report_with_data(patched_redis):
 @pytest.mark.asyncio
 async def test_reports_list_empty(app_client, auth_headers):
     """报告列表为空时返回空数组。"""
-    resp = await app_client.get("/reports", headers=auth_headers)
+    resp = await app_client.get("/qm/api/reports", headers=auth_headers)
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "ok"
@@ -117,7 +117,7 @@ async def test_reports_list_empty(app_client, auth_headers):
 @pytest.mark.asyncio
 async def test_reports_list_with_data(app_client, auth_headers, report_with_data):
     """报告列表有数据时返回报告数组。"""
-    resp = await app_client.get("/reports", headers=auth_headers)
+    resp = await app_client.get("/qm/api/reports", headers=auth_headers)
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "ok"
@@ -128,7 +128,7 @@ async def test_reports_list_with_data(app_client, auth_headers, report_with_data
 @pytest.mark.asyncio
 async def test_report_detail_not_found(app_client, auth_headers):
     """报告不存在时返回 404。"""
-    resp = await app_client.get("/reports/99999", headers=auth_headers)
+    resp = await app_client.get("/qm/api/reports/99999", headers=auth_headers)
     assert resp.status_code == 404
     assert resp.json()["detail"] == "报告不存在"
 
@@ -136,7 +136,7 @@ async def test_report_detail_not_found(app_client, auth_headers):
 @pytest.mark.asyncio
 async def test_report_detail_success(app_client, auth_headers, report_with_data):
     """报告详情成功返回。"""
-    resp = await app_client.get(f"/reports/{report_with_data}", headers=auth_headers)
+    resp = await app_client.get(f"/qm/api/reports/{report_with_data}", headers=auth_headers)
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "ok"
@@ -149,7 +149,7 @@ async def test_report_detail_success(app_client, auth_headers, report_with_data)
 @pytest.mark.asyncio
 async def test_report_download_not_found(app_client, auth_headers):
     """下载不存在的报告返回 404。"""
-    resp = await app_client.get("/reports/99999/download", headers=auth_headers)
+    resp = await app_client.get("/qm/api/reports/99999/download", headers=auth_headers)
     assert resp.status_code == 404
     assert resp.json()["detail"] == "报告不存在"
 
@@ -157,7 +157,7 @@ async def test_report_download_not_found(app_client, auth_headers):
 @pytest.mark.asyncio
 async def test_report_download_success_pdf_format(app_client, auth_headers, report_with_data):
     """下载报告成功返回 PDF 格式。"""
-    resp = await app_client.get(f"/reports/{report_with_data}/download", headers=auth_headers)
+    resp = await app_client.get(f"/qm/api/reports/{report_with_data}/download", headers=auth_headers)
     assert resp.status_code == 200
     assert resp.headers["content-type"] == "application/pdf"
     assert "attachment" in resp.headers["content-disposition"]
@@ -167,7 +167,7 @@ async def test_report_download_success_pdf_format(app_client, auth_headers, repo
 @pytest.mark.asyncio
 async def test_report_download_filename_format(app_client, auth_headers, report_with_data):
     """下载文件名格式为：用户ID_年月日时分秒.pdf"""
-    resp = await app_client.get(f"/reports/{report_with_data}/download", headers=auth_headers)
+    resp = await app_client.get(f"/qm/api/reports/{report_with_data}/download", headers=auth_headers)
     assert resp.status_code == 200
     content_disp = resp.headers["content-disposition"]
     # 文件名格式：test_user_001_20260515xxxxxx.pdf
@@ -178,7 +178,7 @@ async def test_report_download_filename_format(app_client, auth_headers, report_
 @pytest.mark.asyncio
 async def test_dashboard_empty(app_client, auth_headers):
     """仪表盘无数据时返回空 data。"""
-    resp = await app_client.get("/dashboard", headers=auth_headers)
+    resp = await app_client.get("/qm/api/dashboard", headers=auth_headers)
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "ok"
@@ -189,7 +189,7 @@ async def test_dashboard_empty(app_client, auth_headers):
 @pytest.mark.asyncio
 async def test_unauthorized_access(app_client):
     """无认证时返回 401。"""
-    resp = await app_client.get("/reports")
+    resp = await app_client.get("/qm/api/reports")
     assert resp.status_code in (401, 403)
 
 
