@@ -1,7 +1,9 @@
+[根目录](../../../../CLAUDE.md) > [qm-rhythmind](../) > **frontend**
+
 # CLAUDE.md — RHYTHMIND 律动前端
 
 > **项目版本:** 0.1.9
-> **最后扫描:** 2026-05-15T14:22:35+08:00
+> **最后扫描:** 2026-05-18T12:22:25+08:00
 > **语言:** TypeScript
 > **框架:** Next.js 16 (App Router) + React 19
 > **包管理:** npm
@@ -10,6 +12,8 @@
 
 ## 变更记录 (Changelog)
 
+- **2026-05-18** 增量更新：新增测试模块、共享布局组件、工具函数、e2e 报告规范；重构 LineChart（面积图+空数据修复）；报告生成规范（MD+HTML内联SVG→A4 PDF）
+- **2026-05-18** 增量更新：新增 leaflet/recharts 依赖、静态导出部署方案、API 前缀 `/qm/api`
 - **2026-05-15** 首次 AI 上下文初始化，生成模块结构图与导航面包屑
 
 ---
@@ -24,41 +28,7 @@ RHYTHMIND 律动前端是 Next.js 16 多智能体健康管理平台的数据展�
 
 ### 项目结构图
 
-```mermaid
-graph TD
-    ROOT["(根) frontend"] --> APP["src/app/"]
-    APP --> PAGE["页面路由"]
-    PAGE --> HOME["page.tsx<br/>(重定向 /dashboard)"]
-    PAGE --> DASH["dashboard/<br/>仪表盘"]
-    PAGE --> BIGS["bigscreen/<br/>数据大屏"]
-    PAGE --> REPORT["report/<br/>AI 健康报告"]
-    APP --> API["src/app/api/"]
-    API --> HEALTH_API["health/dashboard/"]
-    API --> REPORT_API["report/"]
-    API --> ANALYZE_API["analyze/"]
-
-    ROOT --> COMPONENTS["src/components/"]
-    COMPONENTS --> UI["ui/toast.tsx"]
-    COMPONENTS --> DASH_CMP["dashboard/<br/>kpi-card.tsx"]
-    COMPONENTS --> CHARTS["charts/<br/>line-chart.tsx"]
-
-    ROOT --> LIB["src/lib/"]
-    LIB --> STORES["stores/"]
-    STORES --> HEALTH_STORE["health-store.ts"]
-    STORES --> REPORT_STORE["report-store.ts"]
-    LIB --> HOOKS["hooks/"]
-    HOOKS --> ERROR_TOAST["use-error-toast.ts"]
-    LIB --> API_LIB["api.ts"]
-
-    ROOT --> TYPES["src/types/"]
-    TYPES --> HEALTH_TYPES["health.ts"]
-
-    click DASH "./src/app/dashboard/CLAUDE.md" "查看 dashboard 模块"
-    click BIGS "./src/app/bigscreen/CLAUDE.md" "查看 bigscreen 模块"
-    click REPORT "./src/app/report/CLAUDE.md" "查看 report 模块"
-    click HEALTH_STORE "./src/lib/stores/CLAUDE.md" "查看 stores 模块"
-    click CHARTS "./src/components/charts/CLAUDE.md" "查看 charts 模块"
-```
+![前端架构图](./docs/architecture.svg)
 
 ---
 
@@ -66,16 +36,20 @@ graph TD
 
 | 模块路径 | 职责 | 入口文件 | 关键文件 |
 |---------|------|---------|---------|
-| `app/dashboard` | 仪表盘页面 | `page.tsx` | KPI 卡片、折线图 |
-| `app/bigscreen` | 数据大屏页面 | `page.tsx` | 6 KPI 网格、年度跑量图 |
-| `app/report` | AI 健康报告 | `page.tsx` | Markdown 渲染、报告列表 |
-| `app/api` | API 代理 | `health/dashboard/route.ts` 等 | 转发到后端 localhost:8888 |
-| `components/charts` | 图表组件 | `line-chart.tsx` | ECharts 折线图 |
+| `app/dashboard` | 仪表盘页面 | `page.tsx` | KPI 卡片、年度跑量图表、跑步/睡眠面板 |
+| `app/bigscreen` | 数据大屏页面 | `page.tsx` | 6 KPI 网格、年度跑量图、训练状态面板 |
+| `app/report` | AI 健康报告 | `page.tsx` | Markdown 渲染、报告列表、PDF 下载 |
+| `components/layout` | 共享布局 | `header.tsx` | 统一 Header（导航栏+品牌标识+日期） |
+| `components/charts` | 图表组件 | `line-chart.tsx` | ECharts 折线图（面积渐变+空数据兜底） |
+| `components/dashboard` | 数据组件 | `kpi-card.tsx` | KPI 状态卡片 |
 | `components/ui` | UI 组件 | `toast.tsx` | 全局错误提示 |
-| `lib/stores` | Zustand 状态 | `health-store.ts`, `report-store.ts` | 健康数据/报告状态 |
+| `lib/stores` | Zustand 状态 | `health-store.ts`, `report-store.ts` | 健康数据/报告状态（含下载状态） |
 | `lib/hooks` | Hook 工具 | `use-error-toast.ts` | 错误提示 Hook |
-| `lib/api` | API 调用层 | `api.ts` | fetchWithAuth 封装 |
+| `lib/api` | API 调用层 | `api.ts` | fetchWithAuth 封装（Bearer token） |
+| `lib/utils` | 共享工具 | `utils.ts` | `v()` 空安全显示、`formatPace()` 配速格式化 |
 | `types` | TypeScript 类型 | `health.ts` | HealthData, Report 等 |
+| `tests` | E2E 测试 | `e2e_test.py` | 10 轮全链路测试 + MD/HTML/PDF 报告 |
+| `docs/e2e` | 测试报告 | — | e2e-report.md / .html / .pdf / .svg |
 
 ---
 
@@ -83,13 +57,17 @@ graph TD
 
 | 技术 | 版本 | 用途 |
 |------|------|------|
-| Next.js | 16.2.6 | App Router 框架 |
+| Next.js | 16.2.6 | App Router 框架（静态导出模式） |
 | React | 19.2.4 | UI 库 |
 | TypeScript | 5.x | 类型系统 |
 | Zustand | 5.0.13 | 状态管理 |
-| ECharts | 6.0.0 | 图表渲染 |
+| ECharts | 6.0.0 | 图表渲染（面积渐变） |
+| Leaflet | 1.9.4 | 地图渲染（待用） |
+| React-Leaflet | 5.0.0 | React Leaflet 封装 |
+| Recharts | 3.8.1 | 图表渲染（备用） |
 | Tailwind CSS | 4.x | 样式框架 |
-| ESLint | 9.x | 代码检查 |
+| Google Chrome | headless | HTML → A4 PDF 转换 |
+| Python 3 | curl subprocess | E2E 测试引擎 |
 
 ---
 
@@ -102,7 +80,7 @@ npm install
 # 开发模式
 npm run dev
 
-# 构建生产版本
+# 构建生产版本（本地 Mac 执行，不上传服务器构建）
 npm run build
 
 # 代码检查
@@ -113,7 +91,37 @@ npm run lint
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `NEXT_PUBLIC_API_URL` | `http://localhost:8888` | 后端 API 地址 |
+| `NEXT_PUBLIC_API_URL` | `/qm/api` | 后端 API 地址（生产相对路径） |
+
+### 生产部署
+
+- **构建模式**: `output: "export"` 静态导出（不需要 Node.js 运行时）
+- **basePath**: `/qm`（所有资源路径以 `/qm/` 开头）
+- **构建**: 本地 `npm run build` → `tar czf` → `scp` 到服务器
+- **API 前缀**: 后端路由 `/qm/api/`，前端 `API_BASE` 为 `/qm/api`
+- **导航**: 使用 Next.js `Link` 组件自动处理 basePath
+
+---
+
+## 测试
+
+### E2E 测试
+
+```bash
+# 运行 10 轮全链路测试，生成 MD + HTML + PDF 报告
+python3 tests/e2e_test.py
+```
+
+**测试覆盖：**
+- 页面加载（仪表盘、大屏、报告、首页、静态资源）× 10 轮
+- API 端点（Dashboard、Reports）× 10 轮
+- 数据完整性（7 项数据断言：profile、training、running、sleep）× 10 轮
+
+**报告规范：**
+- `e2e-report.md` — Markdown 文本报告
+- `e2e-report.html` — 深色主题 HTML（SVG 图表内联嵌入）
+- `e2e-report.pdf` — A4 规格，Chrome headless 从 HTML 转换
+- `e2e-charts.svg` — 响应时间趋势图（含通过率甜甜圈图）
 
 ---
 
@@ -134,12 +142,6 @@ npm run lint
 --error: #FF4757;
 ```
 
-### 组件样式
-
-- **扁平卡片**: `.card` 类，无阴影纯边框
-- **KPI 卡片**: `.kpi-card` 类，左侧状态色条
-- **按钮**: `.btn-primary` 类，青绿色填充
-
 ---
 
 ## 数据流
@@ -149,12 +151,24 @@ npm run lint
    ↓
 Zustand Store (health-store / report-store)
    ↓
-API 层 (lib/api.ts) → fetchWithAuth
+API 层 (lib/api.ts) → fetchWithAuth (Bearer token)
    ↓
-后端 API (localhost:8888)
+后端 API (aisport.tech/qm/api/)
    ↓
-组件渲染 (ECharts / KPI Card)
+组件渲染 (Header / LineChart / KpiCard / DataCell / MetricRow)
 ```
+
+---
+
+## 关键设计决策
+
+| 决策 | 原因 |
+|------|------|
+| 共享 `Header` 组件 | 消除 3 页面 ~30 行重复代码，统一导航栏 |
+| `v()` 空安全函数 | 替代 `||` 运算符，避免值为 0 时错误显示 `-` |
+| LineChart 始终渲染容器 | 修复异步数据加载后 ECharts 不渲染的 bug |
+| `next/font/local` 替代 `next/font/google` | 消除构建时 Google Fonts 网络依赖 |
+| 报告 MD + HTML(内联SVG) → A4 PDF | reportlab 无法嵌入 SVG，改用浏览器渲染 |
 
 ---
 
@@ -162,51 +176,23 @@ API 层 (lib/api.ts) → fetchWithAuth
 
 | 指标 | 数值 |
 |------|------|
-| 估算总文件数 | ~25 |
-| 已扫描文件数 | 18 |
-| 覆盖百分比 | **72%** |
-| 模块数量 | 10 |
-| 已生成 CLAUDE.md | 1 (根级) |
-| 导航面包屑 | 待生成 |
-
-### 缺口清单
-
-- ⚠️ `src/components/dashboard/` — 仅扫描 kpi-card.tsx
-- ⚠️ API route 文件未找到实际路径（可能不存在或在其他位置）
-- ⚠️ `src/lib/stores/` — 需生成模块级 CLAUDE.md
-- ⚠️ `src/components/charts/` — 需生成模块级 CLAUDE.md
-- ⚠️ `tests/` — 未发现测试目录
+| 源文件数 | 17 |
+| 已扫描文件数 | 17 |
+| 覆盖百分比 | **100%** |
+| 模块数量 | 14 |
+| 已生成 CLAUDE.md | 5 (1 根级 + 4 子模块) |
+| 导航面包屑 | 已添加（根 CLAUDE.md） |
 
 ---
 
-## 推荐下一步
+## 相关文件清单
 
-1. 生成 `src/lib/stores/CLAUDE.md` — 详述 health-store 和 report-store 的接口与状态结构
-2. 生成 `src/components/charts/CLAUDE.md` — 详述 LineChart 组件的 ECharts 配置
-3. 扫描 `src/app/bigscreen/` — 为数据大屏页面生成独立模块文档
-4. 确认 API route 文件实际路径
-5. 如有测试需求，创建 `tests/` 目录及测试文件
-
----
-
-## 数据大屏开发建议
-
-根据当前 `bigscreen/page.tsx` 的结构，建议：
-
-1. **增加更多图表类型** — 当前仅使用 LineChart，可添加：
-   - 环形图（睡眠结构）
-   - 柱状图（周/月跑量对比）
-   - 雷达图（训练指标综合展示）
-
-2. **响应式布局优化** — 当前使用固定 6 列网格，建议：
-   - 大屏全屏自适应
-   - 考虑旋转屏幕支持
-   - 动态 KPI 数量适配
-
-3. **实时数据更新** — 当前 useEffect 仅在挂载时获取一次数据，建议：
-   - 添加 WebSocket 或 SSE 实时推送
-   - 数据显示动画过渡
-
-4. **ECharts 主题定制** — 当前 LineChart 已支持深色模式，可进一步：
-   - 统一所有图表的调色板
-   - 添加图表公共配置（tooltip、legend 等）
+| 文件 | 用途 |
+|------|------|
+| `next.config.ts` | basePath + 静态导出配置 |
+| `src/app/layout.tsx` | 根布局（Inter 本地字体） |
+| `src/app/globals.css` | 全局样式、CSS 变量 |
+| `src/lib/utils.ts` | 共享工具函数 |
+| `src/components/layout/header.tsx` | 统一 Header 组件 |
+| `tests/e2e_test.py` | E2E 测试 + 报告生成脚本 |
+| `docs/e2e/` | 测试报告输出目录 |

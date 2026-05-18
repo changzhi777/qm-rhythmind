@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 440" font-family="system-ui,sans-serif">
+<rect width="800" height="440" fill="#0d1117" rx="8"/>
+<text x="400" y="28" text-anchor="middle" fill="#fff" font-size="16" font-weight="600">RHYTHMIND E2E 响应时间趋势</text>
+<text x="400" y="46" text-anchor="middle" fill="#888" font-size="11">10 轮测试 · 2026-05-18 11:41</text>
+<line x1="80" y1="340.0" x2="760" y2="340.0" stroke="#333" stroke-dasharray="4,4"/>
+<text x="72" y="344.0" text-anchor="end" fill="#888" font-size="10">0</text>
+<line x1="80" y1="270.0" x2="760" y2="270.0" stroke="#333" stroke-dasharray="4,4"/>
+<text x="72" y="274.0" text-anchor="end" fill="#888" font-size="10">575</text>
+<line x1="80" y1="200.0" x2="760" y2="200.0" stroke="#333" stroke-dasharray="4,4"/>
+<text x="72" y="204.0" text-anchor="end" fill="#888" font-size="10">1150</text>
+<line x1="80" y1="130.0" x2="760" y2="130.0" stroke="#333" stroke-dasharray="4,4"/>
+<text x="72" y="134.0" text-anchor="end" fill="#888" font-size="10">1725</text>
+<line x1="80" y1="60.0" x2="760" y2="60.0" stroke="#333" stroke-dasharray="4,4"/>
+<text x="72" y="64.0" text-anchor="end" fill="#888" font-size="10">2300</text>
+<text x="72" y="360" text-anchor="end" fill="#888" font-size="10">ms</text>
+<text x="80.0" y="356" text-anchor="middle" fill="#888" font-size="10">R1</text>
+<text x="155.55555555555554" y="356" text-anchor="middle" fill="#888" font-size="10">R2</text>
+<text x="231.11111111111111" y="356" text-anchor="middle" fill="#888" font-size="10">R3</text>
+<text x="306.66666666666663" y="356" text-anchor="middle" fill="#888" font-size="10">R4</text>
+<text x="382.22222222222223" y="356" text-anchor="middle" fill="#888" font-size="10">R5</text>
+<text x="457.77777777777777" y="356" text-anchor="middle" fill="#888" font-size="10">R6</text>
+<text x="533.3333333333333" y="356" text-anchor="middle" fill="#888" font-size="10">R7</text>
+<text x="608.8888888888889" y="356" text-anchor="middle" fill="#888" font-size="10">R8</text>
+<text x="684.4444444444445" y="356" text-anchor="middle" fill="#888" font-size="10">R9</text>
+<text x="760.0" y="356" text-anchor="middle" fill="#888" font-size="10">R10</text>
+<polygon points="80.0,303.99354331475644 155.55555555555554,277.8958024588282 231.11111111111111,296.39580593764566 306.66666666666663,212.73789893339455 382.22222222222223,106.66666666666663 457.77777777777777,243.81556701246112 533.3333333333333,298.9673478191293 608.8888888888889,294.33077988130276 684.4444444444445,280.7206022528822 760.0,297.0265155468353 760.0,340 80.0,340" fill="#00C9A7" opacity="0.15"/>
+<polyline points="80.0,303.99354331475644 155.55555555555554,277.8958024588282 231.11111111111111,296.39580593764566 306.66666666666663,212.73789893339455 382.22222222222223,106.66666666666663 457.77777777777777,243.81556701246112 533.3333333333333,298.9673478191293 608.8888888888889,294.33077988130276 684.4444444444445,280.7206022528822 760.0,297.0265155468353" fill="none" stroke="#00C9A7" stroke-width="2.5" stroke-linejoin="round"/>
+<circle cx="80.0" cy="303.99354331475644" r="3.5" fill="#00C9A7"/>
+<circle cx="155.55555555555554" cy="277.8958024588282" r="3.5" fill="#00C9A7"/>
+<circle cx="231.11111111111111" cy="296.39580593764566" r="3.5" fill="#00C9A7"/>
+<circle cx="306.66666666666663" cy="212.73789893339455" r="3.5" fill="#00C9A7"/>
+<circle cx="382.22222222222223" cy="106.66666666666663" r="3.5" fill="#00C9A7"/>
+<circle cx="457.77777777777777" cy="243.81556701246112" r="3.5" fill="#00C9A7"/>
+<circle cx="533.3333333333333" cy="298.9673478191293" r="3.5" fill="#00C9A7"/>
+<circle cx="608.8888888888889" cy="294.33077988130276" r="3.5" fill="#00C9A7"/>
+<circle cx="684.4444444444445" cy="280.7206022528822" r="3.5" fill="#00C9A7"/>
+<circle cx="760.0" cy="297.0265155468353" r="3.5" fill="#00C9A7"/>
+<polygon points="80.0,307.9470454403139 155.55555555555554,314.8507587300925 231.11111111111111,267.35272426196883 306.66666666666663,293.7073757888219 382.22222222222223,302.1148079344869 457.77777777777777,282.9500024351722 533.3333333333333,310.61964696960206 608.8888888888889,323.5260598217454 684.4444444444445,328.80429564382473 760.0,315.3864966220682 760.0,340 80.0,340" fill="#00D4FF" opacity="0.15"/>
+<polyline points="80.0,307.9470454403139 155.55555555555554,314.8507587300925 231.11111111111111,267.35272426196883 306.66666666666663,293.7073757888219 382.22222222222223,302.1148079344869 457.77777777777777,282.9500024351722 533.3333333333333,310.61964696960206 608.8888888888889,323.5260598217454 684.4444444444445,328.80429564382473 760.0,315.3864966220682" fill="none" stroke="#00D4FF" stroke-width="2.5" stroke-linejoin="round"/>
+<circle cx="80.0" cy="307.9470454403139" r="3.5" fill="#00D4FF"/>
+<circle cx="155.55555555555554" cy="314.8507587300925" r="3.5" fill="#00D4FF"/>
+<circle cx="231.11111111111111" cy="267.35272426196883" r="3.5" fill="#00D4FF"/>
+<circle cx="306.66666666666663" cy="293.7073757888219" r="3.5" fill="#00D4FF"/>
+<circle cx="382.22222222222223" cy="302.1148079344869" r="3.5" fill="#00D4FF"/>
+<circle cx="457.77777777777777" cy="282.9500024351722" r="3.5" fill="#00D4FF"/>
+<circle cx="533.3333333333333" cy="310.61964696960206" r="3.5" fill="#00D4FF"/>
+<circle cx="608.8888888888889" cy="323.5260598217454" r="3.5" fill="#00D4FF"/>
+<circle cx="684.4444444444445" cy="328.80429564382473" r="3.5" fill="#00D4FF"/>
+<circle cx="760.0" cy="315.3864966220682" r="3.5" fill="#00D4FF"/>
+<text x="80" y="382" fill="#888" font-size="10">通过数:</text>
+<rect x="130.0" y="370" width="58.0" height="16" rx="2" fill="#00C9A7" opacity="0.7"/>
+<text x="159.0" y="382" text-anchor="middle" fill="#fff" font-size="8">14</text>
+<rect x="192.0" y="370" width="58.0" height="16" rx="2" fill="#00C9A7" opacity="0.7"/>
+<text x="221.0" y="382" text-anchor="middle" fill="#fff" font-size="8">14</text>
+<rect x="254.0" y="370" width="58.0" height="16" rx="2" fill="#00C9A7" opacity="0.7"/>
+<text x="283.0" y="382" text-anchor="middle" fill="#fff" font-size="8">14</text>
+<rect x="316.0" y="370" width="58.0" height="16" rx="2" fill="#00C9A7" opacity="0.7"/>
+<text x="345.0" y="382" text-anchor="middle" fill="#fff" font-size="8">14</text>
+<rect x="378.0" y="370" width="58.0" height="16" rx="2" fill="#00C9A7" opacity="0.7"/>
+<text x="407.0" y="382" text-anchor="middle" fill="#fff" font-size="8">14</text>
+<rect x="440.0" y="370" width="58.0" height="16" rx="2" fill="#00C9A7" opacity="0.7"/>
+<text x="469.0" y="382" text-anchor="middle" fill="#fff" font-size="8">14</text>
+<rect x="502.0" y="370" width="58.0" height="16" rx="2" fill="#00C9A7" opacity="0.7"/>
+<text x="531.0" y="382" text-anchor="middle" fill="#fff" font-size="8">14</text>
+<rect x="564.0" y="370" width="58.0" height="16" rx="2" fill="#00C9A7" opacity="0.7"/>
+<text x="593.0" y="382" text-anchor="middle" fill="#fff" font-size="8">14</text>
+<rect x="626.0" y="370" width="58.0" height="16" rx="2" fill="#00C9A7" opacity="0.7"/>
+<text x="655.0" y="382" text-anchor="middle" fill="#fff" font-size="8">14</text>
+<rect x="688.0" y="370" width="58.0" height="16" rx="2" fill="#00C9A7" opacity="0.7"/>
+<text x="717.0" y="382" text-anchor="middle" fill="#fff" font-size="8">14</text>
+<circle cx="90" cy="400" r="5" fill="#00C9A7"/>
+<text x="100" y="404" fill="#fff" font-size="12">页面平均响应</text>
+<circle cx="230" cy="400" r="5" fill="#00D4FF"/>
+<text x="240" y="404" fill="#fff" font-size="12">API 平均响应</text>
+<text x="430" y="398" fill="#888" font-size="11">页面 avg 647ms | p95 1372ms</text>
+<text x="430" y="414" fill="#888" font-size="11">API avg 290ms | p95 640ms</text>
+<circle cx="720" cy="410" r="25" fill="none" stroke="#333" stroke-width="6"/>
+<path d="M 720 385 A 25 25 0 1 1 720.0 385.0" fill="none" stroke="#00C9A7" stroke-width="6" stroke-linecap="round"/>
+<text x="720" y="412" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">100.0%</text>
+<text x="720" y="451" text-anchor="middle" fill="#888" font-size="9">通过率</text>
+</svg>

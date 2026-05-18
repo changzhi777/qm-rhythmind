@@ -137,7 +137,8 @@ src/rhythmind/db/
     └── versions/
         ├── 001_initial_schema.py   # 建表: agent_memory, skill_record
         ├── 002_health_fact.py      # 建表: health_fact (时序知识图谱)
-        └── 003_skill_status.py     # skill_record 增加 status 列
+        ├── 003_skill_status.py     # skill_record 增加 status 列
+        └── 004_audit_session_tables.py  # 建表: audit_log, user_session
 ```
 
 ## 迁移脚本详情
@@ -160,9 +161,16 @@ src/rhythmind/db/
 - **默认值**: `server_default='approved'` 向后兼容
 - **索引**: `ix_skill_status`
 
+### 004_audit_session_tables
+- **Revision ID**: 004_audit_session_tables
+- **建表**: `audit_log`（运营审计日志，防篡改 PG 持久化）, `user_session`（用户会话表）
+- **索引**: `(user_id, created_at)`, `(event, created_at)` on audit_log
+- **触发器**: `update_updated_at_column()` PostgreSQL 函数
+
 ---
 
 ## 变更记录 (Changelog)
 
+- **2026-05-18** 增量更新：新增 migration 004（audit_log + user_session 表）
 - **2026-05-12** 完整扫描完成，新增完整数据模型
 - **2026-05-12** 首次 AI 上下文初始化

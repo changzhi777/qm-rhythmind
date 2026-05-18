@@ -1,0 +1,217 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 820" style="background:#0d1117">
+<style>
+  .title { font: bold 12px system-ui,sans-serif; fill: #e0f0ec; }
+  .sub { font: 10px system-ui,sans-serif; fill: #8b949e; }
+</style>
+
+<!-- Title -->
+<text x="600.0" y="30" text-anchor="middle" class="title" font-size="15" fill="#00C9A7">RHYTHMIND 律动 — 模块架构 (v0.1.9)</text>
+
+<!-- Root -->
+<rect x="515.0" y="48" width="170" height="36" rx="8" fill="#0e4a40" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="600.0" y="70.0" text-anchor="middle" fill="#00C9A7" font-size="13" font-family="system-ui,-apple-system,sans-serif" font-weight="600">qm-rhythmind</text>
+
+<!-- 11 modules in top row -->
+<line x1="600.0" y1="84" x2="70" y2="115" stroke="#3a6a6a" stroke-width="0.8"/>
+<line x1="600.0" y1="84" x2="178" y2="115" stroke="#3a6a6a" stroke-width="0.8"/>
+<line x1="600.0" y1="84" x2="286" y2="115" stroke="#3a6a6a" stroke-width="0.8"/>
+<line x1="600.0" y1="84" x2="394" y2="115" stroke="#3a6a6a" stroke-width="0.8"/>
+<line x1="600.0" y1="84" x2="502" y2="115" stroke="#3a6a6a" stroke-width="0.8"/>
+<line x1="600.0" y1="84" x2="610" y2="115" stroke="#3a6a6a" stroke-width="0.8"/>
+<line x1="600.0" y1="84" x2="718" y2="115" stroke="#3a6a6a" stroke-width="0.8"/>
+<line x1="600.0" y1="84" x2="826" y2="115" stroke="#3a6a6a" stroke-width="0.8"/>
+<line x1="600.0" y1="84" x2="934" y2="115" stroke="#3a6a6a" stroke-width="0.8"/>
+<line x1="600.0" y1="84" x2="1042" y2="115" stroke="#3a6a6a" stroke-width="0.8"/>
+<line x1="600.0" y1="84" x2="1130" y2="115" stroke="#3a6a6a" stroke-width="0.8"/>
+
+<rect x="20" y="115" width="100" height="34" rx="8" fill="#1a2a35" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="70.0" y="136.0" text-anchor="middle" fill="#e0f0ec" font-size="11" font-family="system-ui,-apple-system,sans-serif" font-weight="600">api</text>
+<rect x="128" y="115" width="100" height="34" rx="8" fill="#1a2a35" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="178.0" y="136.0" text-anchor="middle" fill="#e0f0ec" font-size="11" font-family="system-ui,-apple-system,sans-serif" font-weight="600">adapters</text>
+<rect x="236" y="115" width="100" height="34" rx="8" fill="#1a2a35" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="286.0" y="136.0" text-anchor="middle" fill="#e0f0ec" font-size="11" font-family="system-ui,-apple-system,sans-serif" font-weight="600">ingestion</text>
+<rect x="344" y="115" width="100" height="34" rx="8" fill="#1a2a35" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="394.0" y="136.0" text-anchor="middle" fill="#e0f0ec" font-size="11" font-family="system-ui,-apple-system,sans-serif" font-weight="600">agents</text>
+<rect x="452" y="115" width="100" height="34" rx="8" fill="#1a2a35" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="502.0" y="136.0" text-anchor="middle" fill="#e0f0ec" font-size="11" font-family="system-ui,-apple-system,sans-serif" font-weight="600">core</text>
+<rect x="560" y="115" width="100" height="34" rx="8" fill="#1a2a35" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="610.0" y="136.0" text-anchor="middle" fill="#e0f0ec" font-size="10" font-family="system-ui,-apple-system,sans-serif" font-weight="600">orchestrator</text>
+<rect x="668" y="115" width="100" height="34" rx="8" fill="#1a2a35" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="718.0" y="136.0" text-anchor="middle" fill="#e0f0ec" font-size="11" font-family="system-ui,-apple-system,sans-serif" font-weight="600">mcp</text>
+<rect x="776" y="115" width="100" height="34" rx="8" fill="#1a2a35" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="826.0" y="136.0" text-anchor="middle" fill="#e0f0ec" font-size="11" font-family="system-ui,-apple-system,sans-serif" font-weight="600">db</text>
+<rect x="884" y="115" width="100" height="34" rx="8" fill="#1a2a35" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="934.0" y="136.0" text-anchor="middle" fill="#e0f0ec" font-size="11" font-family="system-ui,-apple-system,sans-serif" font-weight="600">privacy</text>
+<rect x="992" y="115" width="100" height="34" rx="8" fill="#1a2a35" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="1042.0" y="136.0" text-anchor="middle" fill="#e0f0ec" font-size="11" font-family="system-ui,-apple-system,sans-serif" font-weight="600">audit</text>
+<rect x="1080" y="115" width="100" height="34" rx="8" fill="#1a2a35" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="1130.0" y="136.0" text-anchor="middle" fill="#e0f0ec" font-size="11" font-family="system-ui,-apple-system,sans-serif" font-weight="600">obs</text>
+
+<!-- Sub-nodes for each module -->
+<!-- api -->
+<line x1="70" y1="149" x2="70" y2="168" stroke="#3a6a6a" stroke-width="0.8"/>
+<rect x="10" y="168" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="70.0" y="182.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">main.py</text>
+<rect x="10" y="192" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="70.0" y="206.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">routers/dashboard.py</text>
+<rect x="10" y="216" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="70.0" y="230.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">routers/health.py</text>
+<rect x="10" y="240" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="70.0" y="254.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">deps.py + rate_limit.py</text>
+
+<!-- adapters -->
+<line x1="178" y1="149" x2="178" y2="168" stroke="#3a6a6a" stroke-width="0.8"/>
+<rect x="118" y="168" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="178.0" y="182.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">adapter_router.py</text>
+<rect x="118" y="192" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="178.0" y="206.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">mlx_adapter.py</text>
+<rect x="118" y="216" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="178.0" y="230.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">omlX_adapter.py</text>
+<rect x="118" y="240" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="178.0" y="254.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">influx_client.py</text>
+
+<!-- ingestion -->
+<line x1="286" y1="149" x2="286" y2="168" stroke="#3a6a6a" stroke-width="0.8"/>
+<rect x="226" y="168" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="286.0" y="182.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">engine.py</text>
+<rect x="226" y="192" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="286.0" y="206.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">garmin_adapter.py</text>
+<rect x="226" y="216" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="286.0" y="230.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">base.py (ABC)</text>
+
+<!-- agents -->
+<line x1="394" y1="149" x2="394" y2="168" stroke="#3a6a6a" stroke-width="0.8"/>
+<rect x="334" y="168" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="394.0" y="182.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">metrics_agent.py</text>
+<rect x="334" y="192" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="394.0" y="206.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">data_agent.py</text>
+<rect x="334" y="216" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="394.0" y="230.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">coach_agent.py</text>
+
+<!-- core -->
+<line x1="502" y1="149" x2="502" y2="168" stroke="#3a6a6a" stroke-width="0.8"/>
+<rect x="442" y="168" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="502.0" y="182.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">hermes_base.py</text>
+<rect x="442" y="192" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="502.0" y="206.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">memory/ (FactManager)</text>
+<rect x="442" y="216" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="502.0" y="230.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">compliance/ (Gate+Auditor)</text>
+<rect x="442" y="240" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="502.0" y="254.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">skill/ + qmd/ + cache/</text>
+
+<!-- orchestrator -->
+<line x1="610" y1="149" x2="610" y2="168" stroke="#3a6a6a" stroke-width="0.8"/>
+<rect x="550" y="168" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="610.0" y="182.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">workflows/swarm_*.py</text>
+<rect x="550" y="192" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="610.0" y="206.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">loop_guard.py</text>
+<rect x="550" y="216" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="610.0" y="230.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">pool.py (AgentPool)</text>
+
+<!-- mcp -->
+<line x1="718" y1="149" x2="718" y2="168" stroke="#3a6a6a" stroke-width="0.8"/>
+<rect x="658" y="168" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="718.0" y="182.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">server.py (工具注册)</text>
+<rect x="658" y="192" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="718.0" y="206.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">router.py (SSE 路由)</text>
+
+<!-- db -->
+<line x1="826" y1="149" x2="826" y2="168" stroke="#3a6a6a" stroke-width="0.8"/>
+<rect x="766" y="168" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="826.0" y="182.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">models.py (ORM)</text>
+<rect x="766" y="192" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="826.0" y="206.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">migrations/ (4 versions)</text>
+
+<!-- privacy -->
+<line x1="934" y1="149" x2="934" y2="168" stroke="#3a6a6a" stroke-width="0.8"/>
+<rect x="874" y="168" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="934.0" y="182.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">service.py</text>
+<rect x="874" y="192" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="934.0" y="206.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">GDPR/PIPL 数据权利</text>
+
+<!-- audit -->
+<line x1="1042" y1="149" x2="1042" y2="168" stroke="#3a6a6a" stroke-width="0.8"/>
+<rect x="982" y="168" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="1042.0" y="182.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">logger.py</text>
+<rect x="982" y="192" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="1042.0" y="206.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">sinks.py + pg_sink.py</text>
+<rect x="982" y="216" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="1042.0" y="230.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">events.py (枚举)</text>
+
+<!-- obs -->
+<line x1="1130" y1="149" x2="1130" y2="168" stroke="#3a6a6a" stroke-width="0.8"/>
+<rect x="1070" y="168" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="1130.0" y="182.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">metrics.py (Prom)</text>
+<rect x="1070" y="192" width="120" height="20" rx="8" fill="#162230" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="1130.0" y="206.0" text-anchor="middle" fill="#e0f0ec" font-size="8" font-family="system-ui,-apple-system,sans-serif" font-weight="600">tracing.py (OTel)</text>
+
+<!-- Data flow section -->
+<text x="600.0" y="310" text-anchor="middle" class="title" font-size="12" fill="#58a6ff">数据流 — 三阶段 Swarm 流水线</text>
+
+<!-- Flow boxes -->
+<rect x="80" y="340" width="160" height="50" rx="8" fill="#1a2a45" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="160.0" y="359.0" text-anchor="middle" fill="#e0f0ec" font-size="11" font-family="system-ui,-apple-system,sans-serif" font-weight="600">MetricsAgent</text>
+<text x="160.0" y="375.0" text-anchor="middle" fill="#8bb8b0" font-size="9" font-family="system-ui,-apple-system,sans-serif">指标采集</text>
+<line x1="240" y1="365" x2="280" y2="365" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#arrowBlue)"/>
+<rect x="280" y="340" width="160" height="50" rx="8" fill="#1a2a45" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="360.0" y="359.0" text-anchor="middle" fill="#e0f0ec" font-size="11" font-family="system-ui,-apple-system,sans-serif" font-weight="600">DataAgent</text>
+<text x="360.0" y="375.0" text-anchor="middle" fill="#8bb8b0" font-size="9" font-family="system-ui,-apple-system,sans-serif">数据分析</text>
+<line x1="440" y1="365" x2="480" y2="365" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#arrowBlue)"/>
+<rect x="480" y="340" width="160" height="50" rx="8" fill="#1a2a45" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="560.0" y="359.0" text-anchor="middle" fill="#e0f0ec" font-size="11" font-family="system-ui,-apple-system,sans-serif" font-weight="600">CoachAgent</text>
+<text x="560.0" y="375.0" text-anchor="middle" fill="#8bb8b0" font-size="9" font-family="system-ui,-apple-system,sans-serif">健康教练</text>
+
+<!-- Hermes cycle -->
+<text x="600.0" y="440" text-anchor="middle" class="sub" font-size="11" fill="#8b949e">Hermes Pattern v2 — 6 步执行循环</text>
+
+<rect x="120" y="465" width="140" height="30" rx="8" fill="#1a2a30" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="190.0" y="484.0" text-anchor="middle" fill="#e0f0ec" font-size="9" font-family="system-ui,-apple-system,sans-serif" font-weight="600">① recall_memory</text>
+<rect x="270" y="465" width="140" height="30" rx="8" fill="#1a2a30" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="340.0" y="484.0" text-anchor="middle" fill="#e0f0ec" font-size="9" font-family="system-ui,-apple-system,sans-serif" font-weight="600">② retrieve_skills</text>
+<rect x="420" y="465" width="140" height="30" rx="8" fill="#0e4a40" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="490.0" y="484.0" text-anchor="middle" fill="#e0f0ec" font-size="9" font-family="system-ui,-apple-system,sans-serif" font-weight="600">③ execute (call_llm)</text>
+<rect x="570" y="465" width="140" height="30" rx="8" fill="#1a2a30" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="640.0" y="484.0" text-anchor="middle" fill="#e0f0ec" font-size="9" font-family="system-ui,-apple-system,sans-serif" font-weight="600">④ compliance_check</text>
+<rect x="720" y="465" width="140" height="30" rx="8" fill="#1a2a30" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="790.0" y="484.0" text-anchor="middle" fill="#e0f0ec" font-size="9" font-family="system-ui,-apple-system,sans-serif" font-weight="600">⑤ extract_skills</text>
+<rect x="870" y="465" width="140" height="30" rx="8" fill="#1a2a30" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="940.0" y="484.0" text-anchor="middle" fill="#e0f0ec" font-size="9" font-family="system-ui,-apple-system,sans-serif" font-weight="600">⑥ update_memory</text>
+
+<line x1="260" y1="480" x2="270" y2="480" stroke="#3a6a6a" stroke-width="1"/>
+<line x1="410" y1="480" x2="420" y2="480" stroke="#3a6a6a" stroke-width="1"/>
+<line x1="560" y1="480" x2="570" y2="480" stroke="#3a6a6a" stroke-width="1"/>
+<line x1="710" y1="480" x2="720" y2="480" stroke="#3a6a6a" stroke-width="1"/>
+<line x1="860" y1="480" x2="870" y2="480" stroke="#3a6a6a" stroke-width="1"/>
+
+<!-- Model routing -->
+<text x="600.0" y="540" text-anchor="middle" class="sub" font-size="11" fill="#8b949e">模型路由 — 多形态推理</text>
+
+<rect x="150" y="560" width="200" height="40" rx="8" fill="#1a2a35" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="250.0" y="574.0" text-anchor="middle" fill="#e0f0ec" font-size="10" font-family="system-ui,-apple-system,sans-serif" font-weight="600">MLXAdapter</text>
+<text x="250.0" y="590.0" text-anchor="middle" fill="#8bb8b0" font-size="8" font-family="system-ui,-apple-system,sans-serif">Apple Silicon 本地推理</text>
+<rect x="420" y="560" width="200" height="40" rx="8" fill="#1a2a35" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="520.0" y="574.0" text-anchor="middle" fill="#e0f0ec" font-size="10" font-family="system-ui,-apple-system,sans-serif" font-weight="600">OMLXAdapter</text>
+<text x="520.0" y="590.0" text-anchor="middle" fill="#8bb8b0" font-size="8" font-family="system-ui,-apple-system,sans-serif">oMLX HTTP 本地服务</text>
+<rect x="690" y="560" width="200" height="40" rx="8" fill="#1a2a35" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="790.0" y="574.0" text-anchor="middle" fill="#e0f0ec" font-size="10" font-family="system-ui,-apple-system,sans-serif" font-weight="600">LiteLLMAdapter</text>
+<text x="790.0" y="590.0" text-anchor="middle" fill="#8bb8b0" font-size="8" font-family="system-ui,-apple-system,sans-serif">LiteLLM 云端网关</text>
+
+<rect x="940" y="560" width="200" height="40" rx="8" fill="#0e4a40" stroke="#00C9A7" stroke-width="1.5"/>
+<text x="1040.0" y="574.0" text-anchor="middle" fill="#e0f0ec" font-size="10" font-family="system-ui,-apple-system,sans-serif" font-weight="600">AdapterRouter</text>
+<text x="1040.0" y="590.0" text-anchor="middle" fill="#8bb8b0" font-size="8" font-family="system-ui,-apple-system,sans-serif">前缀路由分发</text>
+
+<line x1="350" y1="580" x2="940" y2="575" stroke="#3a6a6a" stroke-width="0.8" stroke-dasharray="4,3"/>
+<line x1="620" y1="580" x2="940" y2="580" stroke="#3a6a6a" stroke-width="0.8" stroke-dasharray="4,3"/>
+<line x1="890" y1="580" x2="940" y2="585" stroke="#3a6a6a" stroke-width="0.8" stroke-dasharray="4,3"/>
+
+<!-- Coverage footer -->
+<rect x="50" y="630" width="1100" height="1" fill="#30363d"/>
+<text x="70" y="655" class="sub">源文件: 72 .py | 测试: 31 (20 unit + 10 integration + 1 load) | 迁移: 4 | 脚本: 9</text>
+<text x="70" y="675" class="sub">前端: 13 .tsx/.ts | Helm Chart | Dockerfile + docker-compose</text>
+
+<defs>
+  <marker id="arrowBlue" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+    <path d="M0,0 L0,6 L6,3 z" fill="#58a6ff"/>
+  </marker>
+</defs>
+</svg>

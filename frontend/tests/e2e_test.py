@@ -1,0 +1,444 @@
+#!/usr/bin/env python3
+"""RHYTHMIND E2E 测试 — 10轮全链路测试 + MD/HTML/PDF 报告生成
+
+报告规范：MD + HTML(内联SVG) → Playwright 转 A4 PDF
+"""
+
+import json
+import statistics
+import subprocess
+import time
+from datetime import datetime
+from pathlib import Path
+
+BASE_URL = "https://aisport.tech/qm"
+ROUNDS = 10
+REPORT_DIR = Path("/tmp/qm-e2e-reports")
+
+
+# ── HTTP 测试 ──────────────────────────────────────────────
+
+def http_get(path: str, timeout: int = 10) -> dict:
+    t0 = time.time()
+    try:
+        r = subprocess.run(
+            ["curl", "-sS", "-o", "/dev/null", "-w",
+             "%{http_code} %{time_total} %{size_download}",
+             f"{BASE_URL}{path}", "--max-time", str(timeout)],
+            capture_output=True, text=True, timeout=timeout + 5,
+        )
+        parts = r.stdout.strip().split()
+        if len(parts) >= 3:
+            return {"status": int(parts[0]), "time": float(parts[1]), "size": int(parts[2]), "ok": True}
+        return {"status": 0, "time": time.time() - t0, "size": 0, "ok": False, "error": r.stderr[:200]}
+    except Exception as e:
+        return {"status": 0, "time": time.time() - t0, "size": 0, "ok": False, "error": str(e)[:200]}
+
+
+def http_api(path: str, timeout: int = 10) -> dict:
+    t0 = time.time()
+    try:
+        r = subprocess.run(
+            ["curl", "-sS", "-H", "Authorization: Bearer garmin_user_001",
+             f"{BASE_URL}/api{path}", "--max-time", str(timeout)],
+            capture_output=True, text=True, timeout=timeout + 5,
+        )
+        elapsed = time.time() - t0
+        body = r.stdout
+        try:
+            data = json.loads(body)
+            return {"time": elapsed, "ok": data.get("status") == "ok", "data": data, "body_len": len(body)}
+        except json.JSONDecodeError:
+            return {"time": elapsed, "ok": False, "error": f"Invalid JSON: {body[:100]}", "body_len": len(body)}
+    except Exception as e:
+        return {"time": time.time() - t0, "ok": False, "error": str(e)[:200]}
+
+
+# ── 测试用例 ──────────────────────────────────────────────
+
+PAGE_TESTS = [
+    {"name": "首页重定向", "path": "/", "expect_status": 200},
+    {"name": "仪表盘页面", "path": "/dashboard", "expect_status": 200},
+    {"name": "数据大屏页面", "path": "/bigscreen", "expect_status": 200},
+    {"name": "报告页面", "path": "/report", "expect_status": 200},
+    {"name": "静态资源 JS", "path": "/_next/static/chunks/0ht900cau6_ur.js", "expect_status": 200},
+]
+
+API_TESTS = [
+    {"name": "Dashboard API", "path": "/dashboard"},
+    {"name": "Reports API", "path": "/reports"},
+]
+
+DATA_ASSERTIONS = {
+    "profile.vo2_max": lambda v: v == 52,
+    "profile.bmi": lambda v: v == 24.9,
+    "profile.weight_kg": lambda v: v == 78,
+    "profile.age": lambda v: v == 34,
+    "training.metrics": lambda v: isinstance(v, dict) and "readiness_score" in v,
+    "running.summary": lambda v: isinstance(v, dict) and "total_km" in v,
+    "sleep.summary": lambda v: isinstance(v, dict) and "avg_total_hours" in v,
+}
+
+
+def run_round(round_num: int) -> dict:
+    results = {"round": round_num, "timestamp": datetime.now().isoformat(), "tests": []}
+    for test in PAGE_TESTS:
+        r = http_get(test["path"])
+        results["tests"].append({
+            "category": "页面", "name": test["name"],
+            "passed": r["ok"] and r["status"] == test["expect_status"],
+            "status": r.get("status", 0), "time_ms": round(r["time"] * 1000, 1),
+            "size_kb": round(r.get("size", 0) / 1024, 1), "error": r.get("error"),
+        })
+    for test in API_TESTS:
+        r = http_api(test["path"])
+        results["tests"].append({
+            "category": "API", "name": test["name"], "passed": r["ok"],
+            "time_ms": round(r["time"] * 1000, 1),
+            "size_kb": round(r.get("body_len", 0) / 1024, 1), "error": r.get("error"),
+        })
+    dashboard = http_api("/dashboard")
+    if dashboard["ok"] and "data" in dashboard:
+        data = dashboard["data"].get("data", {})
+        for key, assertion in DATA_ASSERTIONS.items():
+            value = data.get(key)
+            try:
+                ok = assertion(value)
+            except Exception:
+                ok = False
+            results["tests"].append({
+                "category": "数据完整性", "name": key, "passed": ok,
+                "value": value, "time_ms": 0,
+            })
+    return results
+
+
+# ── SVG 图表 ─────────────────────────────────────────────
+
+def generate_svg(results: list, stats: dict) -> str:
+    page_avg, api_avg, pass_counts = [], [], []
+    for r in results:
+        pt = [t["time_ms"] for t in r["tests"] if t["category"] == "页面" and t["time_ms"] > 0]
+        at = [t["time_ms"] for t in r["tests"] if t["category"] == "API" and t["time_ms"] > 0]
+        page_avg.append(statistics.mean(pt) if pt else 0)
+        api_avg.append(statistics.mean(at) if at else 0)
+        pass_counts.append(sum(1 for t in r["tests"] if t["passed"]))
+
+    all_times = page_avg + api_avg
+    max_time = max(all_times) * 1.2 if all_times else 100
+    w, h = 800, 440
+    cl, cr, ct, cb = 80, 760, 60, 340
+    cw, ch = cr - cl, cb - ct
+
+    def x(i): return cl + (i / max(ROUNDS - 1, 1)) * cw
+    def y(v): return cb - (v / max_time) * ch if max_time > 0 else cb
+
+    C_BG, C_PAGE, C_API, C_GRID, C_TEXT, C_WHITE = "#0d1117", "#00C9A7", "#00D4FF", "#333", "#888", "#fff"
+
+    parts = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" font-family="system-ui,sans-serif">',
+        f'<rect width="{w}" height="{h}" fill="{C_BG}" rx="8"/>',
+        f'<text x="{w//2}" y="28" text-anchor="middle" fill="{C_WHITE}" font-size="16" font-weight="600">RHYTHMIND E2E 响应时间趋势</text>',
+        f'<text x="{w//2}" y="46" text-anchor="middle" fill="{C_TEXT}" font-size="11">10 轮测试 · {datetime.now().strftime("%Y-%m-%d %H:%M")}</text>',
+    ]
+
+    for i in range(5):
+        val = max_time * i / 4
+        yy = y(val)
+        parts.append(f'<line x1="{cl}" y1="{yy}" x2="{cr}" y2="{yy}" stroke="{C_GRID}" stroke-dasharray="4,4"/>')
+        parts.append(f'<text x="{cl-8}" y="{yy+4}" text-anchor="end" fill="{C_TEXT}" font-size="10">{val:.0f}</text>')
+    parts.append(f'<text x="{cl-8}" y="{cb+20}" text-anchor="end" fill="{C_TEXT}" font-size="10">ms</text>')
+
+    for i in range(ROUNDS):
+        parts.append(f'<text x="{x(i)}" y="{cb+16}" text-anchor="middle" fill="{C_TEXT}" font-size="10">R{i+1}</text>')
+
+    for avg, color, label in [(page_avg, C_PAGE, "页面"), (api_avg, C_API, "API")]:
+        if not avg:
+            continue
+        pts = " ".join(f"{x(i)},{y(avg[i])}" for i in range(ROUNDS))
+        area = pts + f" {x(ROUNDS-1)},{cb} {x(0)},{cb}"
+        parts.append(f'<polygon points="{area}" fill="{color}" opacity="0.15"/>')
+        parts.append(f'<polyline points="{pts}" fill="none" stroke="{color}" stroke-width="2.5" stroke-linejoin="round"/>')
+        for i in range(ROUNDS):
+            parts.append(f'<circle cx="{x(i)}" cy="{y(avg[i])}" r="3.5" fill="{color}"/>')
+
+    # 通过率条
+    by = 370
+    parts.append(f'<text x="{cl}" y="{by+12}" fill="{C_TEXT}" font-size="10">通过数:</text>')
+    bw = (cw - 60) / ROUNDS
+    for i in range(ROUNDS):
+        bx = cl + 50 + i * bw
+        total_t = len(results[i]["tests"])
+        ratio = pass_counts[i] / total_t if total_t else 0
+        fill = C_PAGE if ratio == 1 else "#FF4757"
+        parts.append(f'<rect x="{bx}" y="{by}" width="{bw-4}" height="16" rx="2" fill="{fill}" opacity="0.7"/>')
+        parts.append(f'<text x="{bx+bw/2-2}" y="{by+12}" text-anchor="middle" fill="{C_WHITE}" font-size="8">{pass_counts[i]}</text>')
+
+    # 图例 + 统计
+    ly = 400
+    parts.append(f'<circle cx="{cl+10}" cy="{ly}" r="5" fill="{C_PAGE}"/>')
+    parts.append(f'<text x="{cl+20}" y="{ly+4}" fill="{C_WHITE}" font-size="12">页面平均响应</text>')
+    parts.append(f'<circle cx="{cl+150}" cy="{ly}" r="5" fill="{C_API}"/>')
+    parts.append(f'<text x="{cl+160}" y="{ly+4}" fill="{C_WHITE}" font-size="12">API 平均响应</text>')
+
+    pt_s = stats["page_times"]
+    at_s = stats["api_times"]
+    sx = cl + 350
+    if pt_s:
+        parts.append(f'<text x="{sx}" y="{ly-2}" fill="{C_TEXT}" font-size="11">页面 avg {statistics.mean(pt_s):.0f}ms | p95 {sorted(pt_s)[int(len(pt_s)*0.95)]:.0f}ms</text>')
+    if at_s:
+        parts.append(f'<text x="{sx}" y="{ly+14}" fill="{C_TEXT}" font-size="11">API avg {statistics.mean(at_s):.0f}ms | p95 {sorted(at_s)[int(len(at_s)*0.95)]:.0f}ms</text>')
+
+    # 甜甜圈图 - 通过率
+    dcx, dcy, dr = 720, 410, 25
+    total = stats["total_passed"] + stats["total_failed"]
+    ratio = stats["total_passed"] / total if total else 0
+    angle = ratio * 360
+    import math
+    x1 = dcx + dr * math.cos(math.radians(-90))
+    y1 = dcy + dr * math.sin(math.radians(-90))
+    x2 = dcx + dr * math.cos(math.radians(-90 + angle))
+    y2 = dcy + dr * math.sin(math.radians(-90 + angle))
+    large = 1 if angle > 180 else 0
+    parts.append(f'<circle cx="{dcx}" cy="{dcy}" r="{dr}" fill="none" stroke="{C_GRID}" stroke-width="6"/>')
+    parts.append(f'<path d="M {dcx} {dcy-dr} A {dr} {dr} 0 {large} 1 {x2:.1f} {y2:.1f}" fill="none" stroke="{C_PAGE}" stroke-width="6" stroke-linecap="round"/>')
+    parts.append(f'<text x="{dcx}" y="{dcy+2}" text-anchor="middle" fill="{C_WHITE}" font-size="11" font-weight="600">{ratio*100:.1f}%</text>')
+    parts.append(f'<text x="{dcx}" y="{dcy+dr+16}" text-anchor="middle" fill="{C_TEXT}" font-size="9">通过率</text>')
+
+    parts.append('</svg>')
+    return "\n".join(parts)
+
+
+# ── MD 报告 ──────────────────────────────────────────────
+
+def generate_md(results: list, stats: dict) -> str:
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    total = stats["total_passed"] + stats["total_failed"]
+    rate = stats["total_passed"] / total * 100 if total else 0
+    pt, at = stats["page_times"], stats["api_times"]
+
+    lines = [
+        "# RHYTHMIND E2E 测试报告", "",
+        f"> 测试时间: {now}  ",
+        f"> 测试轮次: {ROUNDS}  ",
+        f"> 目标环境: {BASE_URL}", "",
+        "## 总体结果", "",
+        "| 指标 | 值 |",
+        "|------|-----|",
+        f"| 总测试数 | {total} |",
+        f"| 通过数 | **{stats['total_passed']}** |",
+        f"| 失败数 | {stats['total_failed']} |",
+        f"| 通过率 | **{rate:.1f}%** |",
+    ]
+    if pt:
+        lines.append(f"| 页面平均响应 | {statistics.mean(pt):.0f} ms |")
+        lines.append(f"| 页面 P95 | {sorted(pt)[int(len(pt)*0.95)]:.0f} ms |")
+    if at:
+        lines.append(f"| API 平均响应 | {statistics.mean(at):.0f} ms |")
+        lines.append(f"| API P95 | {sorted(at)[int(len(at)*0.95)]:.0f} ms |")
+
+    lines += ["", "## 测试用例明细", "",
+              "| # | 类别 | 用例 | 通过率 | 平均(ms) | 失败轮次 |",
+              "|---|------|------|--------|---------|---------|"]
+
+    test_names = [(t["category"], t["name"]) for t in results[0]["tests"]]
+    for idx, (cat, name) in enumerate(test_names, 1):
+        p = sum(1 for r in results for t in r["tests"] if t["category"] == cat and t["name"] == name and t["passed"])
+        ts = [t["time_ms"] for r in results for t in r["tests"] if t["category"] == cat and t["name"] == name and t["time_ms"] > 0]
+        avg = statistics.mean(ts) if ts else 0
+        fails = [r["round"] for r in results for t in r["tests"] if t["category"] == cat and t["name"] == name and not t["passed"]]
+        icon = "✅" if p == ROUNDS else "❌"
+        lines.append(f"| {idx} | {cat} | {name} | {icon} {p}/{ROUNDS} | {avg:.0f} | {','.join(map(str,fails)) or '-'} |")
+
+    lines += ["", "## 性能趋势", "", "![趋势图](./e2e-charts.svg)", ""]
+    return "\n".join(lines)
+
+
+# ── HTML 报告（内联 SVG）─────────────────────────────────
+
+def generate_html(results: list, stats: dict, svg_content: str) -> str:
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    total = stats["total_passed"] + stats["total_failed"]
+    rate = stats["total_passed"] / total * 100 if total else 0
+    pt, at = stats["page_times"], stats["api_times"]
+
+    # 测试用例行
+    test_names = [(t["category"], t["name"]) for t in results[0]["tests"]]
+    rows = ""
+    for idx, (cat, name) in enumerate(test_names, 1):
+        p = sum(1 for r in results for t in r["tests"] if t["category"] == cat and t["name"] == name and t["passed"])
+        ts = [t["time_ms"] for r in results for t in r["tests"] if t["category"] == cat and t["name"] == name and t["time_ms"] > 0]
+        avg = statistics.mean(ts) if ts else 0
+        fails = [r["round"] for r in results for t in r["tests"] if t["category"] == cat and t["name"] == name and not t["passed"]]
+        icon = "✅" if p == ROUNDS else "❌"
+        fail_str = ",".join(map(str, fails)) or "-"
+        color = "#00C9A7" if p == ROUNDS else "#FF4757"
+        rows += f'<tr><td>{idx}</td><td>{cat}</td><td>{name}</td><td style="color:{color};font-weight:600">{icon} {p}/{ROUNDS}</td><td>{avg:.0f}</td><td>{fail_str}</td></tr>\n'
+
+    # 各轮次折叠
+    rounds_html = ""
+    for r in results:
+        p = sum(1 for t in r["tests"] if t["passed"])
+        f = sum(1 for t in r["tests"] if not t["passed"])
+        icon = "✅" if f == 0 else "❌"
+        detail_rows = ""
+        for t in r["tests"]:
+            si = "✅" if t["passed"] else "❌"
+            detail = t.get("error", "") or str(t.get("value", ""))
+            if len(detail) > 40: detail = detail[:40] + "..."
+            detail_rows += f'<tr><td>{t["category"]}</td><td>{t["name"]}</td><td>{si}</td><td>{t["time_ms"]:.0f}</td><td>{detail}</td></tr>\n'
+        rounds_html += f'''
+        <details style="margin:4px 0">
+          <summary style="cursor:pointer;color:#ccc;font-size:13px;padding:6px 0">Round {r["round"]} {icon} — {p} passed / {f} failed</summary>
+          <table><tr><th>类别</th><th>用例</th><th>状态</th><th>响应(ms)</th><th>详情</th></tr>{detail_rows}</table>
+        </details>'''
+
+    pt_avg = f'{statistics.mean(pt):.0f}' if pt else 'N/A'
+    pt_p95 = f'{sorted(pt)[int(len(pt)*0.95)]:.0f}' if len(pt) > 5 else 'N/A'
+    at_avg = f'{statistics.mean(at):.0f}' if at else 'N/A'
+    at_p95 = f'{sorted(at)[int(len(at)*0.95)]:.0f}' if len(at) > 5 else 'N/A'
+
+    return f'''<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>RHYTHMIND E2E 测试报告</title>
+<style>
+  @page {{ size: A4; margin: 15mm; }}
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  body {{ background: #0d1117; color: #e0e0e0; font-family: system-ui, -apple-system, sans-serif; padding: 32px; max-width: 210mm; margin: 0 auto; font-size: 13px; line-height: 1.6; }}
+  h1 {{ color: #fff; font-size: 22px; margin-bottom: 4px; }}
+  h2 {{ color: #00C9A7; font-size: 16px; margin: 24px 0 12px; border-bottom: 1px solid #333; padding-bottom: 6px; }}
+  .meta {{ color: #888; font-size: 11px; margin-bottom: 20px; }}
+  .summary-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 16px 0; }}
+  .stat-card {{ background: #161b22; border: 1px solid #333; border-radius: 8px; padding: 14px; text-align: center; }}
+  .stat-card .val {{ font-size: 24px; font-weight: 700; color: #00C9A7; }}
+  .stat-card .val.warn {{ color: #FF4757; }}
+  .stat-card .label {{ font-size: 11px; color: #888; margin-top: 4px; }}
+  table {{ width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 12px; }}
+  th {{ background: #161b22; color: #888; padding: 8px 12px; text-align: left; border-bottom: 1px solid #333; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }}
+  td {{ padding: 8px 12px; border-bottom: 1px solid #222; }}
+  tr:hover {{ background: #161b22; }}
+  .chart {{ margin: 20px 0; }}
+  .footer {{ margin-top: 40px; padding-top: 16px; border-top: 1px solid #333; color: #555; font-size: 10px; text-align: center; }}
+  details table {{ margin: 8px 0; }}
+  @media print {{ body {{ padding: 0; }} .no-print {{ display: none; }} }}
+</style>
+</head>
+<body>
+<h1>RHYTHMIND E2E 测试报告</h1>
+<p class="meta">测试时间: {now} | 轮次: {ROUNDS} | 环境: {BASE_URL}</p>
+
+<h2>总体结果</h2>
+<div class="summary-grid">
+  <div class="stat-card"><div class="val">{total}</div><div class="label">总测试数</div></div>
+  <div class="stat-card"><div class="val">{stats["total_passed"]}</div><div class="label">通过数</div></div>
+  <div class="stat-card"><div class="val {"warn" if stats["total_failed"] > 0 else ""}">{stats["total_failed"]}</div><div class="label">失败数</div></div>
+  <div class="stat-card"><div class="val">{rate:.1f}%</div><div class="label">通过率</div></div>
+  <div class="stat-card"><div class="val">{pt_avg}ms</div><div class="label">页面平均响应</div></div>
+  <div class="stat-card"><div class="val">{at_avg}ms</div><div class="label">API 平均响应</div></div>
+  <div class="stat-card"><div class="val">{pt_p95}ms</div><div class="label">页面 P95</div></div>
+  <div class="stat-card"><div class="val">{at_p95}ms</div><div class="label">API P95</div></div>
+</div>
+
+<h2>性能趋势</h2>
+<div class="chart">
+{svg_content}
+</div>
+
+<h2>测试用例明细</h2>
+<table>
+<tr><th>#</th><th>类别</th><th>用例</th><th>通过率</th><th>平均(ms)</th><th>失败轮次</th></tr>
+{rows}
+</table>
+
+<h2>各轮次详情</h2>
+{rounds_html}
+
+<div class="footer">
+  湖南青沐生命科技有限公司 | RHYTHMIND 律动 E2E 自动化测试 | 报告由 Claude Code 自动生成
+</div>
+</body>
+</html>'''
+
+
+# ── 主流程 ──────────────────────────────────────────────
+
+def main():
+    REPORT_DIR.mkdir(exist_ok=True)
+    all_results = []
+    stats = {"page_times": [], "api_times": [], "total_passed": 0, "total_failed": 0}
+
+    print(f"{'='*60}")
+    print(f"  RHYTHMIND E2E — {ROUNDS} 轮全链路测试")
+    print(f"  {BASE_URL} · {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"{'='*60}\n")
+
+    for i in range(1, ROUNDS + 1):
+        result = run_round(i)
+        all_results.append(result)
+        p = sum(1 for t in result["tests"] if t["passed"])
+        f = sum(1 for t in result["tests"] if not t["passed"])
+        stats["total_passed"] += p
+        stats["total_failed"] += f
+        for t in result["tests"]:
+            if t["time_ms"] > 0:
+                key = "page_times" if t["category"] == "页面" else "api_times"
+                stats[key].append(t["time_ms"])
+        s = "PASS" if f == 0 else f"FAIL({f})"
+        print(f"  Round {i:2d}/{ROUNDS}  ✅{p}  ❌{f}  {s}")
+        if i < ROUNDS:
+            time.sleep(0.5)
+
+    # 生成三件套
+    svg = generate_svg(all_results, stats)
+    md = generate_md(all_results, stats)
+
+    (REPORT_DIR / "e2e-charts.svg").write_text(svg, encoding="utf-8")
+    (REPORT_DIR / "e2e-report.md").write_text(md, encoding="utf-8")
+
+    html = generate_html(all_results, stats, svg)
+    html_path = REPORT_DIR / "e2e-report.html"
+    html_path.write_text(html, encoding="utf-8")
+
+    print(f"\n{'='*60}")
+    print(f"  ✅ 报告已生成:")
+    print(f"    📄 e2e-report.md")
+    print(f"    🌐 e2e-report.html (内联 SVG)")
+    print(f"    📊 e2e-charts.svg")
+    print(f"  📑 下一步: HTML → A4 PDF (Playwright)")
+    print(f"{'='*60}")
+
+    return str(html_path)
+
+
+if __name__ == "__main__":
+    html_path = main()
+
+    # HTML → A4 PDF (Chrome headless)
+    pdf_path = str(Path(html_path).parent / "e2e-report.pdf")
+    print("\n  正在生成 A4 PDF...")
+
+    # 先启动临时 HTTP 服务器（Chrome 不支持 file:// 协议打印）
+    import http.server, threading, socketserver
+    handler = http.server.SimpleHTTPRequestHandler
+    with socketserver.TCPServer(("", 0), handler) as httpd:
+        port = httpd.server_address[1]
+        thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+        thread.start()
+
+        import subprocess, shutil
+        chrome = shutil.which("google-chrome") or "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+        html_dir = str(Path(html_path).parent)
+        r = subprocess.run([
+            chrome, "--headless", "--disable-gpu", "--no-sandbox",
+            f"--print-to-pdf={pdf_path}", "--print-to-pdf-no-header",
+            f"http://localhost:{port}/{Path(html_path).name}",
+        ], capture_output=True, text=True, timeout=30, cwd=html_dir)
+        httpd.shutdown()
+
+    if Path(pdf_path).exists():
+        size_kb = Path(pdf_path).stat().st_size / 1024
+        print(f"  ✅ A4 PDF: {pdf_path} ({size_kb:.0f} KB)")
+    else:
+        print(f"  ❌ PDF 生成失败: {r.stderr[:200] if r.stderr else 'unknown'}")

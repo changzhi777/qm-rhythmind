@@ -36,7 +36,7 @@ uvicorn rhythmind.api.main:app --reload --port 8000
 | `health_router` | `/api/v1` | 健康检查相关 |
 | `privacy_router` | `/api/v1` | 用户数据导出/删除 |
 | `admin_router` | `/api/v1` | Admin 技能审批 |
-| `dashboard_router` | `/qm` | 仪表盘 + AI 报告 + PDF 下载 |
+| `dashboard_router` | `/qm/api` | 仪表盘 + AI 报告 + PDF 下载 |
 | `mcp_router` | `/mcp/*` | MCP SSE + 消息处理 |
 
 ### 健康检查端点
@@ -72,11 +72,11 @@ uvicorn rhythmind.api.main:app --reload --port 8000
 
 | 端点 | 用途 |
 |------|------|
-| `GET /qm/dashboard` | 仪表盘汇总数据 |
-| `GET /qm/reports` | AI 分析报告列表 |
-| `GET /qm/reports/{id}` | 单篇报告详情 |
-| `GET /qm/reports/{id}/download` | 下载报告 PDF（含 QR 码） |
-| `POST /qm/analyze` | 触发本地模型重新分析 |
+| `GET /qm/api/dashboard` | 仪表盘汇总数据 |
+| `GET /qm/api/reports` | AI 分析报告列表 |
+| `GET /qm/api/reports/{id}` | 单篇报告详情 |
+| `GET /qm/api/reports/{id}/download` | 下载报告 PDF（含 QR 码） |
+| `POST /qm/api/analyze` | 触发本地模型重新分析 |
 
 **PDF 生成特性**：
 - 使用 ReportLab + STHeiti Light 中文字体
@@ -150,6 +150,7 @@ src/rhythmind/api/
 
 ## 变更记录 (Changelog)
 
-- **2026-05-12** 完整扫描完成，新增端点详情和数据模型
+- **2026-05-18** 增量更新：dashboard 路由前缀从 `/qm` 改为 `/qm/api`
 - **2026-05-15** 新增 dashboard 路由（仪表盘 + PDF 报告生成），更新端点列表
+- **2026-05-12** 完整扫描完成，新增端点详情和数据模型
 - **2026-05-12** 首次 AI 上下文初始化

@@ -1,11 +1,16 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Toast } from "@/components/ui/toast";
 
-const inter = Inter({
+const inter = localFont({
   variable: "--font-geist-sans",
-  subsets: ["latin"],
+  src: [
+    { path: "../../public/fonts/Inter-Regular.woff2", weight: "400" },
+    { path: "../../public/fonts/Inter-Bold.woff2", weight: "700" },
+  ],
+  display: "swap",
+  fallback: ["system-ui", "sans-serif"],
 });
 
 export const metadata: Metadata = {

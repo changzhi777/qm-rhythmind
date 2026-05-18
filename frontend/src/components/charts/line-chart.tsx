@@ -1,5 +1,3 @@
-// 折线趋势图组件 — 扁平化
-
 'use client';
 
 import { useEffect, useRef } from 'react';
@@ -10,6 +8,7 @@ interface LineChartProps {
   data: { name: string; value: number }[];
   height?: number;
   color?: string;
+  unit?: string;
 }
 
 const COLOR_MAP: Record<string, string> = {
@@ -18,34 +17,40 @@ const COLOR_MAP: Record<string, string> = {
   'var(--accent)': '#00D4FF',
 };
 
-function resolveColor(color: string): string {
-  return COLOR_MAP[color] || color;
-}
-
-export function LineChart({ title, data, height = 300, color = 'var(--primary)' }: LineChartProps) {
-  const chartRef = useRef<HTMLDivElement>(null);
-  const chartInstance = useRef<echarts.ECharts | null>(null);
-
-  const resolvedColor = resolveColor(color);
+export function LineChart({ title, data, height = 300, color = 'var(--primary)', unit = '' }: LineChartProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<echarts.ECharts | null>(null);
+  const resolvedColor = COLOR_MAP[color] || color;
 
   useEffect(() => {
-    if (!chartRef.current) return;
-    chartInstance.current = echarts.init(chartRef.current, 'dark');
+    if (!containerRef.current) return;
 
-    const handleResize = () => chartInstance.current?.resize();
-    window.addEventListener('resize', handleResize);
+    let chart = chartRef.current;
+    if (!chart) {
+      chart = echarts.init(containerRef.current, 'dark');
+      chartRef.current = chart;
 
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      chartInstance.current?.dispose();
-      chartInstance.current = null;
-    };
+      const handleResize = () => chart?.resize();
+      window.addEventListener('resize', handleResize);
+
+      return () => {
+        window.removeEventListener('resize', handleResize);
+        chart?.dispose();
+        chartRef.current = null;
+      };
+    }
   }, []);
 
   useEffect(() => {
-    if (!chartInstance.current) return;
+    const chart = chartRef.current;
+    if (!chart || !containerRef.current) return;
 
-    const option = {
+    if (data.length === 0) {
+      chart.clear();
+      return;
+    }
+
+    chart.setOption({
       backgroundColor: 'transparent',
       title: title ? { text: title, textStyle: { color: '#fff', fontSize: 14 } } : undefined,
       tooltip: {
@@ -75,11 +80,15 @@ export function LineChart({ title, data, height = 300, color = 'var(--primary)' 
         symbolSize: 6,
         lineStyle: { color: resolvedColor, width: 2 },
         itemStyle: { color: resolvedColor },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: resolvedColor + '33' },
+            { offset: 1, color: resolvedColor + '05' },
+          ]),
+        },
       }],
-    };
+    });
+  }, [data, title, resolvedColor, unit]);
 
-    chartInstance.current.setOption(option);
-  }, [data, title, resolvedColor]);
-
-  return <div ref={chartRef} style={{ width: '100%', height: `${height}px` }} />;
+  return <div ref={containerRef} style={{ width: '100%', height: `${height}px` }} />;
 }

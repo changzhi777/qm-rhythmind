@@ -14,6 +14,7 @@ Hermes Pattern v2 的核心实现，包含：
 - **SkillEngine**: 技能提取与复用
 - **ComplianceGate / PromptAuditor**: 合规审查（双层防护）
 - **QMDClient**: 本地语义搜索客户端
+- **Redis 缓存层**: 装饰器缓存 + Session/Fact/Intent 缓存
 
 ---
 
@@ -22,6 +23,7 @@ Hermes Pattern v2 的核心实现，包含：
 - **Agent 基类**: `from rhythmind.core.hermes_base import HermesBase`
 - **记忆管理**: `from rhythmind.core.memory import MemoryManager, init_db`
 - **QMD 客户端**: `from rhythmind.core.qmd import QMDClient`
+- **缓存**: `from rhythmind.core.cache import cache_async, SessionCache, FactCache, IntentCache, close_redis`
 - **合规**: `from rhythmind.core.compliance import PromptAuditor, ComplianceGate`
 
 ---
@@ -112,6 +114,7 @@ class PromptAuditor:
 
 - **合规**: `ComplianceGate` + `PromptAuditor`（双层防护：前置 prompt 审查 + 后置输出分级）
 - **QMD**: `qmd_url`, `qmd_timeout`, `qmd_top_k`
+- **缓存**: `redis_url`, Redis 异步连接单例，故障时静默降级
 - **模型**: 通过 `AdapterRouter` 调用 LLM
 
 ---
@@ -271,11 +274,14 @@ src/rhythmind/core/
 └── qmd/
     ├── __init__.py
     └── client.py          # QMDClient
+├── cache/
+│   └── __init__.py        # Redis 缓存层: cache_async, SessionCache, FactCache, IntentCache
 ```
 
 ---
 
 ## 变更记录 (Changelog)
 
+- **2026-05-18** 增量更新：新增 cache 子模块（Redis 缓存层：装饰器缓存、Session/Fact/Intent 缓存）
 - **2026-05-12** 完整扫描完成，新增所有子模块详细接口和数据模型
 - **2026-05-12** 首次 AI 上下文初始化

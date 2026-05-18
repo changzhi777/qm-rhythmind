@@ -54,6 +54,7 @@ class AuditSink(ABC):
 # - InMemorySink      # 测试用
 # - StructlogSink     # 默认，生产降级
 # - S3JsonlSink       # 生产 S3/SIEM（需 boto3）
+# - PGSink            # PostgreSQL 持久化（配合 migration 004）
 ```
 
 ### install_audit_sink / get_sink
@@ -65,10 +66,22 @@ def get_sink() -> AuditSink: ...
 
 ---
 
+### PGSink
+
+```python
+class PGSink(AuditSink):
+    def __init__(self, batch_size: int = 50, flush_interval: float = 5.0) -> None: ...
+    def emit(self, record: AuditRecord) -> None: ...
+    # 异步批量写入 audit_log 表，失败降级到 stderr
+    # 需要 migration 004 创建 audit_log 表
+```
+
+---
+
 ## 关键依赖与配置
 
 - **日志**: `structlog`
-- **存储**: S3（生产）、内存（测试）、structlog（降级）
+- **存储**: S3（生产）、PG（持久化）、内存（测试）、structlog（降级）
 - **配置**: `settings.env`（决定默认 sink）
 
 ---
@@ -128,12 +141,14 @@ src/rhythmind/audit/
 ├── __init__.py     # 公开 API: audit_log, AuditEvent, install_audit_sink, get_sink
 ├── events.py       # AuditEvent 枚举常量
 ├── logger.py      # 主日志入口 + install_audit_sink
-└── sinks.py       # AuditSink ABC + InMemorySink/StructlogSink/S3JsonlSink
+├── sinks.py       # AuditSink ABC + InMemorySink/StructlogSink/S3JsonlSink
+└── pg_sink.py     # PGSink — PostgreSQL 批量持久化（配合 migration 004）
 ```
 
 ---
 
 ## 变更记录 (Changelog)
 
+- **2026-05-18** 增量更新：新增 PGSink（PostgreSQL 批量持久化）
 - **2026-05-12** 完整扫描完成，新增 AuditRecord 数据模型和 S3JsonlSink 详情
 - **2026-05-12** 首次 AI 上下文初始化

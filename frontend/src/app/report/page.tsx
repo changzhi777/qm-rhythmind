@@ -1,13 +1,21 @@
-// AI 健康报告页面 — 扁平化设计
-
 'use client';
 
 import { useEffect } from 'react';
 import { useReportStore } from '@/lib/stores/report-store';
+import { Header } from '@/components/layout/header';
 
 function formatTime(timestamp: string) {
   if (!timestamp) return '-';
   return timestamp.replace('T', ' ').substring(0, 19);
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 function renderMarkdown(text: string): string {
@@ -17,7 +25,8 @@ function renderMarkdown(text: string): string {
   const htmlParts: string[] = [];
   let inList = false;
 
-  for (const line of lines) {
+  for (const rawLine of lines) {
+    const line = escapeHtml(rawLine);
     if (line.startsWith('### ')) {
       if (inList) { htmlParts.push('</ul>'); inList = false; }
       htmlParts.push(`<h3 style="font-size:14px;font-weight:500;color:white;margin:16px 0 8px">${line.slice(4)}</h3>`);
@@ -45,38 +54,23 @@ function renderMarkdown(text: string): string {
 }
 
 export default function ReportPage() {
-  const { reports, currentReport, loading, analyzing, fetchReports, fetchReport, triggerAnalyze, downloadReport } = useReportStore();
+  const { reports, currentReport, loading, analyzing, downloading, fetchReports, fetchReport, triggerAnalyze, downloadReport } = useReportStore();
 
-  useEffect(() => {
-    fetchReports();
-  }, [fetchReports]);
+  useEffect(() => { fetchReports(); }, [fetchReports]);
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--background)' }}>
-      {/* Header */}
-      <header style={{ borderBottom: '1px solid var(--border)', padding: '16px 24px' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ color: 'white', fontWeight: '700', fontSize: '16px' }}>R</span>
-            </div>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                <h1 style={{ fontSize: '18px', fontWeight: '600', color: 'white' }}>RHYTHMIND</h1>
-                <span style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: '500' }}>律动</span>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '400' }}>v0.1.9</span>
-              </div>
-              <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{reports.length} 份</p>
-            </div>
-          </div>
+      <Header
+        title={`报告 ${reports.length} 份`}
+        activePath="/report"
+        extra={
           <button onClick={triggerAnalyze} disabled={analyzing} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             {analyzing ? <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>⟳</span> : '⚡'}
             {analyzing ? '分析中...' : '重新分析'}
           </button>
-        </div>
-      </header>
+        }
+      />
 
-      {/* Main */}
       <main style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: '16px' }}>
           {/* Report List */}
@@ -106,7 +100,7 @@ export default function ReportPage() {
                       {report.is_current && <span style={{ fontSize: '10px', padding: '2px 6px', background: 'var(--primary)', color: 'white', borderRadius: '4px' }}>最新</span>}
                     </div>
                     <p style={{ fontSize: '12px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {report.content?.substring(0, 60) || '无内容'}...
+                      {report.content?.substring(0, 60) ?? '无内容'}...
                     </p>
                   </button>
                 ))
@@ -125,8 +119,13 @@ export default function ReportPage() {
                       {formatTime(currentReport.timestamp)} · {currentReport.model}
                     </p>
                   </div>
-                  <button onClick={() => downloadReport(currentReport.id)} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    📥 下载
+                  <button
+                    onClick={() => downloadReport(currentReport.id)}
+                    disabled={downloading}
+                    className="btn-primary"
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', opacity: downloading ? 0.6 : 1 }}
+                  >
+                    {downloading ? '⏳ 下载中...' : '📥 下载'}
                   </button>
                 </div>
                 <div dangerouslySetInnerHTML={{ __html: renderMarkdown(currentReport.content) }} />

@@ -1,7 +1,7 @@
 # CLAUDE.md — RHYTHMIND 律动
 
-> **项目版本:** 0.1.8
-> **最后扫描:** 2026-05-15T19:43:42+08:00
+> **项目版本:** 0.1.9
+> **最后扫描:** 2026-05-18T09:03:25+08:00
 > **语言:** Python 3.12+
 > **包管理:** Poetry
 
@@ -9,6 +9,7 @@
 
 ## 变更记录 (Changelog)
 
+- **2026-05-18** 增量更新：新增 cache 子模块、PGSink、migration 004、web/ 替代前端、部署配置更新
 - **2026-05-15** 增量更新：新增 ingestion 模块、dashboard/PDF 报告路由、前端 CLAUDE.md、部署到 aisport.tech/qm
 - **2026-05-12** Phase 1/2/3/4 实现完成，版本升至 0.1.9
 - **2026-05-12** 完整扫描完成，覆盖率 69% (55/80 文件)，新增子模块详情
@@ -41,80 +42,7 @@ RHYTHMIND 律动是一个基于多智能体协作的 AI 健康管理平台，本
 
 ### 模块结构图
 
-```mermaid
-graph TD
-    ROOT["(根) qm-rhythmind"] --> API["rhythmind/api"]
-    ROOT --> ADAPTERS["rhythmind/adapters"]
-    ROOT --> INGESTION["rhythmind/ingestion"]
-    ROOT --> AGENTS["rhythmind/agents"]
-    ROOT --> CORE["rhythmind/core"]
-    ROOT --> ORCHESTRATOR["rhythmind/orchestrator"]
-    ROOT --> MCP["rhythmind/mcp"]
-    ROOT --> DB["rhythmind/db"]
-    ROOT --> PRIVACY["rhythmind/privacy"]
-    ROOT --> AUDIT["rhythmind/audit"]
-    ROOT --> OBS["rhythmind/observability"]
-
-    API --> MAIN["api/main.py<br/>FastAPI 入口"]
-    API --> HEALTH["api/routers/health.py"]
-    API --> DASHBOARD["api/routers/dashboard.py<br/>仪表盘 + PDF 报告"]
-    API --> PRIVACY_ROUTER["api/routers/privacy.py"]
-    API --> ADMIN["api/routers/admin.py"]
-    API --> DEPS["api/deps.py"]
-    API --> RATE_LIMIT["api/rate_limit.py"]
-    API --> SCHEMAS["api/schemas/health.py"]
-
-    ADAPTERS --> ROUTER["adapter_router.py<br/>模型路由前缀分发"]
-    ADAPTERS --> MLX["mlx_adapter.py<br/>Apple MLX 推理"]
-    ADAPTERS --> OLLAMA["ollama_adapter.py<br/>Ollama HTTP"]
-    ADAPTERS --> LITE_LLM["litellm_adapter.py<br/>LiteLLM 代理"]
-    ADAPTERS --> INFLUX["influx_client.py<br/>时序指标"]
-    ADAPTERS --> MODEL_ADAPTER["model_adapter.py<br/>ABC 基类"]
-
-    INGESTION --> ING_BASE["ingestion/base.py<br/>适配器 ABC + 数据模型"]
-    INGESTION --> ING_ENGINE["ingestion/engine.py<br/>入库 + AI 分析引擎"]
-    INGESTION --> ING_GARMIN["ingestion/garmin_adapter.py<br/>Garmin 数据适配器"]
-
-    AGENTS --> DATA["data_agent.py<br/>数据分析 Agent"]
-    AGENTS --> COACH["coach_agent.py<br/>健康教练 Agent"]
-    AGENTS --> METRICS["metrics_agent.py<br/>指标采集 Agent"]
-
-    CORE --> HERMES["core/hermes_base.py<br/>6 步执行循环基类"]
-    CORE --> MEMORY["core/memory/<br/>记忆管理 + FactManager"]
-    CORE --> SKILL["core/skill/<br/>技能引擎"]
-    CORE --> COMPLIANCE["core/compliance/<br/>合规审查"]
-    CORE --> QMD["core/qmd/<br/>QMD 客户端"]
-
-    ORCHESTRATOR --> WORKFLOWS["orchestrator/workflows/<br/>Swarm 工作流"]
-    ORCHESTRATOR --> LOOP["loop_guard.py<br/>循环防护"]
-    ORCHESTRATOR --> POOL["pool.py<br/>Agent 实例池"]
-
-    MCP --> SERVER["mcp/server.py<br/>MCP 工具注册"]
-    MCP --> MCP_ROUTER["mcp/router.py<br/>SSE 路由"]
-
-    DB --> MODELS["db/models.py<br/>SQLAlchemy 模型"]
-    DB --> MIGRATIONS["db/migrations/<br/>Alembic 迁移"]
-
-    PRIVACY --> PRIVACY_SVC["privacy/service.py<br/>GDPR/PIPL 服务"]
-
-    AUDIT --> AUDIT_LOGGER["audit/logger.py<br/>审计日志入口"]
-    AUDIT --> AUDIT_EVENTS["audit/events.py<br/>事件常量"]
-    AUDIT --> AUDIT_SINKS["audit/sinks.py<br/>Sink 实现"]
-
-    OBS --> METRICS["observability/metrics.py<br/>Prometheus"]
-    OBS --> TRACING["observability/tracing.py<br/>OpenTelemetry"]
-
-    click API "./src/rhythmind/api/CLAUDE.md" "查看 api 模块文档"
-    click ADAPTERS "./src/rhythmind/adapters/CLAUDE.md" "查看 adapters 模块文档"
-    click AGENTS "./src/rhythmind/agents/CLAUDE.md" "查看 agents 模块文档"
-    click CORE "./src/rhythmind/core/CLAUDE.md" "查看 core 模块文档"
-    click ORCHESTRATOR "./src/rhythmind/orchestrator/CLAUDE.md" "查看 orchestrator 模块文档"
-    click MCP "./src/rhythmind/mcp/CLAUDE.md" "查看 mcp 模块文档"
-    click DB "./src/rhythmind/db/CLAUDE.md" "查看 db 模块文档"
-    click PRIVACY "./src/rhythmind/privacy/CLAUDE.md" "查看 privacy 模块文档"
-    click AUDIT "./src/rhythmind/audit/CLAUDE.md" "查看 audit 模块文档"
-    click OBS "./src/rhythmind/observability/CLAUDE.md" "查看 observability 模块文档"
-```
+![模块架构图](./docs/architecture.svg)
 
 ---
 
@@ -244,8 +172,8 @@ python scripts/bump_version.py minor   # 0.1.8 → 0.2.0
 
 | 指标 | 数值 |
 |------|------|
-| 估算总文件数 | 85 |
-| 已扫描文件数 | 85 |
+| 估算总文件数 | 92 |
+| 已扫描文件数 | 92 |
 | 覆盖百分比 | **100%** |
 | 模块数量 | 11 |
 | 子模块数量 | 41 |
@@ -253,7 +181,7 @@ python scripts/bump_version.py minor   # 0.1.8 → 0.2.0
 ### 无缺口
 
 - ✓ `tests/unit/adapters/` — 适配器测试在 `test_model_adapters.py` (集中式)
-- ✓ `db/migrations/versions/` — 全部 3 个迁移脚本已扫描
+- ✓ `db/migrations/versions/` — 全部 4 个迁移脚本已扫描
 - ✓ `scripts/bump_version.py` — 已扫描
 - ⚠️ `observability` — 无专门测试目录（通过集成测试覆盖）
 
