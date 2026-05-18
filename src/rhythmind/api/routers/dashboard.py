@@ -510,3 +510,160 @@ async def download_test_report(report_id: str, filename: str, user_id: CurrentUs
     media_type = mime_map.get(ext, "application/octet-stream")
 
     return FileResponse(fpath, media_type=media_type, filename=safe_filename)
+
+
+# ── 文件上传 + Chat 代理 ───────────────────────────────────
+
+import csv
+import io as _io
+import shutil
+import tempfile
+
+from fastapi import File, UploadFile
+
+
+@router.post("/upload/file")
+async def upload_file(
+    file: UploadFile = File(...),
+    user_id: CurrentUserId = None,
+) -> dict[str, Any]:
+    """通用文件上传端点 — 自动识别类型并解析入库。
+
+    支持: CSV, JSON, TXT, PDF(文本提取), 图像(OCR 占位)
+    """
+    if user_id is None:
+        user_id = "garmin_user_001"
+
+    filename = file.filename or "unknown"
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    content = await file.read()
+
+    fm = _fm(user_id)
+    facts_imported = 0
+    summary = ""
+
+    if ext == "csv":
+        text = content.decode("utf-8-sig", errors="replace")
+        reader = csv.DictReader(_io.StringIO(text))
+        rows = list(reader)
+        if not rows:
+            return {"status": "ok", "message": "CSV 为空", "facts_imported": 0}
+
+        cols = list(rows[0].keys())
+        for row in rows:
+            for col in cols:
+                val = row[col].strip()
+                if val:
+                    try:
+                        val = float(val) if "." in val else int(val)
+                    except ValueError:
+                        pass
+                    await fm.write_fact("upload_csv", f"{col}", val, source="file_upload")
+                    facts_imported += 1
+        summary = f"CSV {len(rows)} 行 × {len(cols)} 列，导入 {facts_imported} 条数据"
+
+    elif ext == "json":
+        data = json.loads(content)
+        if isinstance(data, dict):
+            for key, value in data.items():
+                if isinstance(value, (str, int, float, bool)):
+                    await fm.write_fact("upload_json", key, value, source="file_upload")
+                    facts_imported += 1
+                elif isinstance(value, dict):
+                    await fm.write_fact("upload_json", key, value, source="file_upload")
+                    facts_imported += 1
+            summary = f"JSON 对象，导入 {facts_imported} 个字段"
+        elif isinstance(data, list):
+            facts_imported = len(data)
+            await fm.write_fact("upload_json", "array_data", {"count": len(data)}, source="file_upload")
+            summary = f"JSON 数组，{len(data)} 条记录"
+        else:
+            return {"status": "ok", "message": "不支持的 JSON 格式", "facts_imported": 0}
+
+    elif ext == "txt":
+        text = content.decode("utf-8", errors="replace")
+        lines = [l.strip() for l in text.split("\n") if l.strip()]
+        await fm.write_fact("upload_text", "content", {"lines": len(lines), "preview": text[:500]}, source="file_upload")
+        facts_imported = 1
+        summary = f"文本文件，{len(lines)} 行"
+
+    elif ext == "pdf":
+        await fm.write_fact("upload_file", "pdf_received", {"filename": filename, "size": len(content)}, source="file_upload")
+        facts_imported = 1
+        summary = "PDF 已接收，文本提取功能开发中"
+
+    elif ext in ("png", "jpg", "jpeg"):
+        await fm.write_fact("upload_file", "image_received", {"filename": filename, "size": len(content), "type": ext}, source="file_upload")
+        facts_imported = 1
+        summary = "图像已接收，OCR 识别功能开发中"
+
+    else:
+        return {"status": "error", "message": f"不支持的文件格式: .{ext}", "facts_imported": 0}
+
+    logger.info("upload_file user=%s file=%s facts=%d", user_id, filename, facts_imported)
+    return {
+        "status": "ok",
+        "message": f"{filename} 上传成功",
+        "filename": filename,
+        "facts_imported": facts_imported,
+        "summary": summary,
+    }
+
+
+@router.post("/chat")
+async def chat_proxy(
+    body: dict[str, Any],
+    user_id: CurrentUserId = None,
+) -> dict[str, Any]:
+    """Chat 代理端点 — 将前端请求转发到后端 HealthRouter。
+
+    请求体: { "text": "...", "context": {} }
+    """
+    if user_id is None:
+        user_id = "garmin_user_001"
+
+    text = body.get("text", "")
+    context = body.get("context", {})
+
+    if not text.strip():
+        return {"status": "ok", "message": "请输入消息"}
+
+    try:
+        from rhythmind.api.deps import get_router
+        health_router = get_router()
+        import uuid
+
+        session_id = str(uuid.uuid4())
+        raw_input = {"text": text, **context}
+        result = await health_router.route(
+            user_id=user_id,
+            raw_input=raw_input,
+            session_id=session_id,
+        )
+
+        return {
+            "status": result.status.value if hasattr(result.status, "value") else str(result.status),
+            "session_id": session_id,
+            "message": result.message,
+            "data": result.data,
+        }
+    except Exception as exc:
+        logger.warning("chat_proxy fallback: %s", exc)
+        fm = _fm(user_id)
+        facts = await fm.get_all_current()
+        if not facts:
+            return {
+                "status": "ok",
+                "message": "暂无健康数据，请先上传数据文件。",
+                "data": {"coach_response": "暂无健康数据，请先通过上传页面导入数据文件，我才能为你提供健康分析。"},
+            }
+
+        fact_lines = [f"- [{f.subject}/{f.predicate}]: {json.dumps(f.object_json, ensure_ascii=False)}" for f in facts[:20]]
+        return {
+            "status": "ok",
+            "message": "数据摘要",
+            "data": {
+                "coach_response": f"当前已录入 {len(facts)} 条健康数据：\n" + "\n".join(fact_lines),
+            },
+        }
+
