@@ -464,7 +464,7 @@ async def list_test_reports(user_id: CurrentUserId) -> dict[str, Any]:
             if fname == "meta.json":
                 continue
             fpath = _os.path.join(entry_path, fname)
-            fsize = _os.path.stat(fpath).st_size
+            fsize = _os.stat(fpath).st_size
             ext = fname.rsplit(".", 1)[-1].lower() if "." in fname else ""
             files.append({
                 "name": fname,

@@ -363,92 +363,6 @@ def generate_html(results: list, stats: dict, svg_content: str) -> str:
 </html>'''
 
 
-# ── 主流程 ──────────────────────────────────────────────
-
-def main():
-    REPORT_DIR.mkdir(exist_ok=True)
-    all_results = []
-    stats = {"page_times": [], "api_times": [], "total_passed": 0, "total_failed": 0}
-
-    print(f"{'='*60}")
-    print(f"  RHYTHMIND E2E — {ROUNDS} 轮全链路测试")
-    print(f"  {BASE_URL} · {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"{'='*60}\n")
-
-    for i in range(1, ROUNDS + 1):
-        result = run_round(i)
-        all_results.append(result)
-        p = sum(1 for t in result["tests"] if t["passed"])
-        f = sum(1 for t in result["tests"] if not t["passed"])
-        stats["total_passed"] += p
-        stats["total_failed"] += f
-        for t in result["tests"]:
-            if t["time_ms"] > 0:
-                key = "page_times" if t["category"] == "页面" else "api_times"
-                stats[key].append(t["time_ms"])
-        s = "PASS" if f == 0 else f"FAIL({f})"
-        print(f"  Round {i:2d}/{ROUNDS}  ✅{p}  ❌{f}  {s}")
-        if i < ROUNDS:
-            time.sleep(0.5)
-
-    # 生成三件套
-    svg = generate_svg(all_results, stats)
-    md = generate_md(all_results, stats)
-
-    (REPORT_DIR / "e2e-charts.svg").write_text(svg, encoding="utf-8")
-    (REPORT_DIR / "e2e-report.md").write_text(md, encoding="utf-8")
-
-    html = generate_html(all_results, stats, svg)
-    html_path = REPORT_DIR / "e2e-report.html"
-    html_path.write_text(html, encoding="utf-8")
-
-    print(f"\n{'='*60}")
-    print(f"  ✅ 报告已生成:")
-    print(f"    📄 e2e-report.md")
-    print(f"    🌐 e2e-report.html (内联 SVG)")
-    print(f"    📊 e2e-charts.svg")
-    print(f"  📑 下一步: HTML → A4 PDF (Playwright)")
-    print(f"{'='*60}")
-
-    return str(html_path)
-
-
-if __name__ == "__main__":
-    html_path = main()
-
-    # HTML → A4 PDF (Chrome headless)
-    pdf_path = str(Path(html_path).parent / "e2e-report.pdf")
-    print("\n  正在生成 A4 PDF...")
-
-    # 先启动临时 HTTP 服务器（Chrome 不支持 file:// 协议打印）
-    import http.server, threading, socketserver
-    handler = http.server.SimpleHTTPRequestHandler
-    with socketserver.TCPServer(("", 0), handler) as httpd:
-        port = httpd.server_address[1]
-        thread = threading.Thread(target=httpd.serve_forever, daemon=True)
-        thread.start()
-
-        import subprocess, shutil
-        chrome = shutil.which("google-chrome") or "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-        html_dir = str(Path(html_path).parent)
-        r = subprocess.run([
-            chrome, "--headless", "--disable-gpu", "--no-sandbox",
-            f"--print-to-pdf={pdf_path}", "--print-to-pdf-no-header",
-            f"http://localhost:{port}/{Path(html_path).name}",
-        ], capture_output=True, text=True, timeout=30, cwd=html_dir)
-        httpd.shutdown()
-
-    if Path(pdf_path).exists():
-        size_kb = Path(pdf_path).stat().st_size / 1024
-        print(f"  ✅ A4 PDF: {pdf_path} ({size_kb:.0f} KB)")
-    else:
-        print(f"  ❌ PDF 生成失败: {r.stderr[:200] if r.stderr else 'unknown'}")
-
-    # --upload: 上传报告到服务器
-    if "--upload" in sys.argv:
-        upload_reports(all_results, stats)
-
-
 def upload_reports(results: list, stats: dict):
     """将报告文件上传到生产服务器。"""
     total = stats["total_passed"] + stats["total_failed"]
@@ -506,3 +420,89 @@ def upload_reports(results: list, stats: dict):
 
     print(f"  ✅ 报告已上传: https://aisport.tech/qm/test-report")
     print(f"     API: https://aisport.tech/qm/api/test-reports/{report_id}")
+
+
+# ── 主流程 ──────────────────────────────────────────────
+
+def main():
+    REPORT_DIR.mkdir(exist_ok=True)
+    all_results = []
+    stats = {"page_times": [], "api_times": [], "total_passed": 0, "total_failed": 0}
+
+    print(f"{'='*60}")
+    print(f"  RHYTHMIND E2E — {ROUNDS} 轮全链路测试")
+    print(f"  {BASE_URL} · {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"{'='*60}\n")
+
+    for i in range(1, ROUNDS + 1):
+        result = run_round(i)
+        all_results.append(result)
+        p = sum(1 for t in result["tests"] if t["passed"])
+        f = sum(1 for t in result["tests"] if not t["passed"])
+        stats["total_passed"] += p
+        stats["total_failed"] += f
+        for t in result["tests"]:
+            if t["time_ms"] > 0:
+                key = "page_times" if t["category"] == "页面" else "api_times"
+                stats[key].append(t["time_ms"])
+        s = "PASS" if f == 0 else f"FAIL({f})"
+        print(f"  Round {i:2d}/{ROUNDS}  ✅{p}  ❌{f}  {s}")
+        if i < ROUNDS:
+            time.sleep(0.5)
+
+    # 生成三件套
+    svg = generate_svg(all_results, stats)
+    md = generate_md(all_results, stats)
+
+    (REPORT_DIR / "e2e-charts.svg").write_text(svg, encoding="utf-8")
+    (REPORT_DIR / "e2e-report.md").write_text(md, encoding="utf-8")
+
+    html = generate_html(all_results, stats, svg)
+    html_path = REPORT_DIR / "e2e-report.html"
+    html_path.write_text(html, encoding="utf-8")
+
+    print(f"\n{'='*60}")
+    print(f"  ✅ 报告已生成:")
+    print(f"    📄 e2e-report.md")
+    print(f"    🌐 e2e-report.html (内联 SVG)")
+    print(f"    📊 e2e-charts.svg")
+    print(f"  📑 下一步: HTML → A4 PDF (Playwright)")
+    print(f"{'='*60}")
+
+    return str(html_path), all_results, stats
+
+
+if __name__ == "__main__":
+    html_path, all_results, stats = main()
+
+    # HTML → A4 PDF (Chrome headless)
+    pdf_path = str(Path(html_path).parent / "e2e-report.pdf")
+    print("\n  正在生成 A4 PDF...")
+
+    # 先启动临时 HTTP 服务器（Chrome 不支持 file:// 协议打印）
+    import http.server, threading, socketserver
+    handler = http.server.SimpleHTTPRequestHandler
+    with socketserver.TCPServer(("", 0), handler) as httpd:
+        port = httpd.server_address[1]
+        thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+        thread.start()
+
+        import subprocess, shutil
+        chrome = shutil.which("google-chrome") or "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+        html_dir = str(Path(html_path).parent)
+        r = subprocess.run([
+            chrome, "--headless", "--disable-gpu", "--no-sandbox",
+            f"--print-to-pdf={pdf_path}", "--print-to-pdf-no-header",
+            f"http://localhost:{port}/{Path(html_path).name}",
+        ], capture_output=True, text=True, timeout=30, cwd=html_dir)
+        httpd.shutdown()
+
+    if Path(pdf_path).exists():
+        size_kb = Path(pdf_path).stat().st_size / 1024
+        print(f"  ✅ A4 PDF: {pdf_path} ({size_kb:.0f} KB)")
+    else:
+        print(f"  ❌ PDF 生成失败: {r.stderr[:200] if r.stderr else 'unknown'}")
+
+    # --upload: 上传报告到服务器
+    if "--upload" in sys.argv:
+        upload_reports(all_results, stats)
