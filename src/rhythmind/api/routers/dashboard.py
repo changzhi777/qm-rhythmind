@@ -588,7 +588,7 @@ async def _analyze_with_vision(
 async def _write_vision_facts(
     fm: FactManager, subject_prefix: str, data: dict, filename: str,
 ) -> int:
-    """将 AI 提取的结构化数据写入 FactManager。"""
+    """将 AI 提取的结构化数据写入 FactManager，展开嵌套结构。"""
     count = 0
     if isinstance(data, dict):
         for key, value in data.items():
@@ -596,13 +596,29 @@ async def _write_vision_facts(
                 await fm.write_fact(subject_prefix, key, value, source="vision_analysis")
                 count += 1
             elif isinstance(value, dict):
-                await fm.write_fact(subject_prefix, key, value, source="vision_analysis")
-                count += 1
+                # 展开嵌套 dict
+                for sub_key, sub_val in value.items():
+                    if isinstance(sub_val, (str, int, float, bool)):
+                        await fm.write_fact(subject_prefix, f"{key}.{sub_key}", sub_val, source="vision_analysis")
+                        count += 1
+                    else:
+                        await fm.write_fact(subject_prefix, f"{key}.{sub_key}", sub_val, source="vision_analysis")
+                        count += 1
             elif isinstance(value, list):
-                await fm.write_fact(subject_prefix, key, {"items": value}, source="vision_analysis")
-                count += 1
+                # 展开数组中的每个 dict 元素
+                for i, item in enumerate(value):
+                    if isinstance(item, dict):
+                        # 用 test_name/name 等字段作为键
+                        item_key = item.get("test_name") or item.get("name") or item.get("指标") or str(i)
+                        await fm.write_fact(subject_prefix, f"{key}.{item_key}", item, source="vision_analysis")
+                        count += 1
+                    elif isinstance(item, (str, int, float)):
+                        await fm.write_fact(subject_prefix, f"{key}.{i}", item, source="vision_analysis")
+                        count += 1
+                if not value:
+                    await fm.write_fact(subject_prefix, key, {"items": value}, source="vision_analysis")
+                    count += 1
 
-    # 保存原始分析结果
     await fm.write_fact(subject_prefix, "_source", {"filename": filename, "extracted": count}, source="vision_analysis")
     return max(count, 1)
 
