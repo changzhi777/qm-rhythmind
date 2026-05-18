@@ -514,12 +514,97 @@ async def download_test_report(report_id: str, filename: str, user_id: CurrentUs
 
 # ── 文件上传 + Chat 代理 ───────────────────────────────────
 
+import base64
 import csv
 import io as _io
 import shutil
 import tempfile
 
 from fastapi import File, UploadFile
+
+
+def _pdf_to_images_b64(pdf_bytes: bytes, dpi: int = 150) -> list[dict[str, str]]:
+    """将 PDF 每页转为 base64 编码的 PNG 图片。"""
+    try:
+        from pdf2image import convert_from_bytes
+    except ImportError:
+        raise RuntimeError("pdf2image 未安装，请执行: pip install pdf2image && brew install poppler")
+
+    images = convert_from_bytes(pdf_bytes, dpi=dpi)
+    result = []
+    for img in images[:5]:  # 最多处理前 5 页
+        buf = _io.BytesIO()
+        img.save(buf, format="PNG")
+        b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+        result.append({"b64": b64, "mime": "image/png"})
+    return result
+
+
+async def _analyze_with_vision(
+    images: list[dict[str, str]],
+    prompt: str,
+) -> dict[str, Any]:
+    """用多模态模型分析图片，返回结构化 JSON。"""
+    from rhythmind.adapters.adapter_router import adapter_router
+    from rhythmind.config import settings
+
+    content_parts: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
+    for img in images:
+        content_parts.append({
+            "type": "image_url",
+            "image_url": {"url": f"data:{img['mime']};base64,{img['b64']}"},
+        })
+
+    messages = [
+        {"role": "system", "content": "你是专业的健康数据分析助手，擅长从医学报告和健康数据图片中提取结构化数据。只返回纯 JSON。"},
+        {"role": "user", "content": content_parts},
+    ]
+
+    model_spec = settings.model_compliance_spec or "omlX://gemma-4-e4b-it-4bit"
+    logger.info("vision analysis with model=%s images=%d", model_spec, len(images))
+
+    if model_spec.startswith("omlX://"):
+        from rhythmind.adapters.omlX_adapter import OMLXAdapter
+        adapter = OMLXAdapter(model_spec[len("omlX://"):], timeout=120.0)
+    else:
+        adapter = adapter_router.route(model_spec)
+
+    raw = await adapter.chat(messages, temperature=0.1, max_tokens=4096)
+
+    # 清理 markdown 包裹的 JSON
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[-1]
+    if raw.endswith("```"):
+        raw = raw.rsplit("```", 1)[0]
+    raw = raw.strip()
+
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return {"raw_text": raw}
+
+
+async def _write_vision_facts(
+    fm: FactManager, subject_prefix: str, data: dict, filename: str,
+) -> int:
+    """将 AI 提取的结构化数据写入 FactManager。"""
+    count = 0
+    if isinstance(data, dict):
+        for key, value in data.items():
+            if isinstance(value, (str, int, float, bool)):
+                await fm.write_fact(subject_prefix, key, value, source="vision_analysis")
+                count += 1
+            elif isinstance(value, dict):
+                await fm.write_fact(subject_prefix, key, value, source="vision_analysis")
+                count += 1
+            elif isinstance(value, list):
+                await fm.write_fact(subject_prefix, key, {"items": value}, source="vision_analysis")
+                count += 1
+
+    # 保存原始分析结果
+    await fm.write_fact(subject_prefix, "_source", {"filename": filename, "extracted": count}, source="vision_analysis")
+    return max(count, 1)
 
 
 @router.post("/upload/file")
@@ -588,14 +673,36 @@ async def upload_file(
         summary = f"文本文件，{len(lines)} 行"
 
     elif ext == "pdf":
-        await fm.write_fact("upload_file", "pdf_received", {"filename": filename, "size": len(content)}, source="file_upload")
-        facts_imported = 1
-        summary = "PDF 已接收，文本提取功能开发中"
+        try:
+            images_b64 = _pdf_to_images_b64(content)
+            ai_result = await _analyze_with_vision(
+                images_b64,
+                "这是一份医学/健康 PDF 报告。请提取其中所有健康相关数据（如血液指标、身高体重、心率、血压、血糖、血脂等），以 JSON 格式返回。只返回 JSON，不要其他文字。",
+            )
+            facts_imported = await _write_vision_facts(fm, "pdf_report", ai_result, filename)
+            summary = f"PDF 多模态分析完成，提取 {facts_imported} 条数据"
+        except Exception as e:
+            logger.warning("PDF vision analysis failed, fallback: %s", e)
+            await fm.write_fact("upload_file", "pdf_received", {"filename": filename, "size": len(content)}, source="file_upload")
+            facts_imported = 1
+            summary = f"PDF 已接收（AI 分析暂不可用: {str(e)[:60]}）"
 
     elif ext in ("png", "jpg", "jpeg"):
-        await fm.write_fact("upload_file", "image_received", {"filename": filename, "size": len(content), "type": ext}, source="file_upload")
-        facts_imported = 1
-        summary = "图像已接收，OCR 识别功能开发中"
+        try:
+            import base64
+            img_b64 = base64.b64encode(content).decode("utf-8")
+            mime = f"image/{'jpeg' if ext in ('jpg','jpeg') else ext}"
+            ai_result = await _analyze_with_vision(
+                [{"b64": img_b64, "mime": mime}],
+                "这是一张健康/医学相关的图片（如化验单、体检报告、体脂秤读数等）。请提取其中所有健康数据，以 JSON 格式返回。只返回 JSON，不要其他文字。",
+            )
+            facts_imported = await _write_vision_facts(fm, "image_report", ai_result, filename)
+            summary = f"图像多模态分析完成，提取 {facts_imported} 条数据"
+        except Exception as e:
+            logger.warning("Image vision analysis failed, fallback: %s", e)
+            await fm.write_fact("upload_file", "image_received", {"filename": filename, "size": len(content), "type": ext}, source="file_upload")
+            facts_imported = 1
+            summary = f"图像已接收（AI 分析暂不可用: {str(e)[:60]}）"
 
     else:
         return {"status": "error", "message": f"不支持的文件格式: .{ext}", "facts_imported": 0}
