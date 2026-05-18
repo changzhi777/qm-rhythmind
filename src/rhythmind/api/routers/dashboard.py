@@ -380,3 +380,49 @@ async def trigger_analysis(user_id: CurrentUserId) -> dict[str, Any]:
     }, source="ai_analysis")
 
     return {"status": "ok", "message": "分析完成", "chars": len(report_content)}
+
+
+@router.post("/import-facts")
+async def import_facts(
+    user_id: CurrentUserId,
+    facts: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """批量导入健康事实数据（管理端点，供数据迁移使用）。
+
+    请求体格式：
+    [
+      {"subject": "profile", "predicate": "gender", "object_json": "MALE", "source": "garmin"},
+      {"subject": "profile", "predicate": "vo2_max", "object_json": 52.0, "source": "garmin"},
+      ...
+    ]
+    """
+    if not isinstance(facts, list):
+        raise HTTPException(status_code=400, detail="请求体必须是数组")
+
+    fm = _fm(user_id)
+    imported = 0
+    errors: list[str] = []
+
+    for i, item in enumerate(facts):
+        subject = item.get("subject")
+        predicate = item.get("predicate")
+        object_json = item.get("object_json")
+        source = item.get("source", "import")
+
+        if not subject or not predicate:
+            errors.append(f"第 {i} 条缺少 subject 或 predicate")
+            continue
+
+        try:
+            await fm.write_fact(subject, predicate, object_json, source=source)
+            imported += 1
+        except Exception as exc:
+            errors.append(f"第 {i} 条写入失败: {exc}")
+
+    logger.info("import_facts user=%s imported=%d errors=%d", user_id, imported, len(errors))
+
+    return {
+        "status": "ok",
+        "imported": imported,
+        "errors": errors,
+    }
