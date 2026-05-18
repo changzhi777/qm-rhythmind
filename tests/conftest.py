@@ -2,13 +2,14 @@
 tests/conftest.py — 全局测试配置与 fixtures
 
 设计原则：
-  - 每个测试使用独立 SQLite in-memory DB，完全隔离
+  - 每个测试使用独立 SQLite 临时文件 DB，完全隔离
   - QMDClient 用 pytest-httpx mock，不依赖真实 QMD 服务
   - Redis LoopGuard 用 fakeredis 替代
 """
 from __future__ import annotations
 
 import os
+import tempfile
 
 import pytest
 import pytest_asyncio
@@ -33,24 +34,49 @@ from rhythmind.core.memory.models import Base
 
 @pytest_asyncio.fixture(autouse=True)
 async def reset_db():
-    """每个测试前重建内存数据库，确保隔离。"""
+    """每个测试前创建独立临时文件 SQLite 数据库，确保隔离。
+
+    用临时文件代替 :memory: 避免连接级隔离导致跨 session 读写不可见。
+    """
+    tmp_fd, tmp_path = tempfile.mkstemp(suffix=".db")
+    os.close(tmp_fd)
+
     engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:", echo=False
+        f"sqlite+aiosqlite:///{tmp_path}",
+        echo=False,
     )
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    # 替换全局 session factory
     session_factory = async_sessionmaker(
         bind=engine, expire_on_commit=False, autoflush=False
     )
     mem_manager.AsyncSessionLocal = session_factory
 
+    # 清除 Redis 缓存，避免测试间数据泄漏
+    from rhythmind.core.cache import close_redis, _get_redis
+    await close_redis()
+    try:
+        r = _get_redis()
+        cursor = 0
+        while True:
+            cursor, keys = await r.scan(cursor=cursor, match="fact:test_user*", count=100)
+            if keys:
+                await r.delete(*keys)
+            if cursor == 0:
+                break
+    except Exception:
+        pass
+    await close_redis()
+
     yield
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
+    await close_redis()
+    try:
+        os.unlink(tmp_path)
+    except OSError:
+        pass
 
 
 @pytest.fixture

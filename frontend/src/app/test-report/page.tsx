@@ -3,11 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Header } from '@/components/layout/header';
-
-function getAuthToken(): string {
-  if (typeof window === 'undefined') return 'garmin_user_001';
-  return localStorage.getItem('auth_token') || 'garmin_user_001';
-}
+import { API_BASE, getAuthToken } from '@/lib/api';
 
 interface TestReport {
   id: string;
@@ -53,7 +49,7 @@ export default function TestReportPage() {
     async function fetchReports() {
       try {
         const token = getAuthToken();
-        const res = await fetch('/qm/api/test-reports', {
+        const res = await fetch(`${API_BASE}/test-reports`, {
           headers: { 'Authorization': `Bearer ${token}` },
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);

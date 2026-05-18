@@ -30,7 +30,10 @@ interface HeaderProps {
 export function Header({ title, activePath, maxWidth = '1200px', showDate, showBack = true, extra }: HeaderProps) {
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    const t = setTimeout(() => setMounted(true), 0);
+    return () => clearTimeout(t);
+  }, []);
 
   const isHome = activePath === '/dashboard';
 

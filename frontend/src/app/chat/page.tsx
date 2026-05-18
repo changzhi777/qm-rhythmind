@@ -2,17 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Header } from '@/components/layout/header';
+import { API_BASE, getAuthToken } from '@/lib/api';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;
-}
-
-function getAuthToken(): string {
-  if (typeof window === 'undefined') return 'garmin_user_001';
-  return localStorage.getItem('auth_token') || 'garmin_user_001';
 }
 
 export default function ChatPage() {
@@ -48,7 +44,7 @@ export default function ChatPage() {
         for (const file of files) {
           const formData = new FormData();
           formData.append('file', file);
-          const res = await fetch('/qm/api/upload/file', {
+          const res = await fetch(`${API_BASE}/upload/file`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${getAuthToken()}` },
             body: formData,
@@ -67,7 +63,7 @@ export default function ChatPage() {
 
       // 发送文本对话
       if (text) {
-        const res = await fetch('/qm/api/chat', {
+        const res = await fetch(`${API_BASE}/chat`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -77,11 +73,21 @@ export default function ChatPage() {
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        const reply = data?.data?.coach_response || data?.message || JSON.stringify(data?.data || data);
+        if (data.status === 'throttled') {
+          const throttledMsg: Message = {
+            id: `msg-${Date.now()}-reply`,
+            role: 'assistant',
+            content: `⏳ ${data.message || '操作过于频繁，请稍后再试。'}`,
+            timestamp: new Date().toISOString(),
+          };
+          setMessages(prev => [...prev, throttledMsg]);
+          return;
+        }
+        const reply = formatChatReply(data);
         const assistantMsg: Message = {
           id: `msg-${Date.now()}-reply`,
           role: 'assistant',
-          content: typeof reply === 'string' ? reply : JSON.stringify(reply, null, 2),
+          content: reply,
           timestamp: new Date().toISOString(),
         };
         setMessages(prev => [...prev, assistantMsg]);
@@ -256,4 +262,42 @@ function getFileIcon(name: string): string {
   const ext = name.split('.').pop()?.toLowerCase();
   const icons: Record<string, string> = { csv: '📊', json: '📋', pdf: '📕', png: '🖼️', jpg: '🖼️', jpeg: '🖼️', txt: '📄', xml: '📄' };
   return icons[ext || ''] || '📎';
+}
+
+function formatChatReply(data: Record<string, unknown>): string {
+  const d = data?.data as Record<string, unknown> | undefined;
+  if (d?.coach_response && typeof d.coach_response === 'string') return d.coach_response;
+  if (data?.message && typeof data.message === 'string' && data.message.trim()) return data.message;
+
+  const payload = (d || data) as Record<string, unknown>;
+  if (!payload || typeof payload !== 'object') return JSON.stringify(payload);
+
+  const lines: string[] = [];
+
+  const report = payload.data_report as Record<string, unknown> | undefined;
+  if (report) {
+    if (report.summary) lines.push(`📋 ${report.summary}`);
+    const concerns = report.concerns as string[] | undefined;
+    if (concerns?.length) lines.push(`⚠️ 关注: ${concerns.join('、')}`);
+    if (report.next_suggestion) lines.push(`💡 ${report.next_suggestion}`);
+  }
+
+  const plan = payload.training_plan as Record<string, unknown> | undefined;
+  if (plan) {
+    const today = plan.today_plan as Record<string, unknown> | undefined;
+    if (today) {
+      lines.push(`\n🏃 今日训练: ${today.name} · ${today.duration_min}分钟 · ${today.intensity}强度`);
+      const exercises = today.exercises as string[] | undefined;
+      if (exercises?.length) lines.push(`   内容: ${exercises.join(' → ')}`);
+    }
+    if (plan.recovery_advice) lines.push(`\n🛌 ${plan.recovery_advice}`);
+    if (plan.motivation) lines.push(`💪 ${plan.motivation}`);
+  }
+
+  if (!lines.length) {
+    const summary = typeof report?.summary === 'string' ? report.summary : '';
+    return summary || JSON.stringify(payload, null, 2);
+  }
+
+  return lines.join('\n');
 }

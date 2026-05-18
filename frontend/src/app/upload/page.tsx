@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { Header } from '@/components/layout/header';
+import { API_BASE, getAuthToken } from '@/lib/api';
 
 interface UploadResult {
   filename: string;
@@ -9,11 +10,6 @@ interface UploadResult {
   message: string;
   summary?: string;
   facts_imported?: number;
-}
-
-function getAuthToken(): string {
-  if (typeof window === 'undefined') return 'garmin_user_001';
-  return localStorage.getItem('auth_token') || 'garmin_user_001';
 }
 
 const FILE_CATEGORIES = [
@@ -42,7 +38,7 @@ export default function UploadPage() {
       formData.append('file', file);
 
       try {
-        const res = await fetch('/qm/api/upload/file', {
+        const res = await fetch(`${API_BASE}/upload/file`, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${getAuthToken()}` },
           body: formData,

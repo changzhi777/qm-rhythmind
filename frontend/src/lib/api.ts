@@ -4,12 +4,6 @@ import type { Report } from '@/types/health';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/qm/api';
 
-interface ApiResponse<T> {
-  status: string;
-  data?: T;
-  error?: string;
-}
-
 interface ReportsResponse {
   status: string;
   reports: Report[];
@@ -30,10 +24,12 @@ interface UploadResponse {
   status: string;
 }
 
-function getAuthToken(): string {
+export function getAuthToken(): string {
   if (typeof window === 'undefined') return 'garmin_user_001';
   return localStorage.getItem('auth_token') || 'garmin_user_001';
 }
+
+export { API_BASE };
 
 export async function fetchWithAuth<T>(
   endpoint: string,
