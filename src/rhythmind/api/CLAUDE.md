@@ -1,12 +1,23 @@
 # rhythmind/api — FastAPI REST API 层
 
-> `[根目录(../../CLAUDE.md) > **rhythmind** > **api**`
+> `[根目录](../../../../CLAUDE.md) > **rhythmind** > **api**`
+
+> **最后更新:** 2026-05-18T13:24:25+08:00
+
+---
+
+## 变更记录
+
+- **2026-05-18** 增量更新：新增 test-reports 端点、认证下载、Chat/Upload 端点规划
+- **2026-05-18** 增量更新：dashboard 路由前缀从 `/qm` 改为 `/qm/api`
+- **2026-05-15** 新增 dashboard 路由（仪表盘 + PDF 报告生成），更新端点列表
+- **2026-05-12** 完整扫描完成，新增端点详情和数据模型
 
 ---
 
 ## 模块职责
 
-FastAPI 应用入口，提供 REST API、MCP SSE 路由、健康检查、认证中间件、限流、仪表盘数据、PDF 报告生成等。
+FastAPI 应用入口，提供 REST API、MCP SSE 路由、健康检查、认证中间件、限流、仪表盘数据、PDF 报告生成、Chat 对话、文件上传等。
 
 ---
 
@@ -77,6 +88,9 @@ uvicorn rhythmind.api.main:app --reload --port 8000
 | `GET /qm/api/reports/{id}` | 单篇报告详情 |
 | `GET /qm/api/reports/{id}/download` | 下载报告 PDF（含 QR 码） |
 | `POST /qm/api/analyze` | 触发本地模型重新分析 |
+| `POST /qm/api/import-facts` | 批量导入健康事实数据 |
+| `GET /qm/api/test-reports` | E2E 测试报告列表 |
+| `GET /qm/api/test-reports/{id}/{file}` | 下载测试报告文件 |
 
 **PDF 生成特性**：
 - 使用 ReportLab + STHeiti Light 中文字体
@@ -138,8 +152,8 @@ src/rhythmind/api/
 ├── rate_limit.py        # Redis 固定窗口限流 (per-user/per-IP)
 ├── middleware.py        # 请求体大小限制中间件
 ├── routers/
-│   ├── health.py        # 健康数据上传 / SSE 流 / 文本对话
-│   ├── dashboard.py     # 仪表盘 / AI 报告 / PDF 下载
+│   ├── health.py        # 健康数据上传 / SSE 流 / 文本对话 / CSV 摄入
+│   ├── dashboard.py     # 仪表盘 / AI 报告 / PDF 下载 / 测试报告
 │   ├── privacy.py       # GDPR/PIPL 数据导出删除
 │   └── admin.py         # Admin 技能审批
 └── schemas/

@@ -3,7 +3,7 @@
 # CLAUDE.md — RHYTHMIND 律动前端
 
 > **项目版本:** 0.1.9
-> **最后扫描:** 2026-05-18T12:22:25+08:00
+> **最后扫描:** 2026-05-18T13:24:25+08:00
 > **语言:** TypeScript
 > **框架:** Next.js 16 (App Router) + React 19
 > **包管理:** npm
@@ -12,6 +12,7 @@
 
 ## 变更记录 (Changelog)
 
+- **2026-05-18** 增量更新：规划 Chat 助手页面、文件上传分析页面、返回导航按钮；新增测试报告页面、Header mounted 修复、认证下载
 - **2026-05-18** 增量更新：新增测试模块、共享布局组件、工具函数、e2e 报告规范；重构 LineChart（面积图+空数据修复）；报告生成规范（MD+HTML内联SVG→A4 PDF）
 - **2026-05-18** 增量更新：新增 leaflet/recharts 依赖、静态导出部署方案、API 前缀 `/qm/api`
 - **2026-05-15** 首次 AI 上下文初始化，生成模块结构图与导航面包屑
@@ -20,7 +21,7 @@
 
 ## 项目愿景
 
-RHYTHMIND 律动前端是 Next.js 16 多智能体健康管理平台的数据展示层，采用扁平化 UI 设计风格，主题色为青沐生命青绿色（#00C9A7）。支持仪表盘、数据大屏、AI 健康报告三大核心页面。
+RHYTHMIND 律动前端是 Next.js 16 多智能体健康管理平台的数据展示层，采用扁平化 UI 设计风格，主题色为青沐生命青绿色（#00C9A7）。支持仪表盘、数据大屏、AI 健康报告、Chat 智能助手、文件上传分析五大核心页面。
 
 ---
 
@@ -28,7 +29,44 @@ RHYTHMIND 律动前端是 Next.js 16 多智能体健康管理平台的数据展�
 
 ### 项目结构图
 
-![前端架构图](./docs/architecture.svg)
+```mermaid
+graph LR
+    subgraph "页面 (App Router)"
+        HOME[/ 首页]
+        DASH[/dashboard 仪表盘]
+        BIG[/bigscreen 大屏]
+        RPT[/report AI报告]
+        CHAT[/chat Chat助手]
+        UPLOAD[/upload 文件上传]
+        TEST[/test-report 测试报告]
+    end
+
+    subgraph "共享组件"
+        HEADER[Header 导航栏]
+        LINECHART[LineChart 图表]
+        KPICARD[KpiCard KPI卡片]
+        TOAST[Toast 提示]
+    end
+
+    subgraph "状态层"
+        HSTORE[health-store]
+        RSTORE[report-store]
+        CSTORE[chat-store]
+        USTORE[upload-store]
+    end
+
+    subgraph "API 层"
+        API[api.ts fetchWithAuth]
+    end
+
+    DASH & BIG & RPT & CHAT & UPLOAD & TEST --> HEADER
+    DASH & BIG --> LINECHART & KPICARD
+    DASH --> HSTORE
+    RPT --> RSTORE
+    CHAT --> CSTORE
+    UPLOAD --> USTORE
+    HSTORE & RSTORE & CSTORE & USTORE --> API
+```
 
 ---
 
@@ -39,7 +77,10 @@ RHYTHMIND 律动前端是 Next.js 16 多智能体健康管理平台的数据展�
 | `app/dashboard` | 仪表盘页面 | `page.tsx` | KPI 卡片、年度跑量图表、跑步/睡眠面板 |
 | `app/bigscreen` | 数据大屏页面 | `page.tsx` | 6 KPI 网格、年度跑量图、训练状态面板 |
 | `app/report` | AI 健康报告 | `page.tsx` | Markdown 渲染、报告列表、PDF 下载 |
-| `components/layout` | 共享布局 | `header.tsx` | 统一 Header（导航栏+品牌标识+日期） |
+| `app/chat` | Chat 智能助手 | `page.tsx` | 对话界面、意图识别、多轮对话 |
+| `app/upload` | 文件上传分析 | `page.tsx` | 数据文件/医学报告/图像上传、OCR、入库 |
+| `app/test-report` | 测试报告 | `page.tsx` | E2E 报告列表、文件下载（带认证） |
+| `components/layout` | 共享布局 | `header.tsx` | 统一 Header（导航栏+品牌标识+日期+返回按钮） |
 | `components/charts` | 图表组件 | `line-chart.tsx` | ECharts 折线图（面积渐变+空数据兜底） |
 | `components/dashboard` | 数据组件 | `kpi-card.tsx` | KPI 状态卡片 |
 | `components/ui` | UI 组件 | `toast.tsx` | 全局错误提示 |
@@ -49,7 +90,20 @@ RHYTHMIND 律动前端是 Next.js 16 多智能体健康管理平台的数据展�
 | `lib/utils` | 共享工具 | `utils.ts` | `v()` 空安全显示、`formatPace()` 配速格式化 |
 | `types` | TypeScript 类型 | `health.ts` | HealthData, Report 等 |
 | `tests` | E2E 测试 | `e2e_test.py` | 10 轮全链路测试 + MD/HTML/PDF 报告 |
-| `docs/e2e` | 测试报告 | — | e2e-report.md / .html / .pdf / .svg |
+
+---
+
+## 页面路由
+
+| 路径 | 页面 | 状态 | 功能 |
+|------|------|------|------|
+| `/` | 重定向 | ✅ 已完成 | → `/dashboard` |
+| `/dashboard` | 仪表盘 | ✅ 已完成 | 健康数据 KPI、跑步/睡眠面板、年度跑量图表 |
+| `/bigscreen` | 数据大屏 | ✅ 已完成 | 6 KPI 网格、训练状态、年度跑量 |
+| `/report` | AI 报告 | ✅ 已完成 | Markdown 渲染、报告列表、PDF 下载 |
+| `/chat` | Chat 助手 | 🚧 待开发 | 多轮对话、意图识别、文件上传分析 |
+| `/upload` | 文件上传 | 🚧 待开发 | 数据文件/医学报告/图像上传、OCR 识别、数据入库 |
+| `/test-report` | 测试报告 | ✅ 已完成 | E2E 报告列表、认证文件下载 |
 
 ---
 
@@ -110,11 +164,14 @@ npm run lint
 ```bash
 # 运行 10 轮全链路测试，生成 MD + HTML + PDF 报告
 python3 tests/e2e_test.py
+
+# 测试并上传报告到服务器
+python3 tests/e2e_test.py --upload
 ```
 
-**测试覆盖：**
-- 页面加载（仪表盘、大屏、报告、首页、静态资源）× 10 轮
-- API 端点（Dashboard、Reports）× 10 轮
+**测试覆盖（15 用例/轮）：**
+- 页面加载（首页、仪表盘、大屏、报告、测试报告）× 10 轮
+- API 端点（Dashboard、Reports、Test Reports）× 10 轮
 - 数据完整性（7 项数据断言：profile、training、running、sleep）× 10 轮
 
 **报告规范：**
@@ -149,7 +206,7 @@ python3 tests/e2e_test.py
 ```
 用户操作
    ↓
-Zustand Store (health-store / report-store)
+Zustand Store (health-store / report-store / chat-store / upload-store)
    ↓
 API 层 (lib/api.ts) → fetchWithAuth (Bearer token)
    ↓
@@ -164,11 +221,55 @@ API 层 (lib/api.ts) → fetchWithAuth (Bearer token)
 
 | 决策 | 原因 |
 |------|------|
-| 共享 `Header` 组件 | 消除 3 页面 ~30 行重复代码，统一导航栏 |
+| 共享 `Header` 组件 | 消除 ~30 行重复代码，统一导航栏和返回按钮 |
 | `v()` 空安全函数 | 替代 `||` 运算符，避免值为 0 时错误显示 `-` |
 | LineChart 始终渲染容器 | 修复异步数据加载后 ECharts 不渲染的 bug |
 | `next/font/local` 替代 `next/font/google` | 消除构建时 Google Fonts 网络依赖 |
 | 报告 MD + HTML(内联SVG) → A4 PDF | reportlab 无法嵌入 SVG，改用浏览器渲染 |
+| 文件下载用 JS fetch + blob | API 需 Authorization header，`<a>` 直连无法携带 |
+
+---
+
+## 待开发功能
+
+### Chat 智能助手页面 (`/chat`)
+
+**功能描述：**
+- 多轮对话界面，支持文本输入和文件上传
+- 对接后端 `POST /health/chat` 端点（已实现，含意图分类）
+- 支持拖拽上传数据文件、医学诊断报告、图像
+- 文件上传后自动识别类型 → OCR/解析 → 数据入库
+
+**后端依赖：**
+- `POST /health/chat` — 文本对话（已实现）
+- `POST /health/upload` — 数据上传（已实现）
+- `POST /health/ingest` — CSV 数据摄入（已实现，仅支持 CSV）
+- 需要新增：图像上传端点、医学报告解析端点
+
+**CV/OCR 依赖（`requirements-cv.txt`）：**
+- PaddleOCR / PaddlePaddle — 文字识别
+- MediaPipe — 姿态识别
+- OpenCV — 图像处理
+
+### 文件上传分析页面 (`/upload`)
+
+**功能描述：**
+- 支持上传类型：CSV 数据文件、JSON 健康数据、PDF 医学报告、图像（血常规/体脂秤等）
+- 自动识别文件类型，调用对应解析器
+- 解析结果预览 + 确认入库
+- 支持批量上传
+
+**后端需要新增：**
+- `POST /qm/api/upload/file` — 通用文件上传端点（multipart/form-data）
+- 文件类型检测 → 路由到对应解析器
+- 图像 OCR → 结构化数据 → FactManager 入库
+
+### 返回导航按钮
+
+**功能描述：**
+- 所有页面 Header 添加返回按钮（iOS 风格 `< 返回`）
+- 使用 `router.back()` 或显示上一级页面链接
+- 在共享 `Header` 组件中统一添加
 
 ---
 
@@ -193,6 +294,5 @@ API 层 (lib/api.ts) → fetchWithAuth (Bearer token)
 | `src/app/layout.tsx` | 根布局（Inter 本地字体） |
 | `src/app/globals.css` | 全局样式、CSS 变量 |
 | `src/lib/utils.ts` | 共享工具函数 |
-| `src/components/layout/header.tsx` | 统一 Header 组件 |
+| `src/components/layout/header.tsx` | 统一 Header 组件（含返回按钮） |
 | `tests/e2e_test.py` | E2E 测试 + 报告生成脚本 |
-| `docs/e2e/` | 测试报告输出目录 |
