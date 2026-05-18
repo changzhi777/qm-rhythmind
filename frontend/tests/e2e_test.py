@@ -6,6 +6,7 @@
 
 import json
 import statistics
+import sys
 import subprocess
 import time
 from datetime import datetime
@@ -442,3 +443,66 @@ if __name__ == "__main__":
         print(f"  ✅ A4 PDF: {pdf_path} ({size_kb:.0f} KB)")
     else:
         print(f"  ❌ PDF 生成失败: {r.stderr[:200] if r.stderr else 'unknown'}")
+
+    # --upload: 上传报告到服务器
+    if "--upload" in sys.argv:
+        upload_reports(all_results, stats)
+
+
+def upload_reports(results: list, stats: dict):
+    """将报告文件上传到生产服务器。"""
+    total = stats["total_passed"] + stats["total_failed"]
+    rate = stats["total_passed"] / total * 100 if total else 0
+    pt = stats["page_times"]
+    at = stats["api_times"]
+
+    report_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+    remote_dir = f"/var/www/aisport.tech/qm/test_reports/{report_id}"
+
+    print(f"\n  📤 上传报告到服务器...")
+
+    # 生成 meta.json
+    meta = {
+        "timestamp": datetime.now().isoformat(),
+        "rounds": ROUNDS,
+        "total": total,
+        "passed": stats["total_passed"],
+        "failed": stats["total_failed"],
+        "pass_rate": rate,
+        "page_avg_ms": round(statistics.mean(pt)) if pt else 0,
+        "api_avg_ms": round(statistics.mean(at)) if at else 0,
+    }
+    meta_path = REPORT_DIR / "meta.json"
+    meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    ssh_host = "root@43.129.201.118"
+    ssh_pass = "q1w2e3r4+"
+
+    # 创建远程目录
+    r = subprocess.run(
+        ["sshpass", "-p", ssh_pass, "ssh", "-o", "StrictHostKeyChecking=no",
+         ssh_host, f"mkdir -p {remote_dir}"],
+        capture_output=True, text=True, timeout=15,
+    )
+    if r.returncode != 0:
+        print(f"  ❌ 创建远程目录失败: {r.stderr[:100]}")
+        return
+
+    # 上传所有文件
+    files_to_upload = ["meta.json", "e2e-report.md", "e2e-report.html", "e2e-report.pdf", "e2e-charts.svg"]
+    for fname in files_to_upload:
+        fpath = REPORT_DIR / fname
+        if not fpath.exists():
+            continue
+        r = subprocess.run(
+            ["sshpass", "-p", ssh_pass, "scp", "-o", "StrictHostKeyChecking=no",
+             str(fpath), f"{ssh_host}:{remote_dir}/"],
+            capture_output=True, text=True, timeout=30,
+        )
+        if r.returncode == 0:
+            print(f"    ✅ {fname}")
+        else:
+            print(f"    ❌ {fname}: {r.stderr[:80]}")
+
+    print(f"  ✅ 报告已上传: https://aisport.tech/qm/test-report")
+    print(f"     API: https://aisport.tech/qm/api/test-reports/{report_id}")

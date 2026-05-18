@@ -426,3 +426,89 @@ async def import_facts(
         "imported": imported,
         "errors": errors,
     }
+
+
+# ── E2E 测试报告 ──────────────────────────────────────────
+
+import os as _os
+
+_TEST_REPORT_DIR = _os.path.join(_os.path.dirname(__file__), "..", "..", "..", "test_reports")
+_TEST_REPORT_DIR = _os.path.normpath(_TEST_REPORT_DIR)
+
+
+@router.get("/test-reports")
+async def list_test_reports(user_id: CurrentUserId) -> dict[str, Any]:
+    """列出所有 E2E 测试报告。"""
+    reports: list[dict[str, Any]] = []
+    report_dir = _TEST_REPORT_DIR
+
+    if not _os.path.isdir(report_dir):
+        return {"status": "ok", "reports": []}
+
+    for entry in sorted(_os.listdir(report_dir), reverse=True):
+        entry_path = _os.path.join(report_dir, entry)
+        if not _os.path.isdir(entry_path):
+            continue
+        meta_path = _os.path.join(entry_path, "meta.json")
+        if not _os.path.exists(meta_path):
+            continue
+
+        try:
+            with open(meta_path) as f:
+                meta = json.load(f)
+        except Exception:
+            continue
+
+        files: list[dict[str, Any]] = []
+        for fname in _os.listdir(entry_path):
+            if fname == "meta.json":
+                continue
+            fpath = _os.path.join(entry_path, fname)
+            fsize = _os.path.stat(fpath).st_size
+            ext = fname.rsplit(".", 1)[-1].lower() if "." in fname else ""
+            files.append({
+                "name": fname,
+                "url": f"/qm/api/test-reports/{entry}/{fname}",
+                "size_kb": round(fsize / 1024, 1),
+                "type": ext,
+            })
+
+        reports.append({
+            "id": entry,
+            "timestamp": meta.get("timestamp", ""),
+            "rounds": meta.get("rounds", 0),
+            "total": meta.get("total", 0),
+            "passed": meta.get("passed", 0),
+            "failed": meta.get("failed", 0),
+            "pass_rate": meta.get("pass_rate", 0.0),
+            "page_avg_ms": meta.get("page_avg_ms", 0),
+            "api_avg_ms": meta.get("api_avg_ms", 0),
+            "files": sorted(files, key=lambda x: {"pdf": 0, "html": 1, "md": 2, "svg": 3}.get(x["type"], 9)),
+        })
+
+    return {"status": "ok", "reports": reports}
+
+
+@router.get("/test-reports/{report_id}/{filename}")
+async def download_test_report(report_id: str, filename: str, user_id: CurrentUserId):
+    """下载测试报告文件。"""
+    safe_report = report_id.replace("..", "").replace("/", "")
+    safe_filename = filename.replace("..", "").replace("/", "")
+    fpath = _os.path.join(_TEST_REPORT_DIR, safe_report, safe_filename)
+
+    if not _os.path.exists(fpath):
+        raise HTTPException(status_code=404, detail="文件不存在")
+
+    from pathlib import Path
+    from fastapi.responses import FileResponse
+
+    mime_map = {
+        ".pdf": "application/pdf",
+        ".html": "text/html",
+        ".md": "text/markdown",
+        ".svg": "image/svg+xml",
+    }
+    ext = Path(safe_filename).suffix.lower()
+    media_type = mime_map.get(ext, "application/octet-stream")
+
+    return FileResponse(fpath, media_type=media_type, filename=safe_filename)

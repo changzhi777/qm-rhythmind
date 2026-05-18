@@ -12,6 +12,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', label: '仪表盘' },
   { href: '/bigscreen', label: '大屏' },
   { href: '/report', label: '报告' },
+  { href: '/test-report', label: '测试' },
 ];
 
 interface HeaderProps {
