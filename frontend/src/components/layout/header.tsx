@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface NavItem {
   href: string;
@@ -24,7 +24,8 @@ interface HeaderProps {
 }
 
 export function Header({ title, activePath, maxWidth = '1200px', showDate, extra }: HeaderProps) {
-  const [mounted] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
   return (
     <header style={{ borderBottom: '1px solid var(--border)', padding: '16px 24px' }}>
       <div style={{ maxWidth, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -66,9 +67,9 @@ export function Header({ title, activePath, maxWidth = '1200px', showDate, extra
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          {showDate && (
+          {showDate && mounted && (
             <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-              {mounted ? new Date().toLocaleDateString('zh-CN') : ''}
+              {new Date().toLocaleDateString('zh-CN')}
             </span>
           )}
           {extra}

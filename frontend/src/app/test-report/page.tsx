@@ -4,6 +4,11 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Header } from '@/components/layout/header';
 
+function getAuthToken(): string {
+  if (typeof window === 'undefined') return 'garmin_user_001';
+  return localStorage.getItem('auth_token') || 'garmin_user_001';
+}
+
 interface TestReport {
   id: string;
   timestamp: string;
@@ -21,13 +26,33 @@ export default function TestReportPage() {
   const [reports, setReports] = useState<TestReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState<string | null>(null);
+
+  const downloadFile = async (url: string, filename: string) => {
+    if (downloading) return;
+    setDownloading(filename);
+    try {
+      const res = await fetch(url, { headers: { 'Authorization': `Bearer ${getAuthToken()}` } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(a.href);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '下载失败');
+    } finally {
+      setDownloading(null);
+    }
+  };
 
   useEffect(() => {
     async function fetchReports() {
       try {
-        const token = typeof window !== 'undefined'
-          ? localStorage.getItem('auth_token') || 'garmin_user_001'
-          : 'garmin_user_001';
+        const token = getAuthToken();
         const res = await fetch('/qm/api/test-reports', {
           headers: { 'Authorization': `Bearer ${token}` },
         });
@@ -90,24 +115,25 @@ export default function TestReportPage() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '8px' }}>
                   {report.files.map((file) => (
-                    <a
+                    <button
                       key={file.name}
-                      href={file.url}
-                      download
+                      onClick={() => downloadFile(file.url, file.name)}
                       className="card"
                       style={{
                         display: 'flex', alignItems: 'center', gap: '8px',
-                        textDecoration: 'none', padding: '10px 12px',
+                        padding: '10px 12px',
                         background: 'var(--surface-elevated)',
-                        cursor: 'pointer',
+                        cursor: 'pointer', border: 'none', width: '100%',
                       }}
                     >
                       <FileIcon type={file.type} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '13px', color: 'white', fontWeight: '500' }}>{file.type.toUpperCase()}</div>
+                      <div style={{ flex: 1, textAlign: 'left' }}>
+                        <div style={{ fontSize: '13px', color: 'white', fontWeight: '500' }}>
+                          {downloading === file.name ? '下载中...' : file.type.toUpperCase()}
+                        </div>
                         <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{file.size_kb} KB</div>
                       </div>
-                    </a>
+                    </button>
                   ))}
                 </div>
               </div>

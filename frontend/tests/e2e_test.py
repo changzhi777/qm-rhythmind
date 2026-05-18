@@ -62,12 +62,13 @@ PAGE_TESTS = [
     {"name": "仪表盘页面", "path": "/dashboard", "expect_status": 200},
     {"name": "数据大屏页面", "path": "/bigscreen", "expect_status": 200},
     {"name": "报告页面", "path": "/report", "expect_status": 200},
-    {"name": "静态资源 JS", "path": "/_next/static/chunks/0ht900cau6_ur.js", "expect_status": 200},
+    {"name": "测试报告页面", "path": "/test-report", "expect_status": 200},
 ]
 
 API_TESTS = [
     {"name": "Dashboard API", "path": "/dashboard"},
     {"name": "Reports API", "path": "/reports"},
+    {"name": "Test Reports API", "path": "/test-reports"},
 ]
 
 DATA_ASSERTIONS = {
@@ -443,8 +444,10 @@ def main():
         stats["total_failed"] += f
         for t in result["tests"]:
             if t["time_ms"] > 0:
-                key = "page_times" if t["category"] == "页面" else "api_times"
-                stats[key].append(t["time_ms"])
+                if t["category"] == "页面":
+                    stats["page_times"].append(t["time_ms"])
+                elif t["category"] == "API":
+                    stats["api_times"].append(t["time_ms"])
         s = "PASS" if f == 0 else f"FAIL({f})"
         print(f"  Round {i:2d}/{ROUNDS}  ✅{p}  ❌{f}  {s}")
         if i < ROUNDS:

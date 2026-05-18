@@ -430,10 +430,8 @@ async def import_facts(
 
 # ── E2E 测试报告 ──────────────────────────────────────────
 
-import os as _os
-
-_TEST_REPORT_DIR = _os.path.join(_os.path.dirname(__file__), "..", "..", "..", "test_reports")
-_TEST_REPORT_DIR = _os.path.normpath(_TEST_REPORT_DIR)
+_TEST_REPORT_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "..", "test_reports")
+_TEST_REPORT_DIR = os.path.normpath(_TEST_REPORT_DIR)
 
 
 @router.get("/test-reports")
@@ -442,15 +440,15 @@ async def list_test_reports(user_id: CurrentUserId) -> dict[str, Any]:
     reports: list[dict[str, Any]] = []
     report_dir = _TEST_REPORT_DIR
 
-    if not _os.path.isdir(report_dir):
+    if not os.path.isdir(report_dir):
         return {"status": "ok", "reports": []}
 
-    for entry in sorted(_os.listdir(report_dir), reverse=True):
-        entry_path = _os.path.join(report_dir, entry)
-        if not _os.path.isdir(entry_path):
+    for entry in sorted(os.listdir(report_dir), reverse=True):
+        entry_path = os.path.join(report_dir, entry)
+        if not os.path.isdir(entry_path):
             continue
-        meta_path = _os.path.join(entry_path, "meta.json")
-        if not _os.path.exists(meta_path):
+        meta_path = os.path.join(entry_path, "meta.json")
+        if not os.path.exists(meta_path):
             continue
 
         try:
@@ -460,11 +458,11 @@ async def list_test_reports(user_id: CurrentUserId) -> dict[str, Any]:
             continue
 
         files: list[dict[str, Any]] = []
-        for fname in _os.listdir(entry_path):
+        for fname in os.listdir(entry_path):
             if fname == "meta.json":
                 continue
-            fpath = _os.path.join(entry_path, fname)
-            fsize = _os.stat(fpath).st_size
+            fpath = os.path.join(entry_path, fname)
+            fsize = os.stat(fpath).st_size
             ext = fname.rsplit(".", 1)[-1].lower() if "." in fname else ""
             files.append({
                 "name": fname,
@@ -494,9 +492,9 @@ async def download_test_report(report_id: str, filename: str, user_id: CurrentUs
     """下载测试报告文件。"""
     safe_report = report_id.replace("..", "").replace("/", "")
     safe_filename = filename.replace("..", "").replace("/", "")
-    fpath = _os.path.join(_TEST_REPORT_DIR, safe_report, safe_filename)
+    fpath = os.path.join(_TEST_REPORT_DIR, safe_report, safe_filename)
 
-    if not _os.path.exists(fpath):
+    if not os.path.exists(fpath):
         raise HTTPException(status_code=404, detail="文件不存在")
 
     from pathlib import Path
