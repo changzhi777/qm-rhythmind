@@ -48,7 +48,7 @@ def upgrade() -> None:
             "demographics",
             JSONB(none_as_null=True),
             nullable=False,
-            server_default="'{}'",
+            server_default=sa.text("'{}'::jsonb"),
         ),
         sa.Column(
             "created_at",
@@ -84,7 +84,7 @@ def upgrade() -> None:
             "metadata",
             JSONB(none_as_null=True),
             nullable=False,
-            server_default="'{}'",
+            server_default=sa.text("'{}'::jsonb"),
         ),
         sa.Column(
             "created_at",
@@ -123,7 +123,7 @@ def upgrade() -> None:
             "details",
             JSONB(none_as_null=True),
             nullable=False,
-            server_default="'{}'",
+            server_default=sa.text("'{}'::jsonb"),
         ),
         sa.Column(
             "created_at",
@@ -159,7 +159,7 @@ def upgrade() -> None:
             "metadata",
             JSONB(none_as_null=True),
             nullable=False,
-            server_default="'{}'",
+            server_default=sa.text("'{}'::jsonb"),
         ),
         sa.Column(
             "created_at",
@@ -201,7 +201,7 @@ def upgrade() -> None:
             "metadata",
             JSONB(none_as_null=True),
             nullable=False,
-            server_default="'{}'",
+            server_default=sa.text("'{}'::jsonb"),
         ),
         sa.Column(
             "created_at",
