@@ -31,6 +31,7 @@ privacy/service.py — 用户数据导出 / 删除
 """
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass, field
 from datetime import UTC
 from typing import Any
@@ -173,13 +174,11 @@ class PrivacyService:
             bundle.notes.append(f"influxdb: skipped ({exc.__class__.__name__})")
 
         # 5) QMD user-namespaced collections（仅记录名称，内容由 QMD 自行管理）
-        try:
+        with contextlib.suppress(Exception):
             bundle.qmd_collections = [
                 f"user_{user_id}_memory",
                 f"user_{user_id}_facts",
             ]
-        except Exception:
-            pass
 
         log.info(
             "privacy.export user_id=%s memory_rows=%d facts_rows=%d redis_keys=%d influx_points=%d",

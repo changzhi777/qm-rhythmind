@@ -244,7 +244,7 @@ async def _handle_status(args: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _handle_search(args: dict[str, Any]) -> dict[str, Any]:
-    user_id = args.get("user_id", "")
+    args.get("user_id", "")
     query = args.get("query", "")
     collection = args.get("collection", "health_knowledge")
     top_k = int(args.get("top_k", 5))

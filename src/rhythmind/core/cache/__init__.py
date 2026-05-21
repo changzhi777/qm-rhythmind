@@ -24,8 +24,9 @@ from __future__ import annotations
 
 import json as _json
 import logging
+from collections.abc import Awaitable, Callable
 from functools import wraps
-from typing import Any, Awaitable, Callable, ParamSpec, TypeVar
+from typing import Any, ParamSpec, TypeVar
 
 import redis.asyncio as aioredis
 
@@ -95,7 +96,7 @@ async def _delete(key: str) -> None:
 
 # ── 装饰器缓存 ────────────────────────────────────────────────────────────────
 
-def cache_async(
+def cache_async[**P](
     prefix: str,
     ttl_seconds: int = 600,
     *,

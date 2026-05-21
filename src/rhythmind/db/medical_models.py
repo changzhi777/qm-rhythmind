@@ -16,7 +16,6 @@ from typing import Any
 from sqlalchemy import Boolean, Date, DateTime, Float, Index, Integer, String, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.types import TEXT, TypeDecorator
 
 from rhythmind.core.memory.models import Base, JSONText
 
@@ -44,7 +43,8 @@ class MedPatientProfile(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False,
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False,
+        DateTime(timezone=True),
+        server_default=func.now(), onupdate=func.now(), nullable=False,
     )
 
     def __repr__(self) -> str:
@@ -84,7 +84,9 @@ class MedClinicalEvent(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[str] = mapped_column(String(64), nullable=False)
-    event_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    event_date: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False,
+    )
     event_type: Mapped[str] = mapped_column(String(32), nullable=False)
     hospital: Mapped[str | None] = mapped_column(String(128), nullable=True)
     department: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -163,7 +165,8 @@ class MedMedication(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False,
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False,
+        DateTime(timezone=True),
+        server_default=func.now(), onupdate=func.now(), nullable=False,
     )
 
     __table_args__ = (

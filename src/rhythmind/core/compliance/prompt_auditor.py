@@ -34,7 +34,7 @@ import asyncio
 import json
 import logging
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from rhythmind.config import settings
@@ -42,7 +42,7 @@ from rhythmind.config import settings
 logger = logging.getLogger(__name__)
 
 
-class AuditLevel(str, Enum):
+class AuditLevel(StrEnum):
     PASS = "PASS"
     WARN = "WARN"
     BLOCK = "BLOCK"

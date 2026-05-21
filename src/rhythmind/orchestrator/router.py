@@ -22,16 +22,9 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import sys
 import uuid
 from dataclasses import dataclass, field
-
-if sys.version_info >= (3, 11):
-    from enum import StrEnum
-else:
-    from enum import Enum
-    class StrEnum(str, Enum):  # type: ignore[no-redef]
-        pass
+from enum import StrEnum
 from typing import Any
 
 from rhythmind.core.cache import IntentCache, SessionCache

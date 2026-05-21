@@ -90,7 +90,7 @@ async def get_current_user_id(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Token validation failed: {e}",
-        )
+        ) from e
 
 
 # ── HealthRouter 单例 ─────────────────────────────────────────────────────────

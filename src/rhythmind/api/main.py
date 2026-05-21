@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 import structlog
 from fastapi import FastAPI, Request
@@ -149,10 +149,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     yield  # 应用运行期间
 
     cleanup_task.cancel()
-    try:
+    with suppress(asyncio.CancelledError):
         await cleanup_task
-    except asyncio.CancelledError:
-        pass
 
     # 关闭时清理
     from rhythmind.api.deps import _router_instance

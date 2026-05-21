@@ -98,9 +98,9 @@ async def download_report_pdf(
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import mm
-    from reportlab.platypus import Paragraph, Spacer
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.platypus import Paragraph, Spacer
 
     # 注册中文字体（STHeiti Light 支持中文，Hiragino TTC 格式不兼容）
     font_paths = [
@@ -136,8 +136,9 @@ async def download_report_pdf(
 
     def _generate_qr_image(data: str, size: int = 80) -> bytes:
         """生成二维码图片字节数据。"""
-        import qrcode
         from io import BytesIO
+
+        import qrcode
         qr = qrcode.QRCode(version=1, box_size=4, border=1)
         qr.add_data(data)
         qr.make(fit=True)
@@ -148,7 +149,6 @@ async def download_report_pdf(
 
     # 构建 PDF - 使用 BaseDocTemplate + PageTemplate 控制页面
     from reportlab.platypus import BaseDocTemplate, Frame, PageTemplate
-    from reportlab.lib.units import mm
 
     buffer = io.BytesIO()
 
@@ -177,7 +177,7 @@ async def download_report_pdf(
         leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0,
     )
 
-    def on_page(canvas, doc):
+    def on_page(canvas, doc) -> None:
         """每页绘制右上角二维码。"""
         canvas.saveState()
         # 报告右上角二维码
@@ -496,6 +496,7 @@ async def download_test_report(report_id: str, filename: str, user_id: CurrentUs
         raise HTTPException(status_code=404, detail="文件不存在")
 
     from pathlib import Path
+
     from fastapi.responses import FileResponse
 
     mime_map = {
@@ -513,6 +514,7 @@ async def download_test_report(report_id: str, filename: str, user_id: CurrentUs
 # ── 文件上传 + Chat 代理 ───────────────────────────────────
 
 import base64
+import contextlib
 import csv
 import io as _io
 
@@ -524,7 +526,9 @@ def _pdf_to_images_b64(pdf_bytes: bytes, dpi: int = 150) -> list[dict[str, str]]
     try:
         from pdf2image import convert_from_bytes
     except ImportError:
-        raise RuntimeError("pdf2image 未安装，请执行: pip install pdf2image && brew install poppler")
+        raise RuntimeError(
+            "pdf2image 未安装，请执行: pip install pdf2image && brew install poppler"
+        ) from None
 
     images = convert_from_bytes(pdf_bytes, dpi=dpi)
     result = []
@@ -651,10 +655,8 @@ async def upload_file(
             for col in cols:
                 val = row[col].strip()
                 if val:
-                    try:
+                    with contextlib.suppress(ValueError):
                         val = float(val) if "." in val else int(val)
-                    except ValueError:
-                        pass
                     await fm.write_fact("upload_csv", f"{col}", val, source="file_upload")
                     facts_imported += 1
         summary = f"CSV {len(rows)} 行 × {len(cols)} 列，导入 {facts_imported} 条数据"
@@ -663,10 +665,7 @@ async def upload_file(
         data = json.loads(content)
         if isinstance(data, dict):
             for key, value in data.items():
-                if isinstance(value, (str, int, float, bool)):
-                    await fm.write_fact("upload_json", key, value, source="file_upload")
-                    facts_imported += 1
-                elif isinstance(value, dict):
+                if isinstance(value, (str, int, float, bool, dict)):
                     await fm.write_fact("upload_json", key, value, source="file_upload")
                     facts_imported += 1
             summary = f"JSON 对象，导入 {facts_imported} 个字段"

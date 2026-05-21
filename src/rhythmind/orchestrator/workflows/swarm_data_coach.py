@@ -358,7 +358,6 @@ async def run_ag2_swarm(
             MaxMessageTermination,
             TextMentionTermination,
         )
-        from autogen_agentchat.messages import HandoffMessage
         from autogen_agentchat.teams import Swarm
         from autogen_core.tools import FunctionTool
         from autogen_ext.models.openai import OpenAIChatCompletionClient

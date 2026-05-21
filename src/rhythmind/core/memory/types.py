@@ -13,15 +13,8 @@ core/memory/types.py — 记忆类型枚举与数据结构
 """
 from __future__ import annotations
 
-import sys
 from datetime import datetime
-
-if sys.version_info >= (3, 11):
-    from enum import StrEnum
-else:
-    from enum import Enum
-    class StrEnum(str, Enum):  # type: ignore[no-redef]
-        pass
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -55,7 +48,8 @@ class MemoryEntry(BaseModel):
     ) -> str:
         """生成标准化命名空间，防止跨用户泄漏。"""
         # 清理特殊字符，只允许 [a-z0-9_-]
-        safe = lambda s: "".join(c if c.isalnum() or c in "-_" else "_" for c in s.lower())
+        def safe(s):
+            return "".join(c if c.isalnum() or c in "-_" else "_" for c in s.lower())
         return f"user.{safe(user_id)}.{safe(agent)}.{safe(key)}"
 
 

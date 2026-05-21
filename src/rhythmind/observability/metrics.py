@@ -134,7 +134,7 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
         start = time.perf_counter()
         method = request.method
         # 优先取 route.path 模板（避免 /users/123 / /users/456 各算一行）
-        route_path = request.scope.get("path", "unknown")
+        request.scope.get("path", "unknown")
         try:
             response: Response = await call_next(request)
             status_code = response.status_code

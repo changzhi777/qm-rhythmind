@@ -21,15 +21,8 @@ from __future__ import annotations
 
 import logging
 import re
-import sys
 from dataclasses import dataclass, field
-
-if sys.version_info >= (3, 11):
-    from enum import StrEnum
-else:
-    from enum import Enum
-    class StrEnum(str, Enum):  # type: ignore[no-redef]
-        pass
+from enum import StrEnum
 from typing import Any
 
 from rhythmind.config import settings

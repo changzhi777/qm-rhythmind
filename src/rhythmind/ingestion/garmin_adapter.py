@@ -64,7 +64,7 @@ class GarminDataSourceAdapter(BaseDataSourceAdapter):
         path = os.path.join(self._dir, *parts)
         if not os.path.exists(path):
             return None
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             return json.load(f)
 
     def _load_all_metrics(self, prefix: str) -> list[dict]:
@@ -74,7 +74,7 @@ class GarminDataSourceAdapter(BaseDataSourceAdapter):
         records = []
         for f in files:
             try:
-                data = json.load(open(f, "r", encoding="utf-8"))
+                data = json.load(open(f, encoding="utf-8"))
                 if isinstance(data, list):
                     records.extend(data)
             except Exception:
@@ -88,7 +88,7 @@ class GarminDataSourceAdapter(BaseDataSourceAdapter):
         records = []
         for f in files:
             try:
-                data = json.load(open(f, "r", encoding="utf-8"))
+                data = json.load(open(f, encoding="utf-8"))
                 if isinstance(data, list):
                     records.extend(data)
             except Exception:

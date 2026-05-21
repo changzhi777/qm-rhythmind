@@ -119,7 +119,7 @@ class OMLXAdapter(ModelAdapter):
         try:
             import httpx
 
-            client = _get_client(self._base_url, self._api_key)
+            _get_client(self._base_url, self._api_key)
             async with httpx.AsyncClient(timeout=5.0) as http:
                 resp = await http.get(
                     f"{self._base_url.rstrip('/')}/v1/models",

@@ -15,8 +15,6 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
-
 
 # ── 数据模型（适配器输出统一格式）────────────────────────────────────────────
 

@@ -15,11 +15,11 @@ from datetime import UTC, datetime
 from typing import Any
 
 from rhythmind.adapters.adapter_router import adapter_router
+from rhythmind.core.memory.fact_manager import FactManager
 from rhythmind.ingestion.base import (
     BaseDataSourceAdapter,
     IngestionResult,
 )
-from rhythmind.core.memory.fact_manager import FactManager
 
 logger = logging.getLogger(__name__)
 

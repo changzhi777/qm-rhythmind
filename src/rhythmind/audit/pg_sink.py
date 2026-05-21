@@ -58,9 +58,9 @@ class PGSink(AuditSink):
             asyncio.run(self._write_batch(records))
 
     async def _write_batch(self, records: list[dict[str, Any]]) -> None:
-        from rhythmind.core.memory.manager import AsyncSessionLocal
-        from rhythmind.db.models import Base
         from sqlalchemy import insert
+
+        from rhythmind.core.memory.manager import AsyncSessionLocal
 
         # Lazy table check — only write if table exists
         try:
