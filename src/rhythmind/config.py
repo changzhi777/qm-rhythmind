@@ -125,6 +125,17 @@ class Settings(BaseSettings):
     # ── Sentry ───────────────────────────────────────────────────────────
     sentry_dsn: str = ""
 
+    # ── Langfuse LLM 可观测性 ────────────────────────────────────────────
+    langfuse_enabled: bool = False
+    langfuse_public_key: str = Field(default="", repr=False)
+    langfuse_secret_key: str = Field(default="", repr=False)
+    langfuse_host: str = "http://localhost:3020"
+    langfuse_db_url: str = Field(
+        default="",
+        repr=False,
+        description="直查 Langfuse PG 的连接串（只读聚合查询）",
+    )
+
     # ── 鉴权开发便利开关（仅本地）────────────────────────────────────────
     # True 时 deps.get_current_user_id() 接受明文 user_id 作为 Bearer token。
     # 必须显式开启，且 ENV=prod 时强制为 False（startup 直接抛错拒绝运行）。

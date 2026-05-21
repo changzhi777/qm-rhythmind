@@ -16,6 +16,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/chat', label: 'Chat' },
   { href: '/upload', label: '上传' },
   { href: '/test-report', label: '测试' },
+  { href: '/llm-observe', label: '观测' },
 ];
 
 interface HeaderProps {

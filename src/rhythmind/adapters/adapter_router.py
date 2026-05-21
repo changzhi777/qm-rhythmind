@@ -35,6 +35,7 @@ import logging
 from typing import Any
 
 from rhythmind.adapters.model_adapter import ModelAdapter
+from rhythmind.observability.llm_observe import observe_llm
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +83,7 @@ class AdapterRouter:
 
     # ── 快捷调用接口 ──────────────────────────────────────────────────────
 
+    @observe_llm(model="adapter_router", agent="router")
     async def chat(
         self,
         messages: list[dict[str, Any]],

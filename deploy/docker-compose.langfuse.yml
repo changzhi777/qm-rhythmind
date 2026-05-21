@@ -1,0 +1,40 @@
+# Langfuse v3 自托管 — 纯 PostgreSQL 模式（无 ClickHouse）
+#
+# 使用方式：
+#   docker compose -f deploy/docker-compose.langfuse.yml up -d
+#
+# 前置：在 PG 中创建数据库
+#   CREATE DATABASE langfuse_db;
+#
+# 环境变量通过 .env 文件或环境注入：
+#   LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY
+version: "3.8"
+
+services:
+  langfuse:
+    image: langfuse/langfuse:3
+    container_name: langfuse
+    restart: unless-stopped
+    ports:
+      - "3020:3000"
+    environment:
+      - DATABASE_URL=postgresql://rhythmind:rhythmind@host.docker.internal:5432/langfuse_db
+      - NEXTAUTH_SECRET=${LANGFUSE_NEXTAUTH_SECRET:-changeme-use-openssl-rand-hex-32}
+      - SALT=${LANGFUSE_SALT:-changeme-use-openssl-rand-hex-32}
+      - NEXTAUTH_URL=http://localhost:3020
+      - TELEMETRY_ENABLED=false
+      - LANGFUSE_LOG_LEVEL=info
+      # 禁用 ClickHouse（纯 PG 模式）
+      - CLICKHOUSE_URL=
+      # 禁用 S3 事件上传
+      - LANGFUSE_S3_EVENT_UPLOAD_ENABLED=false
+      # 企业功能关闭
+      - LANGFUSE_EE_LICENSE_KEY=
+      - LANGFUSE_ORG_ID=
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

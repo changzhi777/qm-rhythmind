@@ -36,6 +36,7 @@ from rhythmind.api.routers.admin import router as admin_router
 from rhythmind.api.routers.dashboard import router as dashboard_router
 from rhythmind.api.routers.health import router as health_router
 from rhythmind.api.routers.medical import router as medical_router
+from rhythmind.api.routers.llm_observe import router as llm_observe_router
 from rhythmind.api.routers.privacy import router as privacy_router
 from rhythmind.config import settings
 from rhythmind.core.memory import init_db
@@ -205,6 +206,10 @@ from rhythmind.observability import install_metrics, install_tracing  # noqa: E4
 install_metrics(app)
 install_tracing(app, service_name="rhythmind-api")
 
+from rhythmind.observability.llm_observe import init_langfuse  # noqa: E402
+
+init_langfuse()
+
 
 # ── 全局异常处理 ──────────────────────────────────────────────────────────
 
@@ -221,6 +226,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(medical_router, prefix="/api/v1")  # /medical/analyze, /timeline, /medications, /labs/{test}
+app.include_router(llm_observe_router, prefix="/api/v1")  # /llm-observe/metrics, /traces, /suggestions, /analyze
 app.include_router(privacy_router, prefix="/api/v1")  # /privacy/export, /delete, /policy
 app.include_router(admin_router, prefix="/api/v1")    # /admin/skills/* (R-4)
 app.include_router(dashboard_router)    # /api/dashboard, /api/reports, /api/analyze
