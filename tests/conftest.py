@@ -30,6 +30,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 import rhythmind.core.memory.manager as mem_manager
 from rhythmind.core.memory.models import Base
+import rhythmind.db.medical_models  # noqa: F401 — 注册医疗表到 Base.metadata
 
 
 @pytest_asyncio.fixture(autouse=True)
