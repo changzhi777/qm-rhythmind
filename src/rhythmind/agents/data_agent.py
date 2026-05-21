@@ -74,7 +74,6 @@ class DataAgent(HermesBase):
         self,
         ctx: AgentContext,
         memory_ctx: MemoryRecallResult,
-        skill_ctx: list[dict[str, Any]],
     ) -> AgentResult:
         bound_log = log.bind(agent="data_agent", user=ctx.user_id, task=ctx.task_type)
 
@@ -100,12 +99,7 @@ class DataAgent(HermesBase):
         # ── 2. 从 memory 取历史基线（用于叙述对比） ───────────────────────
         baseline: dict[str, Any] = memory_ctx.get("metrics_baseline", {}) or {}
 
-        # ── 3. 技能库上下文 ───────────────────────────────────────────────
-        skill_hints = "\n".join(
-            f"- {s.get('content', '')[:200]}" for s in skill_ctx[:3]
-        ) or "（暂无历史技能参考）"
-
-        # ── 4. 构建解读 prompt ────────────────────────────────────────────
+        # ── 3. 构建解读 prompt ────────────────────────────────────────────
         prompt = self._build_prompt(
             metrics=metrics,
             trends=trends,
@@ -113,7 +107,6 @@ class DataAgent(HermesBase):
             load_level=load_level,
             baseline=baseline,
             sport_type=sport_type,
-            skill_hints=skill_hints,
         )
 
         # ── 5. 通过 call_llm() 生成报告（内含 gemma 前置审查）────────────
@@ -179,7 +172,6 @@ class DataAgent(HermesBase):
         load_level: str,
         baseline: dict[str, Any],
         sport_type: str,
-        skill_hints: str,
     ) -> str:
         # 指标摘要
         metrics_str = "\n".join(
@@ -239,9 +231,6 @@ class DataAgent(HermesBase):
 
 **异常检测**:
 {anomaly_str}
-
-**参考技能库**:
-{skill_hints}
 
 请返回如下 JSON 结构（所有字段均为中文）：
 {{

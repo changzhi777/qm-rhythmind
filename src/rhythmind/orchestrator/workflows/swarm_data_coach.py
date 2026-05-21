@@ -42,7 +42,7 @@ from typing import Any
 
 from rhythmind.agents.coach_agent import CoachAgent
 from rhythmind.agents.data_agent import DataAgent
-from rhythmind.agents.metrics_agent import MetricsAgent
+from rhythmind.agents.metrics_agent import MetricsProcessor
 from rhythmind.core.hermes_base import AgentContext, HermesRunResult
 
 logger = logging.getLogger(__name__)
@@ -119,7 +119,7 @@ class SwarmDataCoach:
         user_id: str,
         session_id: str,
         input_data: dict[str, Any],
-        metrics_agent: MetricsAgent | None = None,
+        metrics_agent: MetricsProcessor | None = None,
         data_agent: DataAgent | None = None,
         coach_agent: CoachAgent | None = None,
     ) -> AsyncGenerator[dict[str, str], None]:
@@ -146,7 +146,7 @@ class SwarmDataCoach:
         })
 
         # ── Step 1: MetricsAgent ──────────────────────────────────────────
-        _metrics = metrics_agent or MetricsAgent(user_id=user_id)
+        _metrics = metrics_agent or MetricsProcessor(user_id=user_id)
         metrics_ctx = AgentContext(
             user_id=user_id, session_id=session_id,
             task_type="analyze_metrics", input_data=input_data,
@@ -232,7 +232,7 @@ class SwarmDataCoach:
         user_id: str,
         session_id: str,
         input_data: dict[str, Any],
-        metrics_agent: MetricsAgent | None = None,
+        metrics_agent: MetricsProcessor | None = None,
         data_agent: DataAgent | None = None,
         coach_agent: CoachAgent | None = None,
     ) -> SwarmResult:
@@ -249,7 +249,7 @@ class SwarmDataCoach:
         )
 
         # ── Step 1: MetricsAgent（InfluxDB 写入 + 趋势 + 规则）────────────
-        _metrics = metrics_agent or MetricsAgent(user_id=user_id)
+        _metrics = metrics_agent or MetricsProcessor(user_id=user_id)
         metrics_ctx = AgentContext(
             user_id=user_id,
             session_id=session_id,
@@ -375,7 +375,7 @@ async def run_ag2_swarm(
         # ── 2. 将 HermesBase.run() 包装为 AG2 FunctionTool ───────────────────
 
         # MetricsAgent 工具：接收原始 input_data，返回 MetricsAnalysis JSON
-        _metrics_hermes = MetricsAgent(user_id=user_id)
+        _metrics_hermes = MetricsProcessor(user_id=user_id)
         async def run_metrics_agent(input_json: str) -> str:
             """运行 MetricsAgent，返回 MetricsAnalysis JSON 字符串。"""
             data = _json.loads(input_json)

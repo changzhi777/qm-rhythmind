@@ -3,7 +3,7 @@
 # CLAUDE.md — RHYTHMIND 律动前端
 
 > **项目版本:** 0.1.9
-> **最后扫描:** 2026-05-18T13:24:25+08:00
+> **最后扫描:** 2026-05-20T14:55:52+08:00
 > **语言:** TypeScript
 > **框架:** Next.js 16 (App Router) + React 19
 > **包管理:** npm
@@ -12,6 +12,7 @@
 
 ## 变更记录 (Changelog)
 
+- **2026-05-20** 增量更新：Chat 助手页面上线（303行，多轮对话+文件上传）、Upload 文件上传页面上线（172行，CSV/JSON/PDF/图像/TXT）、API_BASE/getAuthToken 统一到 api.ts
 - **2026-05-18** 增量更新：规划 Chat 助手页面、文件上传分析页面、返回导航按钮；新增测试报告页面、Header mounted 修复、认证下载
 - **2026-05-18** 增量更新：新增测试模块、共享布局组件、工具函数、e2e 报告规范；重构 LineChart（面积图+空数据修复）；报告生成规范（MD+HTML内联SVG→A4 PDF）
 - **2026-05-18** 增量更新：新增 leaflet/recharts 依赖、静态导出部署方案、API 前缀 `/qm/api`
@@ -101,8 +102,8 @@ graph LR
 | `/dashboard` | 仪表盘 | ✅ 已完成 | 健康数据 KPI、跑步/睡眠面板、年度跑量图表 |
 | `/bigscreen` | 数据大屏 | ✅ 已完成 | 6 KPI 网格、训练状态、年度跑量 |
 | `/report` | AI 报告 | ✅ 已完成 | Markdown 渲染、报告列表、PDF 下载 |
-| `/chat` | Chat 助手 | 🚧 待开发 | 多轮对话、意图识别、文件上传分析 |
-| `/upload` | 文件上传 | 🚧 待开发 | 数据文件/医学报告/图像上传、OCR 识别、数据入库 |
+| `/chat` | Chat 助手 | ✅ 已完成 | 多轮对话、文件上传分析、流式响应 |
+| `/upload` | 文件上传 | ✅ 已完成 | CSV/JSON/PDF/图像/TXT 上传、多模态 AI 分析、数据入库 |
 | `/test-report` | 测试报告 | ✅ 已完成 | E2E 报告列表、认证文件下载 |
 
 ---
@@ -232,44 +233,18 @@ API 层 (lib/api.ts) → fetchWithAuth (Bearer token)
 
 ## 待开发功能
 
-### Chat 智能助手页面 (`/chat`)
+### Chat 智能助手页面 (`/chat`) — ✅ 已完成
 
-**功能描述：**
-- 多轮对话界面，支持文本输入和文件上传
-- 对接后端 `POST /health/chat` 端点（已实现，含意图分类）
-- 支持拖拽上传数据文件、医学诊断报告、图像
-- 文件上传后自动识别类型 → OCR/解析 → 数据入库
+多轮对话界面（303行），支持文本输入和文件上传，对接后端 `POST /qm/api/chat` 端点。集成文件上传分析能力，可在对话中拖拽上传数据文件。
 
-**后端依赖：**
-- `POST /health/chat` — 文本对话（已实现）
-- `POST /health/upload` — 数据上传（已实现）
-- `POST /health/ingest` — CSV 数据摄入（已实现，仅支持 CSV）
-- 需要新增：图像上传端点、医学报告解析端点
+### 文件上传分析页面 (`/upload`) — ✅ 已完成
 
-**CV/OCR 依赖（`requirements-cv.txt`）：**
-- PaddleOCR / PaddlePaddle — 文字识别
-- MediaPipe — 姿态识别
-- OpenCV — 图像处理
-
-### 文件上传分析页面 (`/upload`)
-
-**功能描述：**
-- 支持上传类型：CSV 数据文件、JSON 健康数据、PDF 医学报告、图像（血常规/体脂秤等）
-- 自动识别文件类型，调用对应解析器
-- 解析结果预览 + 确认入库
-- 支持批量上传
-
-**后端需要新增：**
-- `POST /qm/api/upload/file` — 通用文件上传端点（multipart/form-data）
-- 文件类型检测 → 路由到对应解析器
-- 图像 OCR → 结构化数据 → FactManager 入库
-
-### 返回导航按钮
-
-**功能描述：**
-- 所有页面 Header 添加返回按钮（iOS 风格 `< 返回`）
-- 使用 `router.back()` 或显示上一级页面链接
-- 在共享 `Header` 组件中统一添加
+通用文件上传页面（172行），支持 CSV/JSON/PDF/图像（PNG/JPG/JPEG）/TXT 五种格式。后端 `POST /qm/api/upload/file` 自动识别文件类型：
+- CSV → DictReader 解析 → FactManager 入库
+- JSON → 逐字段写入 FactManager
+- PDF → pdf2image 转图片 → 多模态 AI 视觉分析 → 结构化健康数据提取
+- 图像 → base64 编码 → 多模态 AI 视觉分析 → 结构化健康数据提取
+- TXT → 文本存档
 
 ---
 

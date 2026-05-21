@@ -65,7 +65,6 @@ class CoachAgent(HermesBase):
         self,
         ctx: AgentContext,
         memory_ctx: MemoryRecallResult,
-        skill_ctx: list[dict[str, Any]],
     ) -> AgentResult:
         bound_log = log.bind(agent="coach_agent", user=ctx.user_id)
 
@@ -81,11 +80,6 @@ class CoachAgent(HermesBase):
 
         goal_focus = GOAL_FOCUS_MAP.get(user_goal, GOAL_FOCUS_MAP["健康维护"])
 
-        # ── 技能上下文 ────────────────────────────────────────────────────
-        skill_hints = "\n".join(
-            f"- {s.get('content', '')[:200]}" for s in skill_ctx[:3]
-        ) or "（暂无历史技能参考）"
-
         # ── 构建 Prompt ───────────────────────────────────────────────────
         prompt = self._build_prompt(
             data_report=data_report,
@@ -94,7 +88,6 @@ class CoachAgent(HermesBase):
             goal_focus=goal_focus,
             current_plan=current_plan,
             weekly_volume_km=weekly_volume_km,
-            skill_hints=skill_hints,
         )
 
         try:
@@ -158,7 +151,6 @@ class CoachAgent(HermesBase):
         goal_focus: str,
         current_plan: dict,
         weekly_volume_km: float,
-        skill_hints: str,
     ) -> str:
         return f"""
 基于以下数据解读报告，为用户制定今日训练计划：
@@ -169,9 +161,6 @@ class CoachAgent(HermesBase):
 **用户目标**: {user_goal}（{goal_focus}）
 **本周已累计**: {weekly_volume_km:.1f} km
 **当前计划**: {json.dumps(current_plan, ensure_ascii=False) if current_plan else '无'}
-
-**参考技能库**:
-{skill_hints}
 
 请返回以下 JSON（中文）：
 {{

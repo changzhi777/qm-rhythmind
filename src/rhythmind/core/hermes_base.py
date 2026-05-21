@@ -8,17 +8,16 @@
 """
 core/hermes_base.py — HermesBase：所有 Agent 的抽象基类
 
-六步闭环（Hermes Pattern v2，增加 prompt 合规前置）：
+四步闭环（Hermes Pattern v2，精简版）：
   1. retrieve_memory  — 从 MemoryManager 召回历史上下文
-  2. retrieve_skills  — 从 QMD agent_skills 检索相关技能
-  3. execute          — 子类实现具体业务逻辑（抽象方法）
-     └─ call_llm()   — [新增] 透明 prompt 审查：gemma-4-e4b 本地预检
-  4. compliance_check — ComplianceGate 三级输出分级（output 后置检查）
-  5. extract_skills + update_memory — 沉淀经验、更新记忆
+  2. execute          — 子类实现具体业务逻辑（抽象方法）
+     └─ call_llm()   — 透明 prompt 审查：gemma-4-e4b 本地预检
+  3. compliance_check — ComplianceGate 三级输出分级（output 后置检查）
+  4. update_memory    — 沉淀经验、更新记忆
 
 合规双层防护：
   前置（call_llm 内）— gemma-4-e4b 审查 prompt 意图，拦截危险请求
-  后置（Step 4）    — ComplianceGate 关键词扫描 + 置信度分级
+  后置（Step 3）    — ComplianceGate 关键词扫描 + 置信度分级
 
 设计约束：
   - 全链路 async/await，禁止 sync I/O
@@ -45,8 +44,6 @@ from rhythmind.core.compliance import (
     PromptAuditor,
 )
 from rhythmind.core.memory import MemoryManager, MemoryRecallResult, MemoryType
-from rhythmind.core.qmd import QMDClient, QMDUnavailableError
-from rhythmind.core.skill import SkillEngine
 
 log = structlog.get_logger(__name__)
 
@@ -122,21 +119,19 @@ class HermesBase(ABC):
         self.user_id = user_id
 
         self.memory = MemoryManager(user_id=user_id, agent=agent_name)
-        self.skill = SkillEngine(agent=agent_name)
-        self.qmd = QMDClient()
         self.compliance = ComplianceGate()
-        self.auditor = PromptAuditor()   # gemma-4-e4b 本地审查器
+        self.auditor = PromptAuditor()
 
         self._log = log.bind(agent=agent_name, user_id=user_id)
 
-    # ── 六步闭环主入口 ────────────────────────────────────────────────────
+    # ── 四步闭环主入口 ────────────────────────────────────────────────────
 
     async def run(self, ctx: AgentContext) -> HermesRunResult:
         """
-        六步闭环主入口。
+        四步闭环主入口。
 
-        Step 3 内部通过 call_llm() 触发前置合规审查（gemma-4-e4b）。
-        Step 4 对输出做后置关键词扫描（ComplianceGate）。
+        Step 2 内部通过 call_llm() 触发前置合规审查（gemma-4-e4b）。
+        Step 3 对输出做后置关键词扫描（ComplianceGate）。
         两层独立，互不依赖。
         """
         t0 = time.perf_counter()
@@ -147,22 +142,10 @@ class HermesBase(ABC):
         bound_log.debug("hermes.run step=1 recall_memory")
         memory_ctx: MemoryRecallResult = await self.memory.recall(ctx.task_type)
 
-        # ── Step 2: 检索技能库 ────────────────────────────────────────────
-        bound_log.debug("hermes.run step=2 retrieve_skills")
-        skill_ctx: list[dict[str, Any]] = []
+        # ── Step 2: 执行业务逻辑（call_llm 内含前置审查）────────────────
+        bound_log.debug("hermes.run step=2 execute")
         try:
-            skill_ctx = await self.qmd.query(
-                collection="agent_skills",
-                query=ctx.task_type,
-                top_k=settings.qmd_top_k,
-            )
-        except QMDUnavailableError:
-            bound_log.warning("hermes.run qmd_unavailable fallback=empty_skills")
-
-        # ── Step 3: 执行业务逻辑（call_llm 内含前置审查）────────────────
-        bound_log.debug("hermes.run step=3 execute")
-        try:
-            raw_result: AgentResult = await self.execute(ctx, memory_ctx, skill_ctx)
+            raw_result: AgentResult = await self.execute(ctx, memory_ctx)
         except ComplianceBlockedError as e:
             # 前置审查 BLOCK：构造拒绝结果
             bound_log.warning("hermes.run prompt_BLOCKED reason=%s", e.reason)
@@ -180,8 +163,8 @@ class HermesBase(ABC):
         if raw_result.requires_human_review:
             bound_log.warning("hermes.run human_review_required by_agent=True")
 
-        # ── Step 4: 后置合规检查（output 关键词扫描）────────────────────
-        bound_log.debug("hermes.run step=4 compliance_check")
+        # ── Step 3: 后置合规检查（output 关键词扫描）────────────────────
+        bound_log.debug("hermes.run step=3 compliance_check")
         checked: ComplianceResult = self.compliance.validate(raw_result)
 
         if checked.level == ComplianceLevel.BLOCK or raw_result.requires_human_review:
@@ -199,19 +182,8 @@ class HermesBase(ABC):
                 audit_result=last_audit,
             )
 
-        # ── Step 5a: 提取技能 ─────────────────────────────────────────────
-        bound_log.debug("hermes.run step=5a extract_skills")
-        extracted_skills = await self.skill.extract(
-            task_type=ctx.task_type,
-            skill_candidates=checked.skill_candidates,
-            output=checked.output,
-            confidence=checked.confidence,
-        )
-        if extracted_skills:
-            await self.skill.persist_to_qmd(extracted_skills)
-
-        # ── Step 5b: 更新记忆 ─────────────────────────────────────────────
-        bound_log.debug("hermes.run step=5b update_memory")
+        # ── Step 4: 更新记忆 ─────────────────────────────────────────────
+        bound_log.debug("hermes.run step=4 update_memory")
         if checked.memory_updates:
             await self.memory.update(checked.memory_updates)
 
@@ -235,7 +207,6 @@ class HermesBase(ABC):
         self,
         ctx: AgentContext,
         memory_ctx: MemoryRecallResult,
-        skill_ctx: list[dict[str, Any]],
     ) -> AgentResult:
         """子类实现业务逻辑，用 await self.call_llm() 发起 LLM 请求。"""
 
@@ -344,16 +315,6 @@ class HermesBase(ABC):
         mem_type: MemoryType | str = MemoryType.PROJECT,
     ) -> None:
         await self.memory.write(key, value, mem_type)
-
-    async def recall(self, query: str, top_k: int = 5) -> list[dict[str, Any]]:
-        return await self.qmd.query_user_memory(
-            user_id=self.user_id, query=query, top_k=top_k
-        )
-
-    async def search_knowledge(
-        self, query: str, collection: str = "health_knowledge"
-    ) -> list[dict[str, Any]]:
-        return await self.qmd.query(collection=collection, query=query)
 
 
 # ── 内部工具 ──────────────────────────────────────────────────────────────

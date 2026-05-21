@@ -92,9 +92,6 @@ def _make_memory(extra_keys: dict | None = None) -> MemoryRecallResult:
     return MemoryRecallResult(entries=entries, total=len(entries))
 
 
-def _make_skill_ctx() -> list:
-    return [{"content": "跑步心率分析技巧：Z2 心率训练效果最优"}]
-
 
 # ── 测试：正常流程 ────────────────────────────────────────────────────────────
 
@@ -107,7 +104,6 @@ async def test_data_agent_normal_flow():
         result = await agent.execute(
             ctx=_make_ctx(),
             memory_ctx=_make_memory({}),
-            skill_ctx=_make_skill_ctx(),
         )
 
     assert result.output["summary"] == VALID_REPORT["summary"]
@@ -133,7 +129,6 @@ async def test_data_agent_confidence_decreases_with_anomalies():
         result = await agent.execute(
             ctx=_make_ctx({"metrics_analysis": analysis_with_anomaly}),
             memory_ctx=_make_memory({}),
-            skill_ctx=[],
         )
 
     # 1 critical: 0.92 - 0.20 = 0.72
@@ -156,7 +151,6 @@ async def test_data_agent_warn_anomaly_reduces_confidence():
         result = await agent.execute(
             ctx=_make_ctx({"metrics_analysis": analysis_with_warn}),
             memory_ctx=_make_memory({}),
-            skill_ctx=[],
         )
 
     # 1 warn: 0.92 - 0.08 = 0.84
@@ -185,7 +179,6 @@ async def test_data_agent_no_metrics_analysis_fallback():
         result = await agent.execute(
             ctx=raw_ctx,
             memory_ctx=_make_memory({}),
-            skill_ctx=[],
         )
 
     # 降级后仍能返回结果
@@ -206,7 +199,6 @@ async def test_data_agent_compliance_blocked_propagates():
             await agent.execute(
                 ctx=_make_ctx(),
                 memory_ctx=_make_memory({}),
-                skill_ctx=[],
             )
 
 
@@ -221,7 +213,6 @@ async def test_data_agent_llm_exception_uses_fallback():
         result = await agent.execute(
             ctx=_make_ctx(),
             memory_ctx=_make_memory({}),
-            skill_ctx=[],
         )
 
     assert "数据解读服务暂时不可用" in result.output["summary"]
@@ -237,7 +228,6 @@ async def test_data_agent_invalid_json_uses_fallback():
         result = await agent.execute(
             ctx=_make_ctx(),
             memory_ctx=_make_memory({}),
-            skill_ctx=[],
         )
 
     assert result.output is not None
@@ -254,7 +244,6 @@ async def test_data_agent_memory_updates_populated():
         result = await agent.execute(
             ctx=_make_ctx(),
             memory_ctx=_make_memory({}),
-            skill_ctx=[],
         )
 
     assert "metrics_baseline" in result.memory_updates
@@ -273,7 +262,6 @@ async def test_data_agent_skill_candidates_include_sport_type():
         result = await agent.execute(
             ctx=_make_ctx({"sport_type": "cycling"}),
             memory_ctx=_make_memory({}),
-            skill_ctx=[],
         )
 
     assert any("cycling" in c for c in result.skill_candidates)
@@ -290,7 +278,7 @@ def test_build_prompt_no_trends():
         load_level="moderate",
         baseline={},
         sport_type="running",
-        skill_hints="无",
+
     )
     assert "InfluxDB 不可用" in prompt
 
@@ -304,7 +292,7 @@ def test_build_prompt_with_anomalies():
         load_level="high",
         baseline={},
         sport_type="running",
-        skill_hints="无",
+
     )
     assert "heart_rate_max" in prompt
     assert "⛔" in prompt

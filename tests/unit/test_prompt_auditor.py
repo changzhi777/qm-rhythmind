@@ -198,8 +198,12 @@ class TestFallbackOnUnavailability:
     async def test_connection_error_falls_back_to_pass(self):
         """任意网络异常 → 降级 PASS，auditor_available=False"""
         auditor = PromptAuditor()
+
+        async def _raise_conn(*a, **kw):
+            raise ConnectionError("ollama unreachable")
+
         mock_adapter = MagicMock()
-        mock_adapter.chat = AsyncMock(side_effect=ConnectionError("ollama unreachable"))
+        mock_adapter.chat = _raise_conn
         with patch.object(auditor, "_get_adapter", return_value=mock_adapter):
             result = await auditor.audit(_SIMPLE_MESSAGES)
 
@@ -211,8 +215,12 @@ class TestFallbackOnUnavailability:
     async def test_generic_exception_falls_back_to_pass(self):
         """ValueError 等意外异常 → 降级 PASS，不抛出"""
         auditor = PromptAuditor()
+
+        async def _raise_val(*a, **kw):
+            raise ValueError("unexpected error")
+
         mock_adapter = MagicMock()
-        mock_adapter.chat = AsyncMock(side_effect=ValueError("unexpected error"))
+        mock_adapter.chat = _raise_val
         with patch.object(auditor, "_get_adapter", return_value=mock_adapter):
             result = await auditor.audit(_SIMPLE_MESSAGES)
 

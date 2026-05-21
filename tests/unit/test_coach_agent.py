@@ -108,7 +108,6 @@ async def test_coach_agent_normal_flow():
         result = await agent.execute(
             ctx=_make_ctx(),
             memory_ctx=_make_memory(),
-            skill_ctx=[],
         )
 
     assert result.output["today_plan"]["name"] == "轻松慢跑"
@@ -127,7 +126,6 @@ async def test_coach_agent_memory_updates_accumulate_volume():
         result = await agent.execute(
             ctx=_make_ctx(),
             memory_ctx=_make_memory(weekly_volume_km=existing_volume),
-            skill_ctx=[],
         )
 
     new_volume = result.memory_updates["training_history"]["weekly_volume_km"]
@@ -153,7 +151,6 @@ async def test_coach_agent_load_spike_reduces_confidence():
         result = await agent.execute(
             ctx=_make_ctx(),
             memory_ctx=_make_memory(weekly_volume_km=existing_volume),
-            skill_ctx=[],
         )
 
     assert result.confidence == pytest.approx(0.65, abs=0.01)
@@ -168,7 +165,6 @@ async def test_coach_agent_no_spike_when_no_history():
         result = await agent.execute(
             ctx=_make_ctx(),
             memory_ctx=_make_memory(weekly_volume_km=0.0),
-            skill_ctx=[],
         )
 
     assert result.confidence == pytest.approx(0.90, abs=0.01)
@@ -187,7 +183,6 @@ async def test_coach_agent_compliance_blocked_propagates():
             await agent.execute(
                 ctx=_make_ctx(),
                 memory_ctx=_make_memory(),
-                skill_ctx=[],
             )
 
 
@@ -202,7 +197,6 @@ async def test_coach_agent_llm_exception_uses_fallback():
         result = await agent.execute(
             ctx=_make_ctx(),
             memory_ctx=_make_memory(),
-            skill_ctx=[],
         )
 
     assert "today_plan" in result.output
@@ -218,7 +212,6 @@ async def test_coach_agent_invalid_json_uses_fallback():
         result = await agent.execute(
             ctx=_make_ctx(),
             memory_ctx=_make_memory(),
-            skill_ctx=[],
         )
 
     assert result.output is not None
@@ -239,7 +232,6 @@ async def test_coach_agent_goal_focus_included_in_prompt(goal: str):
         goal_focus=expected_focus,
         current_plan={},
         weekly_volume_km=0.0,
-        skill_hints="无",
     )
     assert expected_focus[:10] in prompt  # 匹配前 10 字足够
 
@@ -255,7 +247,6 @@ async def test_coach_agent_skill_candidates_sport_and_goal():
         result = await agent.execute(
             ctx=_make_ctx(user_goal="马拉松", sport_type="trail"),
             memory_ctx=_make_memory(),
-            skill_ctx=[],
         )
 
     combined = " ".join(result.skill_candidates)
@@ -281,26 +272,3 @@ def test_fallback_plan_structure(sport_type: str, user_goal: str):
     tp = plan["today_plan"]
     for field in ("name", "duration_min", "distance_km", "intensity", "hr_target_zone"):
         assert field in tp
-
-
-# ── 测试：skill_ctx 在 prompt 中使用 ─────────────────────────────────────────
-
-@pytest.mark.asyncio
-async def test_coach_agent_skill_hints_appear_in_call():
-    """skill_ctx 内容应拼入 prompt（验证 call_llm 被调用时 messages 含技能提示）。"""
-    agent = CoachAgent(user_id=USER_ID)
-    captured_messages = []
-
-    async def capture_llm(messages, **kwargs):
-        captured_messages.extend(messages)
-        return json.dumps(VALID_PLAN)
-
-    with patch.object(agent, "call_llm", new=capture_llm):
-        await agent.execute(
-            ctx=_make_ctx(),
-            memory_ctx=_make_memory(),
-            skill_ctx=[{"content": "渐进超负荷原则：每周增量不超过 10%"}],
-        )
-
-    user_msg = next(m["content"] for m in captured_messages if m["role"] == "user")
-    assert "渐进超负荷" in user_msg

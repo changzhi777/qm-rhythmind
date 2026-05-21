@@ -7,6 +7,10 @@
 
 from .coach_agent import CoachAgent
 from .data_agent import DataAgent
-from .metrics_agent import MetricsAgent
+from .medical_advisor import MedicalAdvisor
+from .metrics_agent import MetricsAgent, MetricsProcessor
 
-__all__ = ["DataAgent", "CoachAgent", "MetricsAgent"]
+__all__ = [
+    "DataAgent", "CoachAgent", "MedicalAdvisor",
+    "MetricsAgent", "MetricsProcessor",
+]

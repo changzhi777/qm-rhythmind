@@ -54,22 +54,33 @@ async def test_readyz_with_llm_upstream_disabled_skips_those_checks(
 
 @pytest.mark.asyncio
 async def test_readyz_with_upstream_check_returns_503_when_both_fail(
-    app_client, patched_redis, monkeypatch,
+    app_client, patched_redis, monkeypatch, httpx_mock,
 ):
     """
-    Enable upstream check; both endpoints will fail (no real LiteLLM/Ollama
-    available in test) → readyz must return 503 with the failure reasons.
+    Enable upstream check; register 503 responses for both LLM endpoints
+    → readyz must return 503 with the failure reasons.
     """
     from rhythmind.config import settings
     monkeypatch.setattr(settings, "readyz_check_llm_upstream", True)
-    monkeypatch.setattr(settings, "readyz_llm_timeout", 0.1)
+    monkeypatch.setattr(settings, "readyz_llm_timeout", 0.5)
+
+    # Explicitly register 503 responses to avoid pytest-httpx default 200
+    httpx_mock.add_response(
+        url=f"{settings.litellm_url}/health",
+        method="GET",
+        status_code=503,
+    )
+    httpx_mock.add_response(
+        url=f"{settings.omlX_base_url.rstrip('/')}/v1/models",
+        method="GET",
+        status_code=503,
+    )
 
     resp = await app_client.get("/readyz")
     body = resp.json()
     checks = body["checks"]
     assert "litellm" in checks
     assert "omlX" in checks
-    # Both should be failures (we have no servers running in the test env)
     assert checks["litellm"].startswith("fail")
     assert checks["omlX"].startswith("fail")
     assert resp.status_code == 503

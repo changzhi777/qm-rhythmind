@@ -44,7 +44,7 @@ from dataclasses import dataclass, field
 from rhythmind.adapters.influx_client import InfluxClient
 from rhythmind.agents.coach_agent import CoachAgent
 from rhythmind.agents.data_agent import DataAgent
-from rhythmind.agents.metrics_agent import MetricsAgent
+from rhythmind.agents.metrics_agent import MetricsProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -74,10 +74,11 @@ class AgentBundle:
     """
     某个 user_id 对应的 Agent 实例组合。
 
-    三个 Agent 共享同一个 InfluxClient（节省连接）。
+    MetricsProcessor 不继承 HermesBase，共享 InfluxClient。
+    DataAgent 和 CoachAgent 继承 HermesBase。
     """
     user_id: str
-    metrics: MetricsAgent
+    metrics: MetricsProcessor
     data: DataAgent
     coach: CoachAgent
     created_at: float = field(default_factory=time.monotonic)
@@ -220,7 +221,7 @@ class AgentPool:
         influx = await get_shared_influx()
         return AgentBundle(
             user_id=user_id,
-            metrics=MetricsAgent(user_id=user_id, influx=influx),
+            metrics=MetricsProcessor(user_id=user_id, influx=influx),
             data=DataAgent(user_id=user_id),
             coach=CoachAgent(user_id=user_id),
         )
