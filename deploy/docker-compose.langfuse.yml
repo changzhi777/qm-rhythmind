@@ -25,7 +25,7 @@ services:
       - LANGFUSE_LOG_LEVEL=info
       - LANGFUSE_S3_EVENT_UPLOAD_ENABLED=false
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:3020/api/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3020/"]
       interval: 30s
       timeout: 10s
       retries: 3
