@@ -1,14 +1,15 @@
+# ruff: noqa: ANN001, ANN002, ANN003, ANN201, ANN202
 """
 tests/unit/test_llm_observe.py — LLM 观测模块单元测试
 
 覆盖：
   - @observe_llm 装饰器（正常/no-op/token 估算）
   - SuggestionEngine（5 条规则）
-  - 观测 API 端点（mock PG）
+  - init_langfuse（启用/禁用/缺 key）
 """
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -20,10 +21,8 @@ from rhythmind.observability.llm_observe import (
 )
 from rhythmind.observability.suggestion_engine import (
     ModelMetrics,
-    Suggestion,
     generate_suggestions,
 )
-
 
 # ── @observe_llm 装饰器 ────────────────────────────────────────────────
 
@@ -115,7 +114,11 @@ class TestEstimation:
         assert tokens == 0
 
     def test_estimate_cost_known_model(self):
-        cost = _estimate_cost("gpt-4o", {"messages": [{"role": "user", "content": "hi"}]}, "ok")
+        cost = _estimate_cost(
+            "gpt-4o",
+            {"messages": [{"role": "user", "content": "hi"}]},
+            "ok",
+        )
         assert cost["total"] > 0
 
     def test_estimate_cost_free_model(self):
@@ -135,12 +138,6 @@ class TestEstimation:
 class TestInitLangfuse:
 
     def test_disabled_returns_false(self):
-        with patch(
-            "rhythmind.observability.llm_observe.init_langfuse",
-        ) as mock_init:
-            # 直接测试函数逻辑
-            pass
-        # 直接测试：settings.langfuse_enabled=False
         with patch("rhythmind.config.settings") as mock_s:
             mock_s.langfuse_enabled = False
             assert init_langfuse() is False

@@ -5,7 +5,7 @@ observability/suggestion_engine.py — LLM 调用优化建议规则引擎
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass

@@ -2,7 +2,14 @@
 api/routers/llm_observe.py — LLM 观测 API 路由
 
 提供 LLM 调用指标、Trace 列表、成本统计、优化建议和 AI 深度分析。
-数据直查 Langfuse PG 数据库（只读），不走 Langfuse REST API。
+数据直查 Langfuse v2 PG 数据库（只读）。
+
+Langfuse v2 observations 表结构：
+  - level: 'DEFAULT' | 'WARNING' | 'ERROR'
+  - start_time, end_time → 计算延迟
+  - total_tokens, prompt_tokens, completion_tokens
+  - total_cost, input_cost, output_cost
+  - modelParameters (jsonb)
 """
 from __future__ import annotations
 
@@ -71,12 +78,17 @@ class AnalyzeRequest(BaseModel):
 
 # ── PG 直查辅助 ────────────────────────────────────────────────────────
 
+_pg_engine: Any = None
 
-async def _query_pg(sql: str, params: tuple = ()) -> list[dict]:
-    from sqlalchemy import text
+
+def _get_pg_engine() -> Any:  # noqa: ANN401
     from sqlalchemy.ext.asyncio import create_async_engine
 
     from rhythmind.config import settings
+
+    global _pg_engine
+    if _pg_engine is not None:
+        return _pg_engine
 
     db_url = settings.langfuse_db_url
     if not db_url:
@@ -85,14 +97,18 @@ async def _query_pg(sql: str, params: tuple = ()) -> list[dict]:
             detail="Langfuse 数据库未配置（LANGFUSE_DB_URL）",
         )
 
-    engine = create_async_engine(db_url, pool_size=2, max_overflow=0)
-    try:
-        async with engine.begin() as conn:
-            result = await conn.execute(text(sql), params)
-            columns = result.keys()
-            return [dict(zip(columns, row)) for row in result.fetchall()]
-    finally:
-        await engine.dispose()
+    _pg_engine = create_async_engine(db_url, pool_size=2, max_overflow=0)
+    return _pg_engine
+
+
+async def _query_pg(sql: str, params: dict | None = None) -> list[dict]:
+    from sqlalchemy import text
+
+    engine = _get_pg_engine()
+    async with engine.begin() as conn:
+        result = await conn.execute(text(sql), params or {})
+        columns = result.keys()
+        return [dict(zip(columns, row, strict=False)) for row in result.fetchall()]
 
 
 # ── GET /metrics ────────────────────────────────────────────────────────
@@ -111,19 +127,24 @@ async def get_metrics(
         """
         SELECT
             COUNT(*) as total_calls,
-            COALESCE(SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END), 0)
-                as success_calls,
-            COALESCE(AVG(latency_ms), 0) as avg_latency_ms,
             COALESCE(
-                PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY latency_ms), 0
+                SUM(CASE WHEN level != 'ERROR' THEN 1 ELSE 0 END), 0
+            ) as success_calls,
+            COALESCE(
+                AVG(EXTRACT(EPOCH FROM (end_time - start_time)) * 1000), 0
+            ) as avg_latency_ms,
+            COALESCE(
+                PERCENTILE_CONT(0.95) WITHIN GROUP (
+                    ORDER BY EXTRACT(EPOCH FROM (end_time - start_time)) * 1000
+                ), 0
             ) as p95_latency_ms,
-            COALESCE(SUM(usage->>'total'::int), 0) as total_tokens,
-            COALESCE(SUM((cost->>'total')::float), 0) as total_cost
+            COALESCE(SUM(total_tokens), 0) as total_tokens,
+            COALESCE(SUM(total_cost), 0) as total_cost
         FROM observations
         WHERE type = 'GENERATION'
           AND created_at >= NOW() - INTERVAL '1 day' * :days
         """,
-        (days,),
+        {"days": days},
     )
 
     by_model = await _query_pg(
@@ -131,16 +152,16 @@ async def get_metrics(
         SELECT
             model,
             COUNT(*) as calls,
-            AVG(latency_ms) as avg_latency_ms,
-            SUM(usage->>'total'::int) as tokens,
-            SUM((cost->>'total')::float) as cost
+            AVG(EXTRACT(EPOCH FROM (end_time - start_time)) * 1000) as avg_latency_ms,
+            SUM(total_tokens) as tokens,
+            SUM(total_cost) as cost
         FROM observations
         WHERE type = 'GENERATION'
           AND created_at >= NOW() - INTERVAL '1 day' * :days
         GROUP BY model
         ORDER BY calls DESC
         """,
-        (days,),
+        {"days": days},
     )
 
     by_day = await _query_pg(
@@ -148,16 +169,16 @@ async def get_metrics(
         SELECT
             DATE(created_at) as date,
             COUNT(*) as calls,
-            AVG(latency_ms) as avg_latency_ms,
-            SUM(usage->>'total'::int) as tokens,
-            SUM((cost->>'total')::float) as cost
+            AVG(EXTRACT(EPOCH FROM (end_time - start_time)) * 1000) as avg_latency_ms,
+            SUM(total_tokens) as tokens,
+            SUM(total_cost) as cost
         FROM observations
         WHERE type = 'GENERATION'
           AND created_at >= NOW() - INTERVAL '1 day' * :days
         GROUP BY DATE(created_at)
         ORDER BY date
         """,
-        (days,),
+        {"days": days},
     )
 
     summary = rows[0] if rows else {}
@@ -190,10 +211,10 @@ async def list_traces(
     model: str | None = Query(None),
 ) -> list[TraceItem]:
     where = "WHERE o.type = 'GENERATION'"
-    params: list[Any] = []
+    qp: dict[str, Any] = {"limit": limit, "offset": offset}
     if model:
         where += " AND o.model = :model"
-        params.append(model)
+        qp["model"] = model
 
     rows = await _query_pg(
         f"""
@@ -202,10 +223,10 @@ async def list_traces(
             o.name,
             t.user_id,
             o.model,
-            COALESCE(o.status, 'unknown') as status,
-            o.latency_ms,
-            COALESCE(o.usage->>'total'::int, 0) as tokens,
-            COALESCE((o.cost->>'total')::float, 0) as cost,
+            CASE WHEN o.level = 'ERROR' THEN 'error' ELSE 'success' END as status,
+            EXTRACT(EPOCH FROM (o.end_time - o.start_time)) * 1000 as latency_ms,
+            COALESCE(o.total_tokens, 0) as tokens,
+            COALESCE(o.total_cost, 0) as cost,
             o.created_at::text
         FROM observations o
         JOIN traces t ON t.id = o.trace_id
@@ -213,7 +234,7 @@ async def list_traces(
         ORDER BY o.created_at DESC
         LIMIT :limit OFFSET :offset
         """,
-        tuple(params + [limit, offset]),
+        qp,
     )
     return [TraceItem(**r) for r in rows]
 
@@ -237,16 +258,24 @@ async def get_trace_detail(
             o.input,
             o.output,
             o.model,
-            o.model_parameters as model_params,
-            COALESCE(o.usage, '{{}}') as tokens,
-            COALESCE(o.cost, '{{}}') as cost,
-            o.latency_ms,
+            COALESCE(o."modelParameters", '{{}}') as model_params,
+            json_build_object(
+                'prompt', o.prompt_tokens,
+                'completion', o.completion_tokens,
+                'total', o.total_tokens
+            ) as tokens,
+            json_build_object(
+                'input', o.input_cost,
+                'output', o.output_cost,
+                'total', o.total_cost
+            ) as cost,
+            EXTRACT(EPOCH FROM (o.end_time - o.start_time)) * 1000 as latency_ms,
             COALESCE(o.metadata, '{{}}') as metadata,
             o.created_at::text
         FROM observations o
         WHERE o.id::text = :tid AND o.type = 'GENERATION'
         """,
-        (trace_id,),
+        {"tid": trace_id},
     )
     if not rows:
         raise HTTPException(
@@ -273,23 +302,24 @@ async def get_suggestions(
         SELECT
             model,
             COUNT(*) as total_calls,
-            SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as success_calls,
-            AVG(latency_ms) as avg_latency_ms,
+            SUM(CASE WHEN level != 'ERROR' THEN 1 ELSE 0 END) as success_calls,
+            AVG(EXTRACT(EPOCH FROM (end_time - start_time)) * 1000) as avg_latency_ms,
             COALESCE(
-                PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY latency_ms), 0
+                PERCENTILE_CONT(0.95) WITHIN GROUP (
+                    ORDER BY EXTRACT(EPOCH FROM (end_time - start_time)) * 1000
+                ), 0
             ) as p95_latency_ms,
-            SUM(usage->>'total'::int) as total_tokens,
-            SUM((cost->>'total')::float) as total_cost,
-            CASE WHEN SUM(usage->>'input'::int) > 0
-                THEN SUM(usage->>'output'::int)::float
-                     / SUM(usage->>'input'::int)
+            SUM(total_tokens) as total_tokens,
+            SUM(total_cost) as total_cost,
+            CASE WHEN SUM(prompt_tokens) > 0
+                THEN SUM(completion_tokens)::float / SUM(prompt_tokens)
                 ELSE 0 END as output_input_ratio
         FROM observations
         WHERE type = 'GENERATION'
           AND created_at >= NOW() - INTERVAL '1 day' * :days
         GROUP BY model
         """,
-        (days,),
+        {"days": days},
     )
 
     models = [
@@ -338,17 +368,17 @@ async def analyze_llm_usage(
         SELECT
             model,
             COUNT(*) as calls,
-            AVG(latency_ms) as avg_latency,
-            SUM(usage->>'total'::int) as tokens,
-            SUM((cost->>'total')::float) as cost,
-            SUM(CASE WHEN status != 'success' THEN 1 ELSE 0 END) as errors
+            AVG(EXTRACT(EPOCH FROM (end_time - start_time)) * 1000) as avg_latency,
+            SUM(total_tokens) as tokens,
+            SUM(total_cost) as cost,
+            SUM(CASE WHEN level = 'ERROR' THEN 1 ELSE 0 END) as errors
         FROM observations
         WHERE type = 'GENERATION'
           AND created_at >= NOW() - INTERVAL '1 day' * :days
         GROUP BY model
         ORDER BY calls DESC
         """,
-        (body.days,),
+        {"days": body.days},
     )
 
     if not metrics_rows:
@@ -357,7 +387,6 @@ async def analyze_llm_usage(
     summary = json.dumps(metrics_rows, ensure_ascii=False, default=str)
 
     from rhythmind.config import settings
-    from rhythmind.observability.llm_observe import get_langfuse
 
     prompt = f"""你是 LLM 运维专家。基于以下近 {body.days} 天的 LLM 调用统计数据，
 生成一份优化报告（中文），包含：

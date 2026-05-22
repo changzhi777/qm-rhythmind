@@ -13,7 +13,8 @@ from __future__ import annotations
 
 import functools
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import structlog
 
@@ -53,7 +54,7 @@ def init_langfuse() -> bool:
         return False
 
 
-def get_langfuse() -> Any:
+def get_langfuse() -> Any:  # noqa: ANN401
     """获取 Langfuse 客户端单例。"""
     return _langfuse_client
 
@@ -76,7 +77,7 @@ def observe_llm(
 
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
-        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
             client = get_langfuse()
             if client is None:
                 return await func(*args, **kwargs)
@@ -118,7 +119,11 @@ def observe_llm(
                     latency_ms=latency_ms,
                 )
                 trace.update(
-                    output={"status": "error", "error": str(e), "latency_ms": latency_ms},
+                    output={
+                        "status": "error",
+                        "error": str(e),
+                        "latency_ms": latency_ms,
+                    },
                 )
                 client.flush()
                 raise

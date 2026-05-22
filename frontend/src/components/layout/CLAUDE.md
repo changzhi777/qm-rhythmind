@@ -2,7 +2,7 @@
 
 # layout 模块 — 共享布局组件
 
-> **最后更新:** 2026-05-18T13:24:25+08:00
+> **最后更新:** 2026-05-22T08:00:00+08:00
 
 ---
 
@@ -55,6 +55,7 @@ interface HeaderProps {
 | `/chat` | Chat |
 | `/upload` | 上传 |
 | `/test-report` | 测试 |
+| `/llm-observe` | 观测 |
 
 使用 Next.js `Link` 组件，自动处理 `basePath: "/qm"`。
 

@@ -78,7 +78,7 @@ export const useLLMObserveStore = create<LLMObserveState>((set) => ({
     set({ loading: true, error: null });
     try {
       const res = await fetch(
-        `${API_BASE}/llm-observe/metrics?days=${days}`,
+        `${API_BASE}/v1/llm-observe/metrics?days=${days}`,
         { headers: { Authorization: `Bearer ${getAuthToken()}` } }
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -94,7 +94,7 @@ export const useLLMObserveStore = create<LLMObserveState>((set) => ({
     set({ loading: true, error: null });
     try {
       const res = await fetch(
-        `${API_BASE}/llm-observe/traces?limit=${limit}&offset=${offset}`,
+        `${API_BASE}/v1/llm-observe/traces?limit=${limit}&offset=${offset}`,
         { headers: { Authorization: `Bearer ${getAuthToken()}` } }
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -110,7 +110,7 @@ export const useLLMObserveStore = create<LLMObserveState>((set) => ({
     set({ loading: true, error: null });
     try {
       const res = await fetch(
-        `${API_BASE}/llm-observe/suggestions?days=${days}`,
+        `${API_BASE}/v1/llm-observe/suggestions?days=${days}`,
         { headers: { Authorization: `Bearer ${getAuthToken()}` } }
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -126,7 +126,7 @@ export const useLLMObserveStore = create<LLMObserveState>((set) => ({
   runAnalysis: async (days = 7) => {
     set({ loading: true, error: null, analysisReport: "" });
     try {
-      const res = await fetch(`${API_BASE}/llm-observe/analyze`, {
+      const res = await fetch(`${API_BASE}/v1/llm-observe/analyze`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
