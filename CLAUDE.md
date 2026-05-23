@@ -9,6 +9,7 @@
 
 ## 变更记录 (Changelog)
 
+- **2026-05-23** 新增 API & MCP 集成文档（`docs/api-integration-guide.md`）和 OpenAPI 3.0 规范（`docs/openapi.yaml`）
 - **2026-05-20** 增量更新：API middleware 重构为包目录、Chat/Upload 页面已实现、PDF/图像多模态 AI 视觉分析、API 统一（upload/file + chat 端点）、getAuthToken 去重
 - **2026-05-18** 增量更新：新增 Chat 智能助手页面、文件上传分析（数据文件/医学报告/图像）、返回导航、前端重构（共享 Header/utils）、E2E 测试模块
 - **2026-05-18** 增量更新：新增 cache 子模块、PGSink、migration 004、web/ 替代前端、部署配置更新
@@ -183,6 +184,8 @@ python scripts/bump_version.py minor   # 0.1.8 → 0.2.0
 - `config.py` 中 `Settings` 类是所有配置的单一来源
 - 生产部署必须通过 `settings.assert_production_safe()` 检查
 - MCP 工具列表：`rhythmind_status`, `rhythmind_search`, `rhythmind_fact_query`, `rhythmind_fact_update`, `rhythmind_session_log`
+- **集成文档**: `docs/api-integration-guide.md` — 人类可读的 API & MCP 完整接入指南
+- **OpenAPI 规范**: `docs/openapi.yaml` — 机器可读的 OpenAPI 3.0 规范（可用于代码生成）
 
 ---
 

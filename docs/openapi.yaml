@@ -1,0 +1,1152 @@
+openapi: 3.0.3
+info:
+  title: RHYTHMIND 律动 API
+  description: |
+    Multi-agent AI Health Platform — AG2 + Hermes Architecture
+
+    多智能体协作式健康管理平台，提供健康数据上传分析、AI 报告生成、
+    医疗数据解读、LLM 观测、隐私合规等 REST API 和 MCP 工具接口。
+  version: 0.2.0
+  contact:
+    name: 外星动物（常智）/ IoTchange
+    email: 14455975@qq.com
+  license:
+    name: CC BY-NC 4.0
+
+servers:
+  - url: https://aisport.tech/qm
+    description: 生产环境
+  - url: http://localhost:8000
+    description: 本地开发
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: health
+    description: 健康数据上传、流式分析、对话、CSV 摄入
+  - name: dashboard
+    description: 仪表盘、AI 报告、PDF 下载、文件上传、Chat
+  - name: medical
+    description: 医疗数据分析（AI 解读）
+  - name: llm-observe
+    description: LLM 调用观测（指标、Trace、建议、AI 分析）
+  - name: privacy
+    description: GDPR/PIPL 数据主体权利
+  - name: admin
+    description: 管理接口（需 admin 角色）
+  - name: infra
+    description: 基础设施探针（无需认证）
+
+paths:
+  # ── 基础设施探针 ──────────────────────────────────────────────
+  /ping:
+    get:
+      tags: [infra]
+      security: []
+      operationId: ping
+      summary: 存活检测
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  env: { type: string, example: dev }
+
+  /livez:
+    get:
+      tags: [infra]
+      security: []
+      operationId: livez
+      summary: K8s livenessProbe
+      responses:
+        "200":
+          description: 存活
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LivezResponse"
+
+  /readyz:
+    get:
+      tags: [infra]
+      security: []
+      operationId: readyz
+      summary: K8s readinessProbe（含 DB/Redis 检查）
+      responses:
+        "200":
+          description: 就绪
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadyzResponse"
+        "503":
+          description: 依赖不可达
+
+  /version:
+    get:
+      tags: [infra]
+      security: []
+      operationId: version
+      summary: 版本信息
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VersionResponse"
+
+  /metrics:
+    get:
+      tags: [infra]
+      security: []
+      operationId: prometheus_metrics
+      summary: Prometheus 指标
+      responses:
+        "200":
+          description: Prometheus text format
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  # ── 健康数据 ──────────────────────────────────────────────────
+  /api/v1/health/upload:
+    post:
+      tags: [health]
+      operationId: upload_health_data
+      summary: 上传健康数据（同步）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HealthDataUploadRequest"
+      responses:
+        "200":
+          description: 分析完成
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowResultResponse"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /api/v1/health/upload/stream:
+    post:
+      tags: [health]
+      operationId: upload_health_data_stream
+      summary: 上传健康数据（SSE 流式）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HealthDataUploadRequest"
+      responses:
+        "200":
+          description: SSE 事件流
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  /api/v1/health/upload/stream/ws:
+    get:
+      tags: [health]
+      operationId: upload_health_data_stream_ws
+      summary: 上传健康数据（WebSocket 流式）
+      security: []
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+          description: JWT token
+      responses:
+        "200":
+          description: WebSocket 升级
+
+  /api/v1/health/ingest:
+    post:
+      tags: [health]
+      operationId: ingest_wearable_data
+      summary: 接收可穿戴设备 CSV 数据
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      parameters:
+        - name: source
+          in: query
+          schema:
+            type: string
+            enum: [apple_health, google_health, fitbit, manual]
+            default: manual
+      responses:
+        "200":
+          description: 摄入成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /api/v1/health/chat:
+    post:
+      tags: [health]
+      operationId: health_chat
+      summary: 文本对话（意图分类后路由）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HealthChatRequest"
+      responses:
+        "200":
+          description: 对话响应
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowResultResponse"
+
+  /api/v1/health/memory:
+    get:
+      tags: [health]
+      operationId: get_memory_summary
+      summary: 查看用户记忆摘要（仅 debug）
+      responses:
+        "200":
+          description: 记忆数据
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_id: { type: string }
+                  memory: { type: object }
+
+  /api/v1/health/pool/stats:
+    get:
+      tags: [health]
+      operationId: pool_stats
+      summary: Agent 池状态诊断（仅 debug）
+      responses:
+        "200":
+          description: 池状态
+          content:
+            application/json:
+              schema:
+                type: object
+
+  # ── 仪表盘与报告 ──────────────────────────────────────────────
+  /api/dashboard:
+    get:
+      tags: [dashboard]
+      operationId: get_dashboard
+      summary: 仪表盘汇总数据
+      responses:
+        "200":
+          description: 仪表盘数据
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardResponse"
+
+  /api/reports:
+    get:
+      tags: [dashboard]
+      operationId: list_reports
+      summary: AI 分析报告列表
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: 报告列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportListResponse"
+
+  /api/reports/{report_id}:
+    get:
+      tags: [dashboard]
+      operationId: get_report
+      summary: 单篇报告详情
+      parameters:
+        - name: report_id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: 报告详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportDetailResponse"
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/reports/{report_id}/download:
+    get:
+      tags: [dashboard]
+      operationId: download_report_pdf
+      summary: 下载报告 PDF
+      parameters:
+        - name: report_id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: PDF 文件
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/analyze:
+    post:
+      tags: [dashboard]
+      operationId: trigger_analysis
+      summary: 触发 AI 重新分析
+      responses:
+        "200":
+          description: 分析完成
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  message: { type: string, example: "分析完成" }
+                  chars: { type: integer, example: 1250 }
+
+  /api/import-facts:
+    post:
+      tags: [dashboard]
+      operationId: import_facts
+      summary: 批量导入健康事实数据
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "#/components/schemas/FactImportItem"
+      responses:
+        "200":
+          description: 导入结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FactImportResponse"
+
+  /api/upload/file:
+    post:
+      tags: [dashboard]
+      operationId: upload_file
+      summary: 通用文件上传（CSV/JSON/TXT/PDF/图像）
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: 上传成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileUploadResponse"
+
+  /api/chat:
+    post:
+      tags: [dashboard]
+      operationId: chat_proxy
+      summary: Chat 代理端点
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatProxyRequest"
+      responses:
+        "200":
+          description: 对话响应
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+                  session_id: { type: string }
+                  message: { type: string }
+                  data: { type: object }
+
+  # ── 医疗分析 ──────────────────────────────────────────────────
+  /api/v1/medical/analyze:
+    post:
+      tags: [medical]
+      operationId: analyze_health
+      summary: 综合健康分析（AI 解读）
+      responses:
+        "200":
+          description: 分析结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MedicalAnalysisResponse"
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/medical/timeline:
+    get:
+      tags: [medical]
+      operationId: get_timeline
+      summary: 临床事件时间线
+      parameters:
+        - name: event_type
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50, minimum: 1, maximum: 200 }
+      responses:
+        "200":
+          description: 时间线
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TimelineResponse"
+
+  /api/v1/medical/medications:
+    get:
+      tags: [medical]
+      operationId: get_medications
+      summary: 用药列表 + AI 审查
+      parameters:
+        - name: status_filter
+          in: query
+          schema:
+            type: string
+            enum: [active, all, discontinued]
+            default: active
+      responses:
+        "200":
+          description: 用药列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MedicationsResponse"
+
+  /api/v1/medical/labs/{test}:
+    get:
+      tags: [medical]
+      operationId: get_lab_results
+      summary: 化验结果趋势
+      parameters:
+        - name: test
+          in: path
+          required: true
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, minimum: 1, maximum: 100 }
+      responses:
+        "200":
+          description: 化验结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LabsResponse"
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ── LLM 观测 ──────────────────────────────────────────────────
+  /api/v1/llm-observe/metrics:
+    get:
+      tags: [llm-observe]
+      operationId: get_llm_metrics
+      summary: LLM 调用汇总指标
+      parameters:
+        - name: days
+          in: query
+          schema: { type: integer, default: 7, minimum: 1, maximum: 90 }
+      responses:
+        "200":
+          description: 汇总指标
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LLMMetricsResponse"
+
+  /api/v1/llm-observe/traces:
+    get:
+      tags: [llm-observe]
+      operationId: list_traces
+      summary: Trace 列表（分页）
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50, minimum: 1, maximum: 200 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0, minimum: 0 }
+        - name: model
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Trace 列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TraceItem"
+
+  /api/v1/llm-observe/traces/{trace_id}:
+    get:
+      tags: [llm-observe]
+      operationId: get_trace_detail
+      summary: Trace 详情
+      parameters:
+        - name: trace_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Trace 详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TraceDetail"
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/llm-observe/suggestions:
+    get:
+      tags: [llm-observe]
+      operationId: get_llm_suggestions
+      summary: 规则引擎优化建议
+      parameters:
+        - name: days
+          in: query
+          schema: { type: integer, default: 7, minimum: 1, maximum: 30 }
+      responses:
+        "200":
+          description: 优化建议
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuggestionResponse"
+
+  /api/v1/llm-observe/analyze:
+    post:
+      tags: [llm-observe]
+      operationId: analyze_llm_usage
+      summary: LLM 深度分析（AI 优化报告）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                days: { type: integer, default: 7 }
+      responses:
+        "200":
+          description: AI 分析报告
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [success, no_data, error] }
+                  report: { type: string, description: Markdown 格式报告 }
+
+  # ── 隐私合规 ──────────────────────────────────────────────────
+  /api/v1/privacy/export:
+    get:
+      tags: [privacy]
+      operationId: export_my_data
+      summary: 导出当前用户全部个人数据
+      responses:
+        "200":
+          description: 用户数据 JSON 附件
+          content:
+            application/json:
+              schema:
+                type: object
+          headers:
+            Content-Disposition:
+              schema: { type: string }
+              description: attachment; filename="rhythmind_export_{user_id}.json"
+
+  /api/v1/privacy/delete:
+    post:
+      tags: [privacy]
+      operationId: delete_my_data
+      summary: 永久删除当前用户全部数据（不可逆）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirm_token]
+              properties:
+                confirm_token:
+                  type: string
+                  description: 必须等于当前 user_id
+      responses:
+        "200":
+          description: 删除报告
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  is_clean: { type: boolean }
+                  successes: { type: array, items: { type: string } }
+                  failures: { type: array, items: { type: object } }
+
+  /api/v1/privacy/policy:
+    get:
+      tags: [privacy]
+      operationId: privacy_policy
+      security: []
+      summary: 获取隐私政策
+      responses:
+        "200":
+          description: 隐私政策信息
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrivacyPolicyResponse"
+
+  # ── 管理接口 ──────────────────────────────────────────────────
+  /api/v1/admin/skills/pending:
+    get:
+      tags: [admin]
+      operationId: list_pending_skills
+      summary: 列出待审核的 Skill
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: Skill 列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PendingSkillsResponse"
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/admin/skills/{skill_hash}/approve:
+    post:
+      tags: [admin]
+      operationId: approve_skill
+      summary: 批准 Skill 并推送到 QMD
+      parameters:
+        - name: skill_hash
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: 批准成功（幂等）
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/admin/skills/{skill_hash}/reject:
+    post:
+      tags: [admin]
+      operationId: reject_skill
+      summary: 拒绝 Skill
+      parameters:
+        - name: skill_hash
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: 拒绝成功
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ── MCP SSE 端点 ──────────────────────────────────────────────
+  /mcp/sse:
+    get:
+      tags: [infra]
+      operationId: mcp_sse
+      summary: MCP SSE 长连接
+      description: |
+        MCP 客户端连接此端点建立 SSE 长连接，通过 JSON-RPC 2.0 调用以下工具：
+        - rhythmind_status: 用户健康概览
+        - rhythmind_search: 健康知识语义检索
+        - rhythmind_fact_query: 时序知识图谱查询
+        - rhythmind_fact_update: 健康事实写入/过期
+        - rhythmind_session_log: 训练会话日志写入
+      responses:
+        "200":
+          description: SSE 事件流
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  /mcp/messages/:
+    post:
+      tags: [infra]
+      operationId: mcp_messages
+      summary: MCP 消息处理
+      description: MCP 客户端通过此端点发送 JSON-RPC 请求
+      responses:
+        "202":
+          description: 消息已接收
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # ── 基础设施 ──────────────────────────────────────────────
+    LivezResponse:
+      type: object
+      properties:
+        status: { type: string, example: alive }
+        version: { type: string, example: "0.2.0" }
+
+    ReadyzResponse:
+      type: object
+      properties:
+        status: { type: string, enum: [ready, not_ready] }
+        version: { type: string }
+        checks:
+          type: object
+          additionalProperties: { type: string }
+
+    VersionResponse:
+      type: object
+      properties:
+        version: { type: string }
+        git_sha: { type: string }
+        build_time: { type: string }
+        env: { type: string }
+
+    # ── 健康数据 ──────────────────────────────────────────────
+    HRZones:
+      type: object
+      properties:
+        z1: { type: number }
+        z2: { type: number }
+        z3: { type: number }
+        z4: { type: number }
+        z5: { type: number }
+
+    HealthDataUploadRequest:
+      type: object
+      required: [source]
+      properties:
+        source:
+          type: string
+          enum: [garmin, apple, huawei, xiaomi, manual]
+        sport_type:
+          type: string
+          default: general
+        user_goal:
+          type: string
+          default: 健康维护
+        heart_rate_avg:
+          type: number
+          minimum: 20
+          maximum: 250
+        heart_rate_max:
+          type: number
+          minimum: 20
+          maximum: 250
+        heart_rate_zones:
+          $ref: "#/components/schemas/HRZones"
+        steps:
+          type: integer
+          minimum: 0
+        distance_km:
+          type: number
+          minimum: 0
+        calories:
+          type: integer
+          minimum: 0
+        sleep_hours:
+          type: number
+          minimum: 0
+          maximum: 24
+        hrv:
+          type: number
+          minimum: 0
+        body_fat_pct:
+          type: number
+          minimum: 0
+          maximum: 100
+        muscle_mass_kg:
+          type: number
+          minimum: 0
+        water_pct:
+          type: number
+          minimum: 0
+          maximum: 100
+        visceral_fat:
+          type: integer
+          minimum: 0
+        source_raw:
+          type: object
+
+    WorkflowResultResponse:
+      type: object
+      properties:
+        status: { type: string, example: success }
+        session_id: { type: string, format: uuid }
+        data: { type: object }
+        message: { type: string, default: "" }
+
+    HealthChatRequest:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        context:
+          type: object
+          default: {}
+
+    IngestResponse:
+      type: object
+      properties:
+        status: { type: string, enum: [success, partial] }
+        user_id: { type: string }
+        source: { type: string }
+        rows_parsed: { type: integer }
+        errors: { type: array, items: { type: string } }
+        write_ok: { type: boolean }
+
+    # ── 仪表盘与报告 ──────────────────────────────────────────
+    DashboardResponse:
+      type: object
+      properties:
+        status: { type: string, example: ok }
+        data:
+          type: object
+          additionalProperties: {}
+          description: "键格式: {subject}.{predicate}"
+
+    ReportListResponse:
+      type: object
+      properties:
+        status: { type: string, example: ok }
+        reports:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              timestamp: { type: string }
+              model: { type: string }
+              is_current: { type: boolean }
+              preview: { type: string }
+
+    ReportDetailResponse:
+      type: object
+      properties:
+        status: { type: string, example: ok }
+        report:
+          type: object
+          properties:
+            id: { type: integer }
+            content: { type: string, description: Markdown 格式 }
+            model: { type: string }
+            timestamp: { type: string }
+            is_current: { type: boolean }
+
+    FactImportItem:
+      type: object
+      required: [subject, predicate]
+      properties:
+        subject: { type: string }
+        predicate: { type: string }
+        object_json: {}
+        source: { type: string, default: import }
+
+    FactImportResponse:
+      type: object
+      properties:
+        status: { type: string, example: ok }
+        imported: { type: integer }
+        errors: { type: array, items: { type: string } }
+
+    FileUploadResponse:
+      type: object
+      properties:
+        status: { type: string, example: ok }
+        message: { type: string }
+        filename: { type: string }
+        facts_imported: { type: integer }
+        summary: { type: string }
+
+    ChatProxyRequest:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string }
+        context: { type: object, default: {} }
+
+    # ── 医疗分析 ──────────────────────────────────────────────
+    MedicalAnalysisResponse:
+      type: object
+      properties:
+        status: { type: string, example: success }
+        session_id: { type: string, format: uuid }
+        summary: { type: string }
+        insights: { type: array, items: { type: string } }
+        concerns: { type: array, items: { type: string } }
+        recommendations: { type: array, items: { type: string } }
+        risk_flags: { type: array, items: { type: string } }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+
+    TimelineResponse:
+      type: object
+      properties:
+        status: { type: string }
+        session_id: { type: string }
+        events: { type: array, items: { type: object } }
+        summary: { type: string }
+        insights: { type: array, items: { type: string } }
+        recommendations: { type: array, items: { type: string } }
+
+    MedicationsResponse:
+      type: object
+      properties:
+        status: { type: string }
+        session_id: { type: string }
+        medications: { type: array, items: { type: object } }
+        summary: { type: string }
+        insights: { type: array, items: { type: string } }
+        concerns: { type: array, items: { type: string } }
+        recommendations: { type: array, items: { type: string } }
+
+    LabsResponse:
+      type: object
+      properties:
+        status: { type: string }
+        session_id: { type: string }
+        test_name: { type: string }
+        results: { type: array, items: { type: object } }
+        summary: { type: string }
+        insights: { type: array, items: { type: string } }
+        concerns: { type: array, items: { type: string } }
+        recommendations: { type: array, items: { type: string } }
+
+    # ── LLM 观测 ──────────────────────────────────────────────
+    LLMMetricsResponse:
+      type: object
+      properties:
+        total_calls: { type: integer }
+        success_rate: { type: number, description: "0-1" }
+        avg_latency_ms: { type: number }
+        p95_latency_ms: { type: number }
+        total_tokens: { type: integer }
+        total_cost: { type: number }
+        by_model:
+          type: array
+          items:
+            type: object
+            properties:
+              model: { type: string }
+              calls: { type: integer }
+              avg_latency_ms: { type: number }
+              tokens: { type: integer }
+              cost: { type: number }
+        by_day:
+          type: array
+          items:
+            type: object
+            properties:
+              date: { type: string, format: date }
+              calls: { type: integer }
+              avg_latency_ms: { type: number }
+              tokens: { type: integer }
+              cost: { type: number }
+
+    TraceItem:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        user_id: { type: string }
+        model: { type: string }
+        status: { type: string, enum: [success, error] }
+        latency_ms: { type: number, nullable: true }
+        tokens: { type: integer }
+        cost: { type: number }
+        created_at: { type: string }
+
+    TraceDetail:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        input: {}
+        output: {}
+        model: { type: string, nullable: true }
+        model_params: { type: object }
+        tokens:
+          type: object
+          properties:
+            prompt: { type: integer }
+            completion: { type: integer }
+            total: { type: integer }
+        cost:
+          type: object
+          properties:
+            input: { type: number }
+            output: { type: number }
+            total: { type: number }
+        latency_ms: { type: number, nullable: true }
+        metadata: { type: object }
+        created_at: { type: string }
+
+    Suggestion:
+      type: object
+      properties:
+        title: { type: string }
+        severity: { type: string, enum: [info, warn, critical] }
+        detail: { type: string }
+        metric_key: { type: string }
+        current_value: { type: number }
+        threshold: { type: number }
+
+    SuggestionResponse:
+      type: object
+      properties:
+        suggestions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Suggestion"
+
+    # ── 隐私合规 ──────────────────────────────────────────────
+    PrivacyPolicyResponse:
+      type: object
+      properties:
+        policy_url: { type: string, example: "https://rhythmind.ai/privacy" }
+        contact_email: { type: string, example: "14455975@qq.com" }
+        last_updated: { type: string, example: "2026-05-09" }
+
+    # ── 管理接口 ──────────────────────────────────────────────
+    PendingSkillsResponse:
+      type: object
+      properties:
+        total: { type: integer }
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              agent: { type: string }
+              skill_hash: { type: string }
+              content: { type: string }
+              source_task: { type: string }
+              confidence: { type: number }
+              created_at: { type: string }
+
+  responses:
+    BadRequest:
+      description: 请求参数错误
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail: { type: string }
+
+    Unauthorized:
+      description: 未认证
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail: { type: string }
+
+    Forbidden:
+      description: 无权限
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail: { type: string }
+
+    NotFound:
+      description: 资源不存在
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail: { type: string }
+
+    ValidationError:
+      description: 数据校验失败
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail: { type: string }
+
+    RateLimited:
+      description: 请求过于频繁
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail: { type: string }
