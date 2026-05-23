@@ -101,6 +101,23 @@ paths:
               schema:
                 $ref: "#/components/schemas/VersionResponse"
 
+  /health:
+    get:
+      tags: [infra]
+      security: []
+      operationId: health_check_legacy
+      summary: 兼容旧负载均衡器（等价 /livez）
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: healthy }
+                  version: { type: string }
+
   /metrics:
     get:
       tags: [infra]
@@ -389,6 +406,59 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/FileUploadResponse"
+
+  /api/test-reports:
+    get:
+      tags: [dashboard]
+      operationId: list_test_reports
+      summary: E2E 测试报告列表
+      responses:
+        "200":
+          description: 测试报告列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  reports:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        timestamp: { type: string }
+                        rounds: { type: integer }
+                        pass_rate: { type: number }
+                        files: { type: array, items: { type: object } }
+
+  /api/test-reports/{report_id}/{filename}:
+    get:
+      tags: [dashboard]
+      operationId: download_test_report
+      summary: 下载测试报告文件（PDF/HTML/MD/SVG）
+      parameters:
+        - name: report_id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: filename
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: 报告文件
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+            text/html:
+              schema: { type: string }
+            text/markdown:
+              schema: { type: string }
+            image/svg+xml:
+              schema: { type: string }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /api/chat:
     post:

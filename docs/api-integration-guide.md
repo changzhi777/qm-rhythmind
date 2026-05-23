@@ -3,6 +3,8 @@
 > **版本:** 0.2.0
 > **更新日期:** 2026-05-23
 > **Base URL:** `https://aisport.tech/qm` (生产) | `http://localhost:8000` (本地)
+>
+> **路径约定：** 以下所有路径均为相对于 Base URL 的路径。实际请求 URL = Base URL + 路径。
 
 ---
 
@@ -33,7 +35,7 @@
 **生产环境**：标准 JWT（HS256 签名），`sub` 字段为 `user_id`。
 
 ```http
-GET /qm/api/dashboard HTTP/1.1
+GET /api/dashboard HTTP/1.1
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
 
@@ -285,12 +287,12 @@ Agent 池状态诊断（仅 `debug=True` 模式可用）。
 
 ### 2.2 仪表盘与报告
 
-#### GET /qm/api/dashboard
+#### GET /api/dashboard
 
 获取仪表盘汇总数据（所有当前有效健康事实）。
 
 ```http
-GET /qm/api/dashboard
+GET /api/dashboard
 Authorization: Bearer <token>
 ```
 
@@ -314,12 +316,12 @@ Authorization: Bearer <token>
 
 ---
 
-#### GET /qm/api/reports
+#### GET /api/reports
 
 AI 分析报告列表。
 
 ```http
-GET /qm/api/reports?limit=20
+GET /api/reports?limit=20
 Authorization: Bearer <token>
 ```
 
@@ -342,7 +344,7 @@ Authorization: Bearer <token>
 
 ---
 
-#### GET /qm/api/reports/{report_id}
+#### GET /api/reports/{report_id}
 
 单篇报告详情。
 
@@ -363,7 +365,7 @@ Authorization: Bearer <token>
 
 ---
 
-#### GET /qm/api/reports/{report_id}/download
+#### GET /api/reports/{report_id}/download
 
 下载 AI 报告 PDF（含二维码水印）。
 
@@ -371,12 +373,12 @@ Authorization: Bearer <token>
 
 ---
 
-#### POST /qm/api/analyze
+#### POST /api/analyze
 
 触发本地模型重新分析，生成新的 AI 健康报告。
 
 ```http
-POST /qm/api/analyze
+POST /api/analyze
 Authorization: Bearer <token>
 ```
 
@@ -392,12 +394,12 @@ Authorization: Bearer <token>
 
 ---
 
-#### POST /qm/api/import-facts
+#### POST /api/import-facts
 
 批量导入健康事实数据（管理端点，供数据迁移使用）。
 
 ```http
-POST /qm/api/import-facts
+POST /api/import-facts
 Authorization: Bearer <token>
 Content-Type: application/json
 ```
@@ -423,12 +425,12 @@ Content-Type: application/json
 
 ---
 
-#### POST /qm/api/upload/file
+#### POST /api/upload/file
 
 通用文件上传端点 — 支持 CSV、JSON、TXT、PDF（多模态 AI 提取）、图像（多模态 AI 分析）。
 
 ```http
-POST /qm/api/upload/file
+POST /api/upload/file
 Authorization: Bearer <token>
 Content-Type: multipart/form-data
 ```
@@ -455,12 +457,12 @@ Content-Type: multipart/form-data
 
 ---
 
-#### POST /qm/api/chat
+#### POST /api/chat
 
 Chat 代理端点（前端专用，转发到 HealthRouter）。
 
 ```http
-POST /qm/api/chat
+POST /api/chat
 Authorization: Bearer <token>
 Content-Type: application/json
 ```
@@ -483,6 +485,51 @@ Content-Type: application/json
   "message": "",
   "data": { "coach_response": "..." }
 }
+```
+
+---
+
+#### GET /api/test-reports
+
+E2E 测试报告列表。
+
+```http
+GET /api/test-reports
+Authorization: Bearer <token>
+```
+
+**响应（200）：**
+
+```json
+{
+  "status": "ok",
+  "reports": [
+    {
+      "id": "20260523_100000",
+      "timestamp": "2026-05-23T10:00:00+08:00",
+      "rounds": 10,
+      "total": 150,
+      "passed": 148,
+      "failed": 2,
+      "pass_rate": 0.987,
+      "files": [
+        { "name": "report.pdf", "url": "/api/test-reports/20260523_100000/report.pdf", "size_kb": 120.5, "type": "pdf" },
+        { "name": "report.html", "url": "/api/test-reports/20260523_100000/report.html", "size_kb": 85.3, "type": "html" }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+#### GET /api/test-reports/{report_id}/{filename}
+
+下载测试报告文件（支持 PDF/HTML/MD/SVG）。
+
+```http
+GET /api/test-reports/20260523_100000/report.pdf
+Authorization: Bearer <token>
 ```
 
 ---
