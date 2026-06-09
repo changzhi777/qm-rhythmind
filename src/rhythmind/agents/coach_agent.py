@@ -90,6 +90,9 @@ class CoachAgent(HermesBase):
             weekly_volume_km=weekly_volume_km,
         )
 
+        # raw_json 必须提前初始化为 ""：若 call_llm() 抛异常（超时/网络/JSON 解析），
+        # except 块引用 raw_json 时不会触发 NameError 二次冒泡。
+        raw_json = ""
         try:
             raw_json = await self.call_llm(
                 messages=[
@@ -105,7 +108,8 @@ class CoachAgent(HermesBase):
                 ],
                 response_format={"type": "json_object"},
                 temperature=0.4,
-                max_tokens=1024,
+                # gemma-4-e4b 4bit 实际产出 ~350 tokens；600 留余量并把响应压到 60s 内
+                max_tokens=600,
             )
             plan = json.loads(raw_json)
         except ComplianceBlockedError:

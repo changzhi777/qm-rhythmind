@@ -3,21 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Header } from '@/components/layout/header';
 import { v } from '@/lib/utils';
-import { getAuthToken } from '@/lib/api';
-
-// /api/v1/* 端点（health/medical/llm-observe）的实际路径
-// API_BASE=/qm/api 用于 dashboard（/qm/api/dashboard），
-// 而 /api/v1/* 端点的实际路径是 /api/v1/...，需要去掉 /qm 前缀
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/qm/api';
-const V1_BASE = API_BASE.replace('/qm/api', '/api');
-
-interface Diagnosis {
-  diagnosis_name: string;
-  diagnosis_date: string;
-  icd_code: string;
-  hospital: string;
-  is_active: boolean;
-}
+import { getAuthToken, V1_BASE } from '@/lib/api';
 
 interface Medication {
   medication_name: string;
@@ -63,7 +49,6 @@ type Tab = 'overview' | 'timeline' | 'medications' | 'labs' | 'analysis';
 export default function MedicalPage() {
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('overview');
-  const [diagnoses, setDiagnoses] = useState<Diagnosis[]>([]);
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [medications, setMedications] = useState<Medication[]>([]);
   const [labs, setLabs] = useState<LabResult[]>([]);
@@ -87,46 +72,34 @@ export default function MedicalPage() {
     setLoading(true);
     const headers = { Authorization: `Bearer ${token}` };
     try {
-      const [diagRes, tlRes, medRes] = await Promise.all([
-        fetch(`${V1_BASE}/v1/medical/timeline`, { headers }),
-        fetch(`${V1_BASE}/v1/medical/medications`, { headers }),
-        fetch(`${V1_BASE}/v1/medical/labs/尿酸`, { headers }),
+      const [diagRes, tlRes, labsRes] = await Promise.all([
+        fetch(`${V1_BASE}/v1/medical/timeline`, { headers }).catch(() => null),
+        fetch(`${V1_BASE}/v1/medical/medications`, { headers }).catch(() => null),
+        fetch(`${V1_BASE}/v1/medical/labs`, { headers }).catch(() => null),
       ]);
 
-      // diagnoses are in timeline response, load separately
-      const analysisRes = await fetch(`${V1_BASE}/v1/medical/analyze`, {
-        method: 'POST',
-        headers: { ...headers, 'Content-Type': 'application/json' },
-      });
-
-      if (diagRes.ok) {
+      if (diagRes?.ok) {
         const tlData = await diagRes.json();
         setTimeline(tlData.events || []);
       }
-      if (tlRes.ok) {
+      if (tlRes?.ok) {
         const medData = await tlRes.json();
         setMedications(medData.medications || []);
       }
-      if (medRes.ok) {
-        const labData = await medRes.json();
+      if (labsRes?.ok) {
+        const labData = await labsRes.json();
         setLabs(labData.results || []);
-      }
-      if (analysisRes.ok) {
-        const aData = await analysisRes.json();
-        setAnalysis(aData);
-      }
-
-      // Load all lab results
-      const allLabsRes = await fetch(`${V1_BASE}/v1/medical/labs/血常规`, { headers });
-      if (allLabsRes.ok) {
-        const ld = await allLabsRes.json();
-        setLabs(prev => [...prev, ...ld.results || []]);
       }
     } catch (e) {
       console.error('Failed to load medical data:', e);
     } finally {
       setLoading(false);
     }
+
+    fetch(`${V1_BASE}/v1/medical/analyze`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    }).then(r => r.ok ? r.json() : null).then(d => d && setAnalysis(d)).catch(() => {});
   }
 
   async function triggerAnalysis() {

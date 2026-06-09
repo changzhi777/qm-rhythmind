@@ -10,8 +10,8 @@
 
 - **HealthRouter**: 意图分类 → 路由到对应工作流 → 前置合规检查 → LoopGuard 节流
 - **SwarmDataCoach**: 三阶段 Swarm 流水线（MetricsAgent → DataAgent → CoachAgent）
-- **LoopGuard**: 防无限循环节流（24h TTL，3次 max calls）
-- **AgentPool**: LRU Agent 实例缓存（max_users=500, ttl=1800s）
+- **LoopGuard**: 防无限循环节流（24h TTL，分级限流：greeting 10次、query 30次、__default__ 5次）
+- **AgentPool**: LRU Agent 实例缓存（max_users=2000, ttl=3600s）
 
 ---
 

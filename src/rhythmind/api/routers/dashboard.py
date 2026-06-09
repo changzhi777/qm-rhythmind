@@ -22,10 +22,17 @@ from fastapi.responses import Response
 
 from rhythmind.api.deps import CurrentUserId
 from rhythmind.core.memory.fact_manager import FactManager
+import redis.asyncio as aioredis
+from rhythmind.config import settings
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/qm/api", tags=["dashboard"])
+
+_USER_DISPLAY: dict[str, dict[str, str]] = {
+    "garmin_user_001": {"name": "律动跑者", "avatar": "M"},
+    "athlete_zhang": {"name": "张晓燕", "avatar": "Z"},
+}
 
 
 def _fm(user_id: str) -> FactManager:
@@ -33,15 +40,137 @@ def _fm(user_id: str) -> FactManager:
     return FactManager(user_id)
 
 
+@router.get("/users/summary")
+async def get_users_summary() -> dict[str, Any]:
+    """返回所有用户的健康数据摘要（首页用户选择卡片用）。"""
+    from sqlalchemy import text
+
+    from rhythmind.core.memory.manager import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as session:
+        # 1. 批量获取用户及其 facts 计数
+        result = await session.execute(text(
+            "SELECT user_id, COUNT(*) as cnt FROM health_fact "
+            "WHERE valid_until IS NULL GROUP BY user_id"
+        ))
+        user_counts = {row[0]: row[1] for row in result.all()}
+
+        # 2. 批量获取 profile（age/bmi/vo2_max/weight_kg/gender）
+        result = await session.execute(text(
+            "SELECT user_id, predicate, object_json FROM health_fact "
+            "WHERE valid_until IS NULL AND subject = 'profile' "
+            "AND predicate IN ('age','bmi','vo2_max','weight_kg','gender')"
+        ))
+        profiles: dict[str, dict[str, Any]] = {}
+        for uid, pred, obj in result.all():
+            profiles.setdefault(uid, {})
+            if isinstance(obj, str):
+                try:
+                    obj = json.loads(obj)
+                except Exception:
+                    pass
+            profiles[uid][pred] = obj
+
+        # 3. 批量获取 running summary
+        result = await session.execute(text(
+            "SELECT user_id, object_json FROM health_fact "
+            "WHERE valid_until IS NULL AND subject = 'running' AND predicate = 'summary'"
+        ))
+        running_map: dict[str, dict] = {}
+        for uid, obj in result.all():
+            if isinstance(obj, str):
+                try:
+                    obj = json.loads(obj)
+                except Exception:
+                    pass
+            if isinstance(obj, dict):
+                running_map[uid] = obj
+
+        # 4. 批量获取 medical 统计
+        has_medical_users: set[str] = set()
+        active_meds_map: dict[str, int] = {}
+        abnormal_labs_map: dict[str, int] = {}
+        try:
+            result = await session.execute(text(
+                "SELECT user_id FROM med_patient_profile"
+            ))
+            has_medical_users = {row[0] for row in result.all()}
+
+            result = await session.execute(text(
+                "SELECT user_id, COUNT(*) FROM med_medication "
+                "WHERE status = 'active' GROUP BY user_id"
+            ))
+            active_meds_map = {row[0]: row[1] for row in result.all()}
+
+            result = await session.execute(text(
+                "SELECT user_id, COUNT(*) FROM med_lab_result "
+                "WHERE flag IS NOT NULL GROUP BY user_id"
+            ))
+            abnormal_labs_map = {row[0]: row[1] for row in result.all()}
+        except Exception:
+            pass
+
+        # 5. 组装结果
+        users_data = []
+        for uid, facts_count in user_counts.items():
+            display = _USER_DISPLAY.get(uid, {"name": uid, "avatar": "?"})
+            users_data.append({
+                "user_id": uid,
+                "display_name": display["name"],
+                "avatar": display["avatar"],
+                "facts_count": facts_count,
+                "has_medical": uid in has_medical_users,
+                "profile": profiles.get(uid, {}),
+                "running": running_map.get(uid, {}),
+                "active_medications": active_meds_map.get(uid, 0),
+                "abnormal_labs": abnormal_labs_map.get(uid, 0),
+            })
+
+    return {"status": "ok", "users": users_data}
+
+
+_dashboard_redis: aioredis.Redis | None = None
+
+
+def _get_dashboard_redis() -> aioredis.Redis | None:
+    try:
+        global _dashboard_redis
+        if _dashboard_redis is None:
+            _dashboard_redis = aioredis.from_url(
+                settings.redis_url, encoding="utf-8", decode_responses=True
+            )
+        return _dashboard_redis
+    except Exception:
+        return None
+
+
 @router.get("/dashboard")
 async def get_dashboard(user_id: CurrentUserId) -> dict[str, Any]:
-    """返回仪表盘汇总数据。"""
+    """返回仪表盘汇总数据（Redis 缓存 30s）。"""
+    cache = _get_dashboard_redis()
+    if cache:
+        try:
+            cached = await cache.get(f"dashboard:{user_id}")
+            if cached:
+                import json as _json
+                return _json.loads(cached)
+        except Exception:
+            pass
+
     fm = _fm(user_id)
     facts = await fm.get_all_current()
     data: dict[str, Any] = {}
     for f in facts:
         data[f"{f.subject}.{f.predicate}"] = f.object_json
-    return {"status": "ok", "data": data}
+    result = {"status": "ok", "data": data}
+
+    if cache:
+        try:
+            await cache.setex(f"dashboard:{user_id}", 30, json.dumps(result, ensure_ascii=False))
+        except Exception:
+            pass
+
+    return result
 
 
 @router.get("/reports")

@@ -39,7 +39,7 @@ def upgrade() -> None:
             "object_json",
             JSONB(none_as_null=True),
             nullable=False,
-            server_default="'{}'",
+            server_default=sa.text("'{}'::jsonb"),
         ),
         # 溯源
         sa.Column("source", sa.String(64), nullable=False, server_default="'system'"),

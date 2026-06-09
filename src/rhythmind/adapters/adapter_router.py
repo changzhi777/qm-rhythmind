@@ -74,7 +74,11 @@ class AdapterRouter:
 
         if model_spec.startswith("omlX://"):
             from rhythmind.adapters.omlX_adapter import OMLXAdapter
+            from rhythmind.config import settings
             model_name = model_spec[len("omlX://"):]
+            compliance_url = settings.omlX_compliance_base_url
+            if compliance_url and model_spec == settings.model_compliance_spec:
+                return OMLXAdapter(model_name, base_url=compliance_url)
             return OMLXAdapter(model_name)
 
         # 其余全部走 LiteLLM（处理 openai/, anthropic/, 及别名如 "primary"）

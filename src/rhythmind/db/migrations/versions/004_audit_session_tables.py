@@ -36,7 +36,7 @@ def upgrade() -> None:
         sa.Column("record_id", sa.String(64), nullable=False, server_default="''"),
         sa.Column("event", sa.String(64), nullable=False, index=True),
         sa.Column("user_id", sa.String(64), nullable=True),
-        sa.Column("fields", sa.JSON(), nullable=False, server_default="'{}'"),
+        sa.Column("fields", sa.JSON(), nullable=False, server_default=sa.text("'{}'::jsonb")),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -65,7 +65,7 @@ def upgrade() -> None:
         sa.Column("user_id", sa.String(64), nullable=False, index=True),
         sa.Column("user_agent", sa.String(256), nullable=True),
         sa.Column("ip_address", sa.String(64), nullable=True),
-        sa.Column("intents_used", sa.JSON(), nullable=False, server_default="'[]'"),
+        sa.Column("intents_used", sa.JSON(), nullable=False, server_default=sa.text("'[]'::jsonb")),
         sa.Column("outcome", sa.String(32), nullable=False, server_default="'success'"),
         sa.Column(
             "created_at",

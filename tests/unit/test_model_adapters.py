@@ -21,6 +21,7 @@ tests/unit/test_model_adapters.py — Model Adapter 层单元测试
 from __future__ import annotations
 
 import asyncio
+import re
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -348,6 +349,89 @@ class TestOMLXAdapter:
             ok = await adapter.health_check()
 
         assert ok is False
+
+    @pytest.mark.asyncio
+    async def test_chat_timeout_raises_omlx_timeout_error(self):
+        """
+        oMLX 推理超时时必须抛 OMLXTimeoutError（而非裸 asyncio.TimeoutError），
+        让 agent 层能通过显式 except 走 fallback_report 路径。
+        """
+        import asyncio
+        from rhythmind.adapters import omlX_adapter as omlx_mod
+        from rhythmind.adapters.omlX_adapter import OMLXAdapter, OMLXTimeoutError
+        omlx_mod._CLIENT_CACHE.clear()
+
+        mock_client = MagicMock()
+        # 让 create() 永久挂起，触发 wait_for 的超时
+        async def hang_forever(**kwargs):
+            await asyncio.sleep(60)
+        mock_client.chat.completions.create = AsyncMock(side_effect=hang_forever)
+
+        with patch("rhythmind.adapters.omlX_adapter._get_client",
+                   return_value=mock_client):
+            adapter = OMLXAdapter("gemma-4-e4b-it-4bit", timeout=0.1)
+            with pytest.raises(OMLXTimeoutError):
+                await adapter.chat(
+                    [{"role": "user", "content": "hi"}],
+                    max_tokens=10,
+                )
+
+    @pytest.mark.asyncio
+    async def test_chat_timeout_message_includes_model_and_seconds(self):
+        """
+        OMLXTimeoutError 的 message 必须包含 model_name 和 timeout 秒数，
+        方便运维定位"哪个模型、配的超时是多少"。
+        """
+        import asyncio
+        from rhythmind.adapters import omlX_adapter as omlx_mod
+        from rhythmind.adapters.omlX_adapter import OMLXAdapter, OMLXTimeoutError
+        omlx_mod._CLIENT_CACHE.clear()
+
+        async def hang_forever(**kwargs):
+            await asyncio.sleep(60)
+        mock_client = MagicMock()
+        mock_client.chat.completions.create = AsyncMock(side_effect=hang_forever)
+
+        with patch("rhythmind.adapters.omlX_adapter._get_client",
+                   return_value=mock_client):
+            adapter = OMLXAdapter("qwen2.5:7b", timeout=2.5)
+            with pytest.raises(OMLXTimeoutError) as exc_info:
+                await adapter.chat(
+                    [{"role": "user", "content": "hi"}],
+                    max_tokens=10,
+                )
+
+        msg = str(exc_info.value)
+        assert "qwen2.5:7b" in msg, f"message 应包含模型名，实际: {msg}"
+        # 超时用 :.0f 格式化（2.5 → 2，3.7 → 4）；用 startswith/contains 验证数字
+        assert "推理超时" in msg, f"message 应描述超时类型，实际: {msg}"
+        assert re.search(r"\d+s", msg), f"message 应包含 Ns 格式 timeout 数字，实际: {msg}"
+
+    @pytest.mark.asyncio
+    async def test_chat_timeout_chains_original_error(self):
+        """
+        OMLXTimeoutError 必须用 raise from 链住原始 asyncio.TimeoutError，
+        保留调试堆栈（__cause__）。
+        """
+        import asyncio
+        from rhythmind.adapters import omlX_adapter as omlx_mod
+        from rhythmind.adapters.omlX_adapter import OMLXAdapter, OMLXTimeoutError
+        omlx_mod._CLIENT_CACHE.clear()
+
+        async def hang_forever(**kwargs):
+            await asyncio.sleep(60)
+        mock_client = MagicMock()
+        mock_client.chat.completions.create = AsyncMock(side_effect=hang_forever)
+
+        with patch("rhythmind.adapters.omlX_adapter._get_client",
+                   return_value=mock_client):
+            adapter = OMLXAdapter("gemma-4-e4b-it-4bit", timeout=0.1)
+            with pytest.raises(OMLXTimeoutError) as exc_info:
+                await adapter.chat([{"role": "user", "content": "hi"}])
+
+        # __cause__ 是原始 asyncio.TimeoutError（Python 3 raise from 行为）
+        assert exc_info.value.__cause__ is not None
+        assert isinstance(exc_info.value.__cause__, asyncio.TimeoutError)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

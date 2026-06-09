@@ -27,6 +27,8 @@ core/hermes_base.py — HermesBase：所有 Agent 的抽象基类
 """
 from __future__ import annotations
 
+import json
+import re
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -61,6 +63,84 @@ class ComplianceBlockedError(Exception):
         super().__init__(reason)
         self.reason = reason
         self.audit = audit
+
+
+# ── 工具函数：鲁棒 JSON 提取 ─────────────────────────────────────────────
+
+# 思考型模型常输出"自由文本 + JSON 块"或"```json ... ```"格式
+# 直接 json.loads(content) 失败，需要先剥离/提取。
+
+_FENCE_RE = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL)
+
+
+def _extract_json_object(content: str) -> str:
+    """
+    从可能包含思考文本的模型输出中提取顶层 JSON 对象。
+
+    策略（按优先级）：
+      1. 尝试 strict json.loads — 已是纯 JSON 直接返回
+      2. 匹配 markdown ```json ... ``` 代码块
+      3. 从第一个 '{' 起做括号配对，定位匹配的 '}'，截取并校验
+      4. 全部失败 → 返回原 content（让下游 json.loads 抛错暴露问题）
+
+    兼容 Qwen3 / DeepSeek-R1 / o1 等带 thinking 的模型。
+    """
+    if not content:
+        return content
+
+    stripped = content.strip()
+    # 1. 已经是纯 JSON
+    if stripped.startswith("{") and stripped.endswith("}"):
+        try:
+            json.loads(stripped)
+            return stripped
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    # 2. markdown 代码块
+    m = _FENCE_RE.search(content)
+    if m:
+        candidate = m.group(1)
+        try:
+            json.loads(candidate)
+            return candidate
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    # 3. 括号配对定位顶层 JSON
+    start = content.find("{")
+    if start < 0:
+        return content
+
+    depth = 0
+    in_string = False
+    escape_next = False
+    for i in range(start, len(content)):
+        c = content[i]
+        if escape_next:
+            escape_next = False
+            continue
+        if c == "\\" and in_string:
+            escape_next = True
+            continue
+        if c == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0:
+                candidate = content[start:i + 1]
+                try:
+                    json.loads(candidate)
+                    return candidate
+                except (json.JSONDecodeError, ValueError):
+                    return content  # 找到边界但内容非法 — 让下游报错
+
+    return content  # 没找到完整 JSON — 让下游 json.loads 抛错
 
 
 # ── 数据结构 ──────────────────────────────────────────────────────────────
@@ -298,6 +378,12 @@ class HermesBase(ABC):
             max_tokens=max_tokens,
             response_format=response_format,
         )
+
+        # ── JSON 输出归一化（兼容不支持 response_format 的模型）─────────
+        # 部分模型（尤其 Qwen3 thinking 模式）会输出"思考文本 + JSON"混合内容，
+        # 直接 json.loads() 失败。请求方指定 json_object 时做一次鲁棒提取。
+        if response_format and response_format.get("type") == "json_object":
+            content = _extract_json_object(content)
 
         bound_log.debug(
             "call_llm.done model_spec=%s chars=%d",

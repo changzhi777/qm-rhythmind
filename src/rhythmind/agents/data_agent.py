@@ -56,6 +56,13 @@ HR_ZONE_LABELS = {
     "z5": "最大冲刺 (>90%)",
 }
 
+# 置信度计算系数（异常越多置信越低）
+# 公式: confidence = max(MIN, BASE - CRITICAL_PENALTY * n_critical - WARN_PENALTY * n_warn)
+_BASE_CONFIDENCE: float = 0.92      # 无异常时基准置信度
+_CRITICAL_PENALTY: float = 0.20     # 每条 critical 异常扣分
+_WARN_PENALTY: float = 0.08         # 每条 warn 异常扣分
+_MIN_CONFIDENCE: float = 0.50       # 置信度下限（再低也保留 0.5 体现"部分可信"）
+
 
 class DataAgent(HermesBase):
     """
@@ -110,6 +117,9 @@ class DataAgent(HermesBase):
         )
 
         # ── 5. 通过 call_llm() 生成报告（内含 gemma 前置审查）────────────
+        # raw_json 必须提前初始化为 ""：若 call_llm() 抛异常（超时/网络/JSON 解析），
+        # except 块引用 raw_json 时不会触发 NameError 二次冒泡。
+        raw_json = ""
         try:
             raw_json = await self.call_llm(
                 messages=[
@@ -126,20 +136,26 @@ class DataAgent(HermesBase):
                 ],
                 response_format={"type": "json_object"},
                 temperature=0.3,
-                max_tokens=1024,
+                # gemma-4-e4b 4bit 实际产出 ~250 tokens；600 留余量并把响应压到 60s 内
+                max_tokens=600,
             )
             report = json.loads(raw_json)
         except ComplianceBlockedError:
             raise  # 前置审查 BLOCK → 交由 HermesBase.run() 统一处理
         except Exception as e:
-            bound_log.error("data_agent llm_error=%s", e)
+            # raw_json 已初始化为空字符串，NameError 不会从这里冒出去
+            bound_log.error(
+                "data_agent llm_error=%s raw_len=%d", e, len(raw_json),
+            )
             report = self._fallback_report(metrics, anomalies)
 
         # ── 6. 置信度：异常越多置信越低 ──────────────────────────────────
         critical_count = sum(1 for a in anomalies if a.get("severity") == "critical")
         warn_count = sum(1 for a in anomalies if a.get("severity") == "warn")
-        base_confidence = 0.92 - 0.20 * critical_count - 0.08 * warn_count
-        confidence = max(0.50, base_confidence)
+        confidence = max(
+            _MIN_CONFIDENCE,
+            _BASE_CONFIDENCE - _CRITICAL_PENALTY * critical_count - _WARN_PENALTY * warn_count,
+        )
 
         return AgentResult(
             output=report,

@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     #   其他字符串               → LiteLLMAdapter（透传给 LiteLLM proxy）
     #
     # 空字符串 = 回退到 model_primary / model_compliance LiteLLM 别名
-    model_primary_spec: str = "mlx://mlx-community/Qwen3-30B-A3B-4bit"
+    model_primary_spec: str = "omlX://gemma-4-e4b-it-4bit"
     model_compliance_spec: str = "omlX://gemma-4-e4b-it-4bit"
 
     # MLX 推理参数
@@ -61,6 +61,7 @@ class Settings(BaseSettings):
     # oMLX 本地模型服务
     omlX_base_url: str = "http://localhost:8000"
     omlX_api_key: str = Field(default="ak47", repr=False)
+    omlX_compliance_base_url: str = ""  # 合规审查专用 oMLX，空则复用 omlX_base_url
 
     # 合规审查器行为开关
     compliance_audit_enabled: bool = True   # 生产 True，压测时可临时关闭
@@ -68,6 +69,10 @@ class Settings(BaseSettings):
     # 审查器判定 BLOCK 的最低风险分（0-1），超过则拦截
     compliance_audit_block_score: float = 0.75
     compliance_audit_warn_score: float = 0.40
+
+    # oMLX 主模型推理超时（与合规审查独立）
+    # 主模型需要处理 1024 tokens 长 JSON 报告生成，gemma-4-e4b 实测 20-30s
+    omlX_chat_timeout: float = 60.0
 
     # ── 数据库（PostgreSQL 生产 / SQLite 单元测试）──────────────────────
     database_url: str = (
@@ -83,15 +88,15 @@ class Settings(BaseSettings):
     #   pool_timeout     — 30s 足够，避免瞬时排队时用户体感超时
     #   pool_recycle     — 1800s < PG idle_timeout(默认 30min)，防止被服务端踢掉
     #   pool_pre_ping    — 取连接前 ping 一下，保证连接活性（新增）
-    pg_pool_size: int = 10
-    pg_pool_max_overflow: int = 20
+    pg_pool_size: int = 20
+    pg_pool_max_overflow: int = 40
     pg_pool_timeout: float = 30.0
     pg_pool_recycle: int = 1800
     pg_pool_pre_ping: bool = True  # 健康检查：取连接前验证活性，避免断连误用
 
     # ── Redis ────────────────────────────────────────────────────────────
     redis_url: str = "redis://localhost:6379"
-    redis_pool_size: int = 10
+    redis_pool_size: int = 20
 
     # ── InfluxDB（可穿戴流数据）─────────────────────────────────────────
     influxdb_url: str = "http://localhost:8086"
@@ -111,7 +116,10 @@ class Settings(BaseSettings):
 
     # ── LoopGuard（防 RehabAgent 无限循环）──────────────────────────────
     loop_guard_ttl_hours: int = 24
-    loop_guard_max_calls: int = 3  # 同 user+intent 24h 内最多触发次数
+    loop_guard_max_calls: int = 3  # 默认上限，同 user+intent 24h 内最多触发次数
+    # 分级限流：按意图类型设置不同上限（JSON 字符串，运行时解析）
+    # 例：{"greeting": 10, "query": 30, "default": 3}
+    loop_guard_tiered_limits: str = '{"greeting": 10, "query": 30, "upload_data": 20, "__default__": 5}'
 
     # ── JWT ──────────────────────────────────────────────────────────────
     jwt_secret: str = Field(default="change-me-in-prod", repr=False)
@@ -135,6 +143,12 @@ class Settings(BaseSettings):
         repr=False,
         description="直查 Langfuse PG 的连接串（只读聚合查询）",
     )
+
+    # ── 飞书（Lark）集成 ────────────────────────────────────────────────
+    feishu_app_id: str = Field(default="", repr=False)
+    feishu_app_secret: str = Field(default="", repr=False)
+    feishu_verification_token: str = Field(default="", repr=False)
+    feishu_encrypt_key: str = Field(default="", repr=False)
 
     # ── 鉴权开发便利开关（仅本地）────────────────────────────────────────
     # True 时 deps.get_current_user_id() 接受明文 user_id 作为 Bearer token。
@@ -182,9 +196,9 @@ class Settings(BaseSettings):
 
     # ── AgentPool（LRU 实例缓存）────────────────────────────────────────
     # 控制同一时刻最多缓存多少用户的 Agent 实例
-    agent_pool_max_users: int = 500
+    agent_pool_max_users: int = 2000
     # Agent 实例空闲 TTL（秒），超过后被清理
-    agent_pool_ttl: float = 1800.0
+    agent_pool_ttl: float = 3600.0
 
     # ── 危险默认值黑名单（任何一个出现在生产即拒绝启动）───────────────
     _SECRET_DEFAULTS_BLOCKLIST = frozenset({
@@ -203,6 +217,17 @@ class Settings(BaseSettings):
     def validate_thresholds(cls, v: float) -> float:
         if not (0.0 < v <= 1.0):
             raise ValueError("compliance_pass_threshold must be in (0, 1]")
+        return v
+
+    @field_validator("omlX_chat_timeout")
+    @classmethod
+    def validate_chat_timeout(cls, v: float) -> float:
+        # 主模型推理需要至少 1s（覆盖小模型快速响应）；
+        # 上限 600s 防止误配 0 或超大值把进程挂死。
+        if not (1.0 <= v <= 600.0):
+            raise ValueError(
+                f"omlX_chat_timeout must be in [1, 600] seconds, got {v}"
+            )
         return v
 
     def assert_production_safe(self) -> None:

@@ -36,8 +36,8 @@ def upgrade() -> None:
         sa.Column("user_id", sa.String(64), nullable=False),
         sa.Column("agent", sa.String(64), nullable=False),
         sa.Column("key", sa.String(128), nullable=False),
-        sa.Column("value_json", JSONB(none_as_null=True), nullable=False, server_default="'{}'"),
-        sa.Column("tags", JSONB(none_as_null=True), nullable=False, server_default="'[]'"),
+        sa.Column("value_json", JSONB(none_as_null=True), nullable=False, server_default=sa.text("'{}'::jsonb")),
+        sa.Column("tags", JSONB(none_as_null=True), nullable=False, server_default=sa.text("'[]'::jsonb")),
         sa.Column("mem_type", sa.String(32), nullable=False, server_default="'project'"),
         sa.Column("confidence", sa.Float(), nullable=False, server_default="1.0"),
         sa.Column(

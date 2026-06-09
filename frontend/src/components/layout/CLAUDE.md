@@ -2,7 +2,7 @@
 
 # layout 模块 — 共享布局组件
 
-> **最后更新:** 2026-05-22T08:00:00+08:00
+> **最后更新:** 2026-05-27T10:50:56+08:00
 
 ---
 
@@ -16,7 +16,7 @@
 
 | 文件 | 职责 |
 |------|------|
-| `header.tsx` | 统一 Header（品牌 Logo + 返回按钮 + 导航链接 + 日期 + 额外操作区） |
+| `header.tsx` | 统一 Header（品牌 Logo + 返回按钮 + 导航链接 + 用户头像 + 日期 + 额外操作区） |
 
 ---
 
@@ -43,6 +43,8 @@ interface HeaderProps {
 <Header title="报告" activePath="/report" extra={<button>重新分析</button>} />
 <Header title="Chat 助手" activePath="/chat" />
 <Header title="文件上传" activePath="/upload" />
+<Header title="医疗报告" activePath="/medical" />
+<Header title="LLM 观测" activePath="/llm-observe" />
 ```
 
 ### 导航项
@@ -55,9 +57,16 @@ interface HeaderProps {
 | `/chat` | Chat |
 | `/upload` | 上传 |
 | `/test-report` | 测试 |
+| `/medical` | 医疗 |
 | `/llm-observe` | 观测 |
 
 使用 Next.js `Link` 组件，自动处理 `basePath: "/qm"`。
+
+### 用户头像
+
+- 右侧显示当前用户头像和名称（从 `localStorage('user_display')` 读取）
+- 点击用户头像跳转首页并清除 auth_token / user_display（退出登录）
+- 未选择用户时显示 `?`
 
 ### 返回按钮
 
@@ -72,6 +81,8 @@ interface HeaderProps {
 - `/src/app/dashboard/page.tsx` — 使用 Header
 - `/src/app/bigscreen/page.tsx` — 使用 Header（showDate）
 - `/src/app/report/page.tsx` — 使用 Header（extra 按钮）
-- `/src/app/chat/page.tsx` — 使用 Header（待开发）
-- `/src/app/upload/page.tsx` — 使用 Header（待开发）
+- `/src/app/chat/page.tsx` — 使用 Header
+- `/src/app/upload/page.tsx` — 使用 Header
 - `/src/app/test-report/page.tsx` — 使用 Header
+- `/src/app/medical/page.tsx` — 使用 Header
+- `/src/app/llm-observe/page.tsx` — 使用 Header

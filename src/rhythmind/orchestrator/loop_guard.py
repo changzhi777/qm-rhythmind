@@ -15,14 +15,18 @@ orchestrator/loop_guard.py — Redis TTL 防环卫兵
   TTL = settings.loop_guard_ttl_hours * 3600
   24h 内同 user+intent 超过 max_calls 次 → is_cooling_down() = True
 
+分级限流（v0.2.1+）：
+  loop_guard_tiered_limits 配置按 intent 设置不同上限。
+  例：greeting 10次/24h, query 30次/24h, __default__ 5次/24h
+
 可观测性：
   每次 is_cooling_down() 调用均记录指标：
     loop_guard_calls_total{user_id, intent, result}
     result = "allowed" | "throttled" | "error"
 """
-
 from __future__ import annotations
 
+import json
 import logging
 
 import redis.asyncio as aioredis
@@ -49,6 +53,18 @@ def _record_call(intent: str, result: str) -> None:
         _LOOP_GUARD_CALLS.labels(intent=intent, result=result).inc()
 
 
+def _parse_tiered_limits() -> dict[str, int]:
+    """解析 loop_guard_tiered_limits JSON 为 dict[int]。"""
+    raw = settings.loop_guard_tiered_limits
+    if not raw:
+        return {}
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        logger.warning("loop_guard.tiered_limits.parse_error raw=%s", raw[:100])
+        return {}
+
+
 class LoopGuard:
     """Redis TTL 防环（单例使用，在 HealthRouter 中持有）。"""
 
@@ -59,6 +75,12 @@ class LoopGuard:
         )
         self._ttl_sec = settings.loop_guard_ttl_hours * 3600
         self._max_calls = settings.loop_guard_max_calls
+        self._tiered_limits = _parse_tiered_limits()
+
+    def _get_limit(self, intent: str) -> int:
+        if intent in self._tiered_limits:
+            return self._tiered_limits[intent]
+        return self._tiered_limits.get("__default__", self._max_calls)
 
     async def is_cooling_down(self, user_id: str, intent: str) -> bool:
         """
@@ -69,6 +91,7 @@ class LoopGuard:
             True  — 已达上限，应拒绝本次调用
             False — 正常放行
         """
+        limit = self._get_limit(intent)
         key = f"loop:{user_id}:{intent}"
         try:
             pipe = self._redis.pipeline()
@@ -81,10 +104,10 @@ class LoopGuard:
             if ttl < 0:
                 await self._redis.expire(key, self._ttl_sec)
 
-            if count > self._max_calls:
+            if count > limit:
                 logger.warning(
-                    "loop_guard.cooling user=%s intent=%s count=%d ttl=%d",
-                    user_id, intent, count, ttl,
+                    "loop_guard.cooling user=%s intent=%s count=%d limit=%d ttl=%d",
+                    user_id, intent, count, limit, ttl,
                 )
                 _record_call(intent, "throttled")
                 return True

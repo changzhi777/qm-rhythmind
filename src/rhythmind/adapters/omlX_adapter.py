@@ -43,6 +43,17 @@ def _get_client(base_url: str, api_key: str) -> Any:
     return _CLIENT_CACHE[base_url]
 
 
+class OMLXTimeoutError(Exception):
+    """
+    oMLX 推理超时异常。
+
+    区别于通用 TimeoutError，调用方可以：
+      - try/except OMLXTimeoutError → 走 fallback_report
+      - try/except (asyncio.TimeoutError, OMLXTimeoutError) → 同时兜底
+    """
+    pass
+
+
 class OMLXAdapter(ModelAdapter):
     """
     oMLX 本地模型服务适配器。
@@ -71,7 +82,8 @@ class OMLXAdapter(ModelAdapter):
         self._model_name = model_name
         self._base_url: str = base_url or settings.omlX_base_url
         self._api_key: str = api_key or settings.omlX_api_key
-        self._timeout: float = timeout or settings.compliance_audit_timeout
+        # 默认 omlX_chat_timeout（主模型 60s），合规审查方显式传 audit_timeout（8s）
+        self._timeout: float = timeout or settings.omlX_chat_timeout
 
     @property
     def model_id(self) -> str:
@@ -88,6 +100,11 @@ class OMLXAdapter(ModelAdapter):
     ) -> str:
         """
         调用 oMLX OpenAI 兼容接口。
+
+        超时降级：内部 asyncio.wait_for 触发时，把 asyncio.TimeoutError
+        转换为 oMLXTimeoutError 上抛，调用方（agent 层）走 fallback 路径。
+        与 PromptAuditor 的 fallback=PASS 行为不同——主模型必须显式失败
+        让 agent 用降级报告，避免静默生成空内容。
         """
         import asyncio
 
@@ -102,10 +119,20 @@ class OMLXAdapter(ModelAdapter):
         if response_format:
             call_kwargs["response_format"] = response_format
 
-        resp = await asyncio.wait_for(
-            client.chat.completions.create(**call_kwargs),
-            timeout=self._timeout,
-        )
+        try:
+            resp = await asyncio.wait_for(
+                client.chat.completions.create(**call_kwargs),
+                timeout=self._timeout,
+            )
+        except asyncio.TimeoutError as e:
+            logger.warning(
+                "omlX_adapter.timeout model=%s after=%.1fs — raising OMLXTimeoutError",
+                self._model_name, self._timeout,
+            )
+            raise OMLXTimeoutError(
+                f"oMLX {self._model_name} 推理超时（{self._timeout:.0f}s）"
+            ) from e
+
         content: str = resp.choices[0].message.content or ""
         logger.debug(
             "omlX_adapter.chat model=%s tokens=%d",

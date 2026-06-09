@@ -409,6 +409,30 @@ async def get_medications(
     )
 
 
+# ── GET /medical/labs (all results, no LLM) ───────────────────────────────
+
+class AllLabsResponse(BaseModel):
+    status: str
+    results: list[dict[str, Any]]
+
+
+@router.get(
+    "/labs",
+    response_model=AllLabsResponse,
+    summary="所有化验结果（纯数据，无 AI 解读）",
+    dependencies=_med_limits,
+)
+async def get_all_lab_results(
+    user_id: CurrentUserId,
+    limit: int = Query(100, ge=1, le=500),
+) -> AllLabsResponse:
+    """返回用户所有化验结果（不调用 LLM，纯数据库查询）。"""
+    async with _db_session() as db:
+        results = await _query_lab_results(user_id, db, test_name=None, limit=limit)
+
+    return AllLabsResponse(status="success", results=results)
+
+
 # ── GET /medical/labs/{test} ───────────────────────────────────────────────
 
 @router.get(

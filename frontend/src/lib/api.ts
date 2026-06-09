@@ -3,6 +3,8 @@
 import type { Report } from '@/types/health';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/qm/api';
+// /api/v1/* 端点的实际路径（去掉 /qm 前缀）
+const V1_BASE = API_BASE.replace('/qm/api', '/api');
 
 interface ReportsResponse {
   status: string;
@@ -24,12 +26,44 @@ interface UploadResponse {
   status: string;
 }
 
-export function getAuthToken(): string {
-  if (typeof window === 'undefined') return 'garmin_user_001';
-  return localStorage.getItem('auth_token') || 'garmin_user_001';
+interface UserSummary {
+  user_id: string;
+  display_name: string;
+  avatar: string;
+  facts_count: number;
+  has_medical: boolean;
+  profile: {
+    age?: number;
+    gender?: string;
+    vo2_max?: number;
+    bmi?: number;
+  };
+  running?: {
+    total_runs?: number;
+    total_km?: number;
+    avg_pace_min_per_km?: number;
+  };
+  active_medications?: number;
+  abnormal_labs?: number;
 }
 
-export { API_BASE };
+interface UsersSummaryResponse {
+  status: string;
+  users: UserSummary[];
+}
+
+export function getAuthToken(): string {
+  if (typeof window === 'undefined') return '';
+  return localStorage.getItem('auth_token') || '';
+}
+
+export function setAuthToken(token: string): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem('auth_token', token);
+}
+
+export { API_BASE, V1_BASE };
+export type { UserSummary, UsersSummaryResponse };
 
 export async function fetchWithAuth<T>(
   endpoint: string,
@@ -85,5 +119,9 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  },
+
+  getUsersSummary() {
+    return fetchWithAuth<UsersSummaryResponse>('/users/summary');
   },
 };

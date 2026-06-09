@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime, timedelta
+import json
 from typing import Any
 
 from sqlalchemy import NullPool, delete, select, update
@@ -57,6 +58,10 @@ def _build_engine() -> Any:
             max_overflow=settings.pg_pool_max_overflow,
             pool_timeout=settings.pg_pool_timeout,
             pool_recycle=settings.pg_pool_recycle,
+            # asyncpg + SQL_ASCII 数据库下，json.dumps 的 \u 转义序列
+            # 会触发 UntranslatableCharacterError。ensure_ascii=False
+            # 让 JSON 直接以 UTF-8 字节发送，避开字符集转换。
+            json_serializer=lambda obj: json.dumps(obj, ensure_ascii=False),
         )
     return create_async_engine(url, **kwargs)
 

@@ -2,13 +2,13 @@
 
 # stores 模块 — Zustand 状态管理
 
-> **最后更新:** 2026-05-15T14:22:35+08:00
+> **最后更新:** 2026-05-27T10:50:56+08:00
 
 ---
 
 ## 模块职责
 
-Zustand 5 状态管理，提供健康数据（health-store）和报告数据（report-store）的全局状态管理，包含 5 分钟缓存、错误处理、下载状态跟踪。
+Zustand 5 状态管理，提供健康数据（health-store）、报告数据（report-store）和 LLM 观测（llm-observe-store）的全局状态管理，包含缓存、错误处理、下载状态跟踪。
 
 ---
 
@@ -18,6 +18,7 @@ Zustand 5 状态管理，提供健康数据（health-store）和报告数据（r
 |------|------|
 | `health-store.ts` | 健康数据状态（含选择器） |
 | `report-store.ts` | AI 报告状态（含下载状态） |
+| `llm-observe-store.ts` | LLM 观测状态（指标/Trace/建议） |
 
 ---
 
@@ -105,6 +106,29 @@ interface Report {
 
 ---
 
+## llm-observe-store
+
+### State 接口
+
+```typescript
+interface LlmObserveState {
+  metrics: MetricsResponse | null;
+  traces: TraceItem[];
+  suggestions: Suggestion[];
+  loading: boolean;
+  error: string | null;
+  days: number;
+
+  fetchMetrics: (days?: number) => Promise<void>;
+  fetchTraces: (limit?: number, offset?: number) => Promise<void>;
+  fetchSuggestions: (days?: number) => Promise<void>;
+}
+```
+
+API 路径: `/qm/api/v1/llm-observe/*`
+
+---
+
 ## 常见问题 (FAQ)
 
 **Q: 如何扩展新的数据类型？**
@@ -122,3 +146,4 @@ A: 调用 `clearData()` 后再调用 `fetchDashboard()`。
 - `/src/app/dashboard/page.tsx` — 使用 health-store
 - `/src/app/bigscreen/page.tsx` — 使用 health-store
 - `/src/app/report/page.tsx` — 使用 report-store
+- `/src/app/llm-observe/page.tsx` — 使用 llm-observe-store

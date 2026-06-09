@@ -10,7 +10,7 @@ from .influx_client import InfluxClient, InfluxUnavailableError, MetricPoint
 from .litellm_adapter import LiteLLMAdapter
 from .mlx_adapter import MLXAdapter
 from .model_adapter import ModelAdapter
-from .omlX_adapter import OMLXAdapter
+from .omlX_adapter import OMLXAdapter, OMLXTimeoutError
 
 __all__ = [
     # InfluxDB
@@ -21,6 +21,7 @@ __all__ = [
     "ModelAdapter",
     "MLXAdapter",
     "OMLXAdapter",
+    "OMLXTimeoutError",
     "LiteLLMAdapter",
     "AdapterRouter",
     "adapter_router",

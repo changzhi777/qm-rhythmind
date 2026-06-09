@@ -2,13 +2,13 @@
 
 # frontend 模块 — RHYTHMIND 前端
 
-> **最后更新:** 2026-05-15T14:22:35+08:00
+> **最后更新:** 2026-05-27T10:50:56+08:00
 
 ---
 
 ## 模块职责
 
-Next.js 16 前端项目，提供仪表盘、数据大屏、AI 健康报告三大页面的 UI 展示，使用 Zustand 做状态管理，ECharts 做图表渲染。
+Next.js 16 前端项目，提供用户选择首页、仪表盘、数据大屏、AI 健康报告、Chat 智能助手、文件上传、测试报告、医疗报告、LLM 观测共 9 大页面的 UI 展示，使用 Zustand 做状态管理，ECharts 做图表渲染。
 
 ---
 
@@ -24,7 +24,7 @@ npm run build # 生产构建
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `NEXT_PUBLIC_API_URL` | `http://localhost:8888` | 后端 API 地址 |
+| `NEXT_PUBLIC_API_URL` | `/qm/api` | 后端 API 地址（生产相对路径） |
 
 ---
 
@@ -34,10 +34,16 @@ npm run build # 生产构建
 
 | 路径 | 页面 | 说明 |
 |------|------|------|
-| `/` | 重定向 | → `/dashboard` |
+| `/` | 用户选择 | 多用户摘要卡片，选择后跳转仪表盘 |
+| `/dashboard` | 仪表盘 | 健康数据展示、KPI 卡片、趋势图 |
 | `/dashboard` | 仪表盘 | 健康数据展示、KPI 卡片、趋势图 |
 | `/bigscreen` | 数据大屏 | 全屏展示、6 列 KPI 网格、年度跑量 |
 | `/report` | AI 健康报告 | Markdown 报告渲染、列表选择 |
+| `/chat` | Chat 智能助手 | 多轮对话、文件上传分析、流式响应 |
+| `/upload` | 文件上传 | CSV/JSON/PDF/图像/TXT 多模态 AI 分析 |
+| `/test-report` | 测试报告 | E2E 报告列表、认证文件下载 |
+| `/medical` | 医疗报告 | 5 Tab（综合分析/时间线/用药/化验/健康画像） |
+| `/llm-observe` | LLM 观测 | LLM 调用指标、Trace 列表、成本统计、优化建议 |
 
 ### API 调用层 (`src/lib/api.ts`)
 
@@ -48,6 +54,7 @@ api.getReport(id)                           // 获取单个报告详情
 api.downloadReport(id): Promise<Blob>       // 下载报告 PDF
 api.triggerAnalyze()                        // 触发 AI 分析
 api.uploadHealth(data)                      // 上传健康数据
+api.getUsersSummary()                      // 获取多用户摘要
 ```
 
 ---
@@ -56,7 +63,7 @@ api.uploadHealth(data)                      // 上传健康数据
 
 | 依赖 | 版本 | 用途 |
 |------|------|------|
-| `next` | 16.2.6 | App Router 框架 |
+| `next` | 16.2.6 | App Router 框架（静态导出） |
 | `react` | 19.2.4 | UI 库 |
 | `zustand` | 5.0.13 | 状态管理 |
 | `echarts` | 6.0.0 | 图表 |
@@ -108,7 +115,7 @@ api.uploadHealth(data)                      // 上传健康数据
 
 ## 测试与质量
 
-- **测试目录**: 未创建
+- **E2E 测试**: `tests/e2e_test.py` — 10 轮全链路测试 + MD/HTML/PDF 报告
 - **ESLint 配置**: `eslint.config.mjs` (next/core-web-vitals + typescript)
 - **代码检查**: `npm run lint`
 
@@ -135,6 +142,7 @@ A: 1) 在 `src/types/health.ts` 添加类型；2) 在 `health-store.ts` 添加�
 | `src/lib/api.ts` | API 调用封装 |
 | `src/lib/stores/health-store.ts` | 健康数据状态（含 5 分钟缓存） |
 | `src/lib/stores/report-store.ts` | 报告状态（含下载状态） |
+| `src/lib/stores/llm-observe-store.ts` | LLM 观测状态 |
 | `src/components/charts/line-chart.tsx` | ECharts 折线图组件 |
 | `src/components/dashboard/kpi-card.tsx` | KPI 状态卡片 |
 
@@ -142,4 +150,6 @@ A: 1) 在 `src/types/health.ts` 添加类型；2) 在 `health-store.ts` 添加�
 
 ## 变更记录 (Changelog)
 
+- **2026-05-27** 增量更新：首页改为用户选择页（多用户摘要卡片）、Header 用户头像+退出登录、V1_BASE + setAuthToken
+- **2026-05-26** 增量更新：新增 /medical、/llm-observe 页面，新增 llm-observe-store
 - **2026-05-15** 首次 AI 上下文初始化，生成模块文档与导航面包屑

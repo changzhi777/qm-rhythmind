@@ -2,8 +2,8 @@
 
 # CLAUDE.md — RHYTHMIND 律动前端
 
-> **项目版本:** 0.1.9
-> **最后扫描:** 2026-05-20T14:55:52+08:00
+> **项目版本:** 0.2.0
+> **最后扫描:** 2026-05-27T10:50:56+08:00
 > **语言:** TypeScript
 > **框架:** Next.js 16 (App Router) + React 19
 > **包管理:** npm
@@ -12,6 +12,8 @@
 
 ## 变更记录 (Changelog)
 
+- **2026-05-27** 增量更新：首页改为用户选择页（多用户摘要卡片）、Header 用户头像+退出登录、新增 V1_BASE + setAuthToken、医疗导航
+- **2026-05-26** 增量更新：新增 /medical 医疗报告页面（5 Tab）、/llm-observe LLM 观测页面、llm-observe-store.ts 状态管理
 - **2026-05-20** 增量更新：Chat 助手页面上线（303行，多轮对话+文件上传）、Upload 文件上传页面上线（172行，CSV/JSON/PDF/图像/TXT）、API_BASE/getAuthToken 统一到 api.ts
 - **2026-05-18** 增量更新：规划 Chat 助手页面、文件上传分析页面、返回导航按钮；新增测试报告页面、Header mounted 修复、认证下载
 - **2026-05-18** 增量更新：新增测试模块、共享布局组件、工具函数、e2e 报告规范；重构 LineChart（面积图+空数据修复）；报告生成规范（MD+HTML内联SVG→A4 PDF）
@@ -22,7 +24,7 @@
 
 ## 项目愿景
 
-RHYTHMIND 律动前端是 Next.js 16 多智能体健康管理平台的数据展示层，采用扁平化 UI 设计风格，主题色为青沐生命青绿色（#00C9A7）。支持仪表盘、数据大屏、AI 健康报告、Chat 智能助手、文件上传分析五大核心页面。
+RHYTHMIND 律动前端是 Next.js 16 多智能体健康管理平台的数据展示层，采用扁平化 UI 设计风格，主题色为青沐生命青绿色（#00C9A7）。支持用户选择首页、仪表盘、数据大屏、AI 健康报告、Chat 智能助手、文件上传分析、医疗报告、LLM 观测八大核心页面。
 
 ---
 
@@ -40,6 +42,8 @@ graph LR
         CHAT[/chat Chat助手]
         UPLOAD[/upload 文件上传]
         TEST[/test-report 测试报告]
+        MED[/medical 医疗报告]
+        LLMOBS[/llm-observe LLM观测]
     end
 
     subgraph "共享组件"
@@ -54,19 +58,21 @@ graph LR
         RSTORE[report-store]
         CSTORE[chat-store]
         USTORE[upload-store]
+        LLMS[llm-observe-store]
     end
 
     subgraph "API 层"
         API[api.ts fetchWithAuth]
     end
 
-    DASH & BIG & RPT & CHAT & UPLOAD & TEST --> HEADER
+    DASH & BIG & RPT & CHAT & UPLOAD & TEST & MED & LLMOBS --> HEADER
     DASH & BIG --> LINECHART & KPICARD
     DASH --> HSTORE
     RPT --> RSTORE
     CHAT --> CSTORE
     UPLOAD --> USTORE
-    HSTORE & RSTORE & CSTORE & USTORE --> API
+    LLMOBS --> LLMS
+    HSTORE & RSTORE & CSTORE & USTORE & LLMS --> API
 ```
 
 ---
@@ -81,11 +87,13 @@ graph LR
 | `app/chat` | Chat 智能助手 | `page.tsx` | 对话界面、意图识别、多轮对话 |
 | `app/upload` | 文件上传分析 | `page.tsx` | 数据文件/医学报告/图像上传、OCR、入库 |
 | `app/test-report` | 测试报告 | `page.tsx` | E2E 报告列表、文件下载（带认证） |
+| `app/medical` | 医疗报告 | `page.tsx` | 5 Tab（综合分析/时间线/用药/化验/健康画像） |
+| `app/llm-observe` | LLM 观测 | `page.tsx` | LLM 调用指标、Trace 列表、优化建议 |
 | `components/layout` | 共享布局 | `header.tsx` | 统一 Header（导航栏+品牌标识+日期+返回按钮） |
 | `components/charts` | 图表组件 | `line-chart.tsx` | ECharts 折线图（面积渐变+空数据兜底） |
 | `components/dashboard` | 数据组件 | `kpi-card.tsx` | KPI 状态卡片 |
 | `components/ui` | UI 组件 | `toast.tsx` | 全局错误提示 |
-| `lib/stores` | Zustand 状态 | `health-store.ts`, `report-store.ts` | 健康数据/报告状态（含下载状态） |
+| `lib/stores` | Zustand 状态 | `health-store.ts`, `report-store.ts`, `llm-observe-store.ts` | 健康数据/报告/LLM 观测状态 |
 | `lib/hooks` | Hook 工具 | `use-error-toast.ts` | 错误提示 Hook |
 | `lib/api` | API 调用层 | `api.ts` | fetchWithAuth 封装（Bearer token） |
 | `lib/utils` | 共享工具 | `utils.ts` | `v()` 空安全显示、`formatPace()` 配速格式化 |
@@ -105,6 +113,8 @@ graph LR
 | `/chat` | Chat 助手 | ✅ 已完成 | 多轮对话、文件上传分析、流式响应 |
 | `/upload` | 文件上传 | ✅ 已完成 | CSV/JSON/PDF/图像/TXT 上传、多模态 AI 分析、数据入库 |
 | `/test-report` | 测试报告 | ✅ 已完成 | E2E 报告列表、认证文件下载 |
+| `/medical` | 医疗报告 | ✅ 已完成 | 5 Tab（综合分析/时间线/用药/化验/健康画像） |
+| `/llm-observe` | LLM 观测 | ✅ 已完成 | LLM 调用指标、Trace 列表、成本统计、优化建议 |
 
 ---
 
@@ -207,7 +217,7 @@ python3 tests/e2e_test.py --upload
 ```
 用户操作
    ↓
-Zustand Store (health-store / report-store / chat-store / upload-store)
+Zustand Store (health-store / report-store / chat-store / upload-store / llm-observe-store)
    ↓
 API 层 (lib/api.ts) → fetchWithAuth (Bearer token)
    ↓
@@ -231,31 +241,14 @@ API 层 (lib/api.ts) → fetchWithAuth (Bearer token)
 
 ---
 
-## 待开发功能
-
-### Chat 智能助手页面 (`/chat`) — ✅ 已完成
-
-多轮对话界面（303行），支持文本输入和文件上传，对接后端 `POST /qm/api/chat` 端点。集成文件上传分析能力，可在对话中拖拽上传数据文件。
-
-### 文件上传分析页面 (`/upload`) — ✅ 已完成
-
-通用文件上传页面（172行），支持 CSV/JSON/PDF/图像（PNG/JPG/JPEG）/TXT 五种格式。后端 `POST /qm/api/upload/file` 自动识别文件类型：
-- CSV → DictReader 解析 → FactManager 入库
-- JSON → 逐字段写入 FactManager
-- PDF → pdf2image 转图片 → 多模态 AI 视觉分析 → 结构化健康数据提取
-- 图像 → base64 编码 → 多模态 AI 视觉分析 → 结构化健康数据提取
-- TXT → 文本存档
-
----
-
 ## 覆盖报告
 
 | 指标 | 数值 |
 |------|------|
-| 源文件数 | 17 |
-| 已扫描文件数 | 17 |
+| 源文件数 | 20+ |
+| 已扫描文件数 | 20+ |
 | 覆盖百分比 | **100%** |
-| 模块数量 | 14 |
+| 模块数量 | 16+ |
 | 已生成 CLAUDE.md | 5 (1 根级 + 4 子模块) |
 | 导航面包屑 | 已添加（根 CLAUDE.md） |
 
@@ -270,4 +263,5 @@ API 层 (lib/api.ts) → fetchWithAuth (Bearer token)
 | `src/app/globals.css` | 全局样式、CSS 变量 |
 | `src/lib/utils.ts` | 共享工具函数 |
 | `src/components/layout/header.tsx` | 统一 Header 组件（含返回按钮） |
+| `src/lib/stores/llm-observe-store.ts` | LLM 观测状态管理 |
 | `tests/e2e_test.py` | E2E 测试 + 报告生成脚本 |

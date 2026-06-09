@@ -3,6 +3,16 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { getAuthToken } from '@/lib/api';
+
+function getUserDisplay(): { avatar: string; name: string } {
+  if (typeof window === 'undefined') return { avatar: '?', name: '' };
+  const cached = localStorage.getItem('user_display');
+  if (cached) {
+    try { return JSON.parse(cached); } catch { /* ignore */ }
+  }
+  return { avatar: '?', name: getAuthToken() };
+}
 
 interface NavItem {
   href: string;
@@ -13,6 +23,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', label: '仪表盘' },
   { href: '/bigscreen', label: '大屏' },
   { href: '/report', label: '报告' },
+  { href: '/medical', label: '医疗' },
   { href: '/chat', label: 'Chat' },
   { href: '/upload', label: '上传' },
   { href: '/test-report', label: '测试' },
@@ -99,6 +110,30 @@ export function Header({ title, activePath, maxWidth = '1200px', showDate, showB
             </span>
           )}
           {extra}
+          {mounted && (() => {
+            const display = getUserDisplay();
+            return (
+              <Link
+                href="/"
+                onClick={() => {
+                  if (typeof window !== 'undefined') {
+                    localStorage.removeItem('auth_token');
+                    localStorage.removeItem('user_display');
+                  }
+                }}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[var(--surface)] hover:bg-[var(--surface-elevated)] transition-colors"
+                style={{ textDecoration: 'none' }}
+              >
+                <div
+                  className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
+                  style={{ background: 'var(--primary)', color: '#111' }}
+                >
+                  {display.avatar}
+                </div>
+                <span className="text-xs text-gray-300">{display.name}</span>
+              </Link>
+            );
+          })()}
         </div>
       </div>
     </header>
