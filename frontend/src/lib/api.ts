@@ -52,6 +52,24 @@ interface UsersSummaryResponse {
   users: UserSummary[];
 }
 
+export interface InfluxDataPoint {
+  ts: string;       // ISO 8601 timestamp
+  value: number;
+}
+
+export interface InfluxTimeSeriesResponse {
+  status: 'ok' | 'degraded';
+  metric: string;
+  range: string;
+  aggregation: string;
+  fn: string;
+  data: InfluxDataPoint[];
+  count: number;
+  latest: number | null;
+  avg: number | null;
+  error?: string;
+}
+
 export function getAuthToken(): string {
   if (typeof window === 'undefined') return '';
   return localStorage.getItem('auth_token') || '';
@@ -79,6 +97,16 @@ export async function fetchWithAuth<T>(
       ...options?.headers,
     },
   });
+
+  // 401 → 强制退出登录并跳回首页
+  if (res.status === 401) {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user_display');
+      window.location.href = '/';
+    }
+    throw new Error('Unauthorized: token expired or invalid');
+  }
 
   if (!res.ok) {
     throw new Error(`API Error: ${res.status} ${res.statusText}`);
@@ -123,5 +151,15 @@ export const api = {
 
   getUsersSummary() {
     return fetchWithAuth<UsersSummaryResponse>('/users/summary');
+  },
+
+  getInfluxTimeSeries(
+    metric: string,
+    range: string = '-7d',
+    aggregation: string = '1d',
+    fn: string = 'mean',
+  ): Promise<InfluxTimeSeriesResponse> {
+    const params = new URLSearchParams({ metric, range, aggregation, fn });
+    return fetchWithAuth<InfluxTimeSeriesResponse>(`/influxdb/timeseries?${params}`);
   },
 };

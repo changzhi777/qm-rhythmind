@@ -84,28 +84,27 @@ export default function UploadPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--background)' }}>
+    <div className="min-h-screen bg-[var(--background)]">
       <Header title="文件上传分析" activePath="/upload" />
 
-      <main style={{ padding: '24px', maxWidth: '900px', margin: '0 auto' }}>
+      <main className="mx-auto max-w-[900px] p-6">
         {/* 拖拽上传区 */}
         <div
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragLeave={() => setDragOver(false)}
           onClick={() => fileInputRef.current?.click()}
+          className="cursor-pointer rounded-lg border-2 border-dashed p-12 text-center transition-colors"
           style={{
-            border: `2px dashed ${dragOver ? 'var(--primary)' : 'var(--border)'}`,
-            borderRadius: '12px', padding: '48px 24px', textAlign: 'center',
-            cursor: 'pointer', transition: 'border-color 0.2s',
+            borderColor: dragOver ? 'var(--primary)' : 'var(--border)',
             background: dragOver ? 'rgba(0,201,167,0.05)' : 'var(--surface)',
           }}
         >
-          <div style={{ fontSize: '40px', marginBottom: '12px' }}>{uploading ? '⏳' : '📁'}</div>
-          <h3 style={{ fontSize: '16px', color: 'white', fontWeight: '500', marginBottom: '8px' }}>
+          <div className="mb-3 text-[40px]">{uploading ? '⏳' : '📁'}</div>
+          <h3 className="mb-2 text-base font-medium text-white">
             {uploading ? '上传中...' : '点击或拖拽文件到此处'}
           </h3>
-          <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+          <p className="text-[13px] text-[var(--text-muted)]">
             支持 CSV、JSON、PDF、PNG、JPG 格式，可批量上传
           </p>
           <input
@@ -113,51 +112,56 @@ export default function UploadPage() {
             type="file"
             multiple
             onChange={e => e.target.files && uploadFiles(e.target.files)}
-            style={{ display: 'none' }}
+            className="hidden"
             accept=".csv,.json,.pdf,.png,.jpg,.jpeg,.txt,.xml"
           />
         </div>
 
         {/* 支持的文件类型 */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px', marginTop: '20px' }}>
+        <div className="mt-5 grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-2.5">
           {FILE_CATEGORIES.map(cat => (
-            <div key={cat.label} className="card" style={{ padding: '12px' }}>
-              <div style={{ fontSize: '20px', marginBottom: '4px' }}>{cat.icon}</div>
-              <div style={{ fontSize: '13px', color: 'white', fontWeight: '500' }}>{cat.label}</div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{cat.desc}</div>
+            <div key={cat.label} className="card p-3">
+              <div className="mb-1 text-xl">{cat.icon}</div>
+              <div className="text-[13px] font-medium text-white">{cat.label}</div>
+              <div className="mt-0.5 text-[11px] text-[var(--text-muted)]">{cat.desc}</div>
             </div>
           ))}
         </div>
 
         {/* 上传结果 */}
         {results.length > 0 && (
-          <section style={{ marginTop: '24px' }}>
-            <h2 style={{ fontSize: '13px', fontWeight: '500', color: 'var(--text-muted)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <section className="mt-6">
+            <h2 className="text-[13px] font-medium uppercase tracking-wider text-[var(--text-muted)] mb-3">
               上传结果
             </h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div className="flex flex-col gap-2">
               {results.map((r, i) => {
                 const cat = getFileCategory(r.filename);
+                const isSuccess = r.status === 'success';
                 return (
-                  <div key={i} className="card" style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                    <span style={{ fontSize: '20px' }}>{cat?.icon || '📎'}</span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                        <span style={{ fontSize: '13px', color: 'white', fontWeight: '500' }}>{r.filename}</span>
-                        <span style={{
-                          fontSize: '10px', padding: '2px 8px', borderRadius: '4px',
-                          background: r.status === 'success' ? 'var(--success)' : 'var(--error)',
-                          color: 'white', fontWeight: '500',
-                        }}>
-                          {r.status === 'success' ? '成功' : '失败'}
+                  <div key={i} className="card flex items-start gap-3">
+                    <span className="text-xl">{cat?.icon || '📎'}</span>
+                    <div className="flex-1">
+                      <div className="mb-1 flex items-center gap-2">
+                        <span className="text-[13px] font-medium text-white">{r.filename}</span>
+                        <span
+                          className="rounded text-[10px] font-medium text-white"
+                          style={{
+                            padding: '2px 8px',
+                            background: isSuccess ? 'var(--success)' : 'var(--error)',
+                          }}
+                        >
+                          {isSuccess ? '成功' : '失败'}
                         </span>
                       </div>
-                      <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{r.message}</p>
+                      <p className="text-xs text-[var(--text-secondary)]">{r.message}</p>
                       {r.facts_imported != null && (
-                        <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>入库 {r.facts_imported} 条事实数据</p>
+                        <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+                          入库 {r.facts_imported} 条事实数据
+                        </p>
                       )}
                       {r.summary && (
-                        <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{r.summary}</p>
+                        <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">{r.summary}</p>
                       )}
                     </div>
                   </div>

@@ -144,6 +144,117 @@ def _get_dashboard_redis() -> aioredis.Redis | None:
         return None
 
 
+# ── InfluxDB 时序端点 ──────────────────────────────────────────────
+# 允许前端查询的 InfluxDB 字段白名单（与 adapters/influx_client._ALLOWED_FIELDS 同步）
+_INFLUX_METRIC_WHITELIST = frozenset({
+    "heart_rate_avg", "heart_rate_max",
+    "steps", "distance_km", "calories",
+    "sleep_hours", "hrv",
+    "body_fat_pct", "muscle_mass_kg", "water_pct", "visceral_fat",
+})
+# 允许的 aggregation 窗口
+_INFLUX_AGG_WHITELIST = frozenset({"1h", "1d", "1w"})
+
+
+@router.get("/influxdb/timeseries")
+async def get_influx_timeseries(
+    user_id: CurrentUserId,
+    metric: str,
+    range: str = "-7d",
+    aggregation: str = "1d",
+    fn: str = "mean",
+) -> dict[str, Any]:
+    """
+    查询指定用户的 InfluxDB 时序数据。
+
+    Query:
+      metric      - 必填，白名单内字段（如 heart_rate_avg）
+      range       - Flux 相对时间，默认 "-7d"（7天）
+      aggregation - 聚合窗口，默认 "1d"（每天一个点）
+      fn          - 聚合函数 mean/max/min/last，默认 mean
+
+    Returns:
+      {
+        "status": "ok",
+        "metric": "heart_rate_avg",
+        "range": "-7d",
+        "aggregation": "1d",
+        "data": [{"ts": "2026-06-04T00:00:00Z", "value": 72.5}, ...],
+        "count": 7,
+        "latest": 72.5,
+      }
+    """
+    # 1. 参数白名单校验（防 Flux 注入）
+    if metric not in _INFLUX_METRIC_WHITELIST:
+        allowed = sorted(_INFLUX_METRIC_WHITELIST)
+        raise HTTPException(
+            status_code=400,
+            detail=f"不支持的 metric: {metric}。允许: {allowed}",
+        )
+    if aggregation not in _INFLUX_AGG_WHITELIST:
+        allowed_agg = sorted(_INFLUX_AGG_WHITELIST)
+        raise HTTPException(
+            status_code=400,
+            detail=f"不支持的 aggregation: {aggregation}。允许: {allowed_agg}",
+        )
+    if fn not in {"mean", "max", "min", "last"}:
+        raise HTTPException(status_code=400, detail=f"不支持的 fn: {fn}")
+
+    # 2. range 格式校验：必须以 - 开头（相对时间）
+    if not range.startswith("-"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"range 格式错误（必须以 '-' 开头，如 '-7d'）: {range}",
+        )
+
+    try:
+        from rhythmind.adapters.influx_client import InfluxClient
+        client = InfluxClient()
+        series_map = await client.query_range(
+            user_id=user_id,
+            fields=[metric],
+            start=range,
+            stop="now()",
+            aggregation_window=aggregation,
+            fn=fn,
+        )
+    except Exception as exc:
+        logger.warning("influxdb.timeseries query failed user=%s metric=%s: %s",
+                       user_id, metric, exc)
+        return {
+            "status": "degraded",
+            "metric": metric,
+            "range": range,
+            "aggregation": aggregation,
+            "data": [],
+            "count": 0,
+            "latest": None,
+            "error": "InfluxDB 不可达，请稍后重试",
+        }
+
+    # 3. 转换为前端友好的格式
+    series = series_map.get(metric)
+    data_points: list[dict[str, Any]] = []
+    if series and series.values:
+        for ts, value in series.values:
+            data_points.append({
+                "ts": ts.isoformat() if hasattr(ts, "isoformat") else str(ts),
+                "value": round(value, 2),
+            })
+
+    return {
+        "status": "ok",
+        "metric": metric,
+        "range": range,
+        "aggregation": aggregation,
+        "fn": fn,
+        "data": data_points,
+        "count": len(data_points),
+        "latest": series.latest if series else None,
+        "avg": series.avg if series else None,
+    }
+
+
 @router.get("/dashboard")
 async def get_dashboard(user_id: CurrentUserId) -> dict[str, Any]:
     """返回仪表盘汇总数据（Redis 缓存 30s）。"""

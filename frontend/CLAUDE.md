@@ -3,7 +3,7 @@
 # CLAUDE.md — RHYTHMIND 律动前端
 
 > **项目版本:** 0.2.0
-> **最后扫描:** 2026-05-27T10:50:56+08:00
+> **最后扫描:** 2026-06-10T16:53:15+08:00
 > **语言:** TypeScript
 > **框架:** Next.js 16 (App Router) + React 19
 > **包管理:** npm
@@ -12,6 +12,7 @@
 
 ## 变更记录 (Changelog)
 
+- **2026-06-10 (本次)** 前端核心补全：新增 InfluxDB 时序图表（仪表盘 4 Tab）、`<Skeleton />` 通用组件、`useAutoRefresh` Hook、401 强制跳首页、版本号同步 v0.2.0、Header 鼠标悬浮迁移到 CSS class、移除未用 recharts 依赖、提取 yearlyToChart 到 utils.ts
 - **2026-05-27** 增量更新：首页改为用户选择页（多用户摘要卡片）、Header 用户头像+退出登录、新增 V1_BASE + setAuthToken、医疗导航
 - **2026-05-26** 增量更新：新增 /medical 医疗报告页面（5 Tab）、/llm-observe LLM 观测页面、llm-observe-store.ts 状态管理
 - **2026-05-20** 增量更新：Chat 助手页面上线（303行，多轮对话+文件上传）、Upload 文件上传页面上线（172行，CSV/JSON/PDF/图像/TXT）、API_BASE/getAuthToken 统一到 api.ts

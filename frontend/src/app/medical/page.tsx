@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Header } from '@/components/layout/header';
 import { v } from '@/lib/utils';
 import { getAuthToken, V1_BASE } from '@/lib/api';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface Medication {
   medication_name: string;
@@ -63,11 +64,6 @@ export default function MedicalPage() {
     return () => clearTimeout(t);
   }, []);
 
-  useEffect(() => {
-    if (!mounted) return;
-    loadAllData();
-  }, [mounted]);
-
   async function loadAllData() {
     setLoading(true);
     const headers = { Authorization: `Bearer ${token}` };
@@ -118,6 +114,13 @@ export default function MedicalPage() {
     }
   }
 
+  useEffect(() => {
+    if (!mounted) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing data fetch pattern
+    loadAllData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: only run when mounted changes
+  }, [mounted]);
+
   if (!mounted) return null;
 
   const tabs: { key: Tab; label: string }[] = [
@@ -165,7 +168,11 @@ export default function MedicalPage() {
         {/* 内容区 */}
         <div className="mt-4">
           {loading ? (
-            <div className="text-center py-12 text-gray-400">加载中...</div>
+            <div className="space-y-3">
+              <Skeleton height={80} />
+              <Skeleton height={120} />
+              <Skeleton height={120} />
+            </div>
           ) : (
             <>
               {activeTab === 'overview' && <OverviewTab timeline={timeline} medications={medications} labs={labs} />}
@@ -429,7 +436,7 @@ function AnalysisTab({ analysis, analyzing, onAnalyze }: { analysis: AnalysisRes
         </div>
       ) : (
         <div className="text-center py-12 text-gray-400">
-          点击"重新分析"生成 AI 健康分析报告
+          点击&ldquo;重新分析&rdquo;生成 AI 健康分析报告
         </div>
       )}
     </div>

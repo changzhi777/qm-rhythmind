@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useReportStore } from '@/lib/stores/report-store';
 import { Header } from '@/components/layout/header';
 
@@ -9,49 +11,30 @@ function formatTime(timestamp: string) {
   return timestamp.replace('T', ' ').substring(0, 19);
 }
 
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
-function renderMarkdown(text: string): string {
-  if (!text) return '';
-
-  const lines = text.split('\n');
-  const htmlParts: string[] = [];
-  let inList = false;
-
-  for (const rawLine of lines) {
-    const line = escapeHtml(rawLine);
-    if (line.startsWith('### ')) {
-      if (inList) { htmlParts.push('</ul>'); inList = false; }
-      htmlParts.push(`<h3 style="font-size:14px;font-weight:500;color:white;margin:16px 0 8px">${line.slice(4)}</h3>`);
-    } else if (line.startsWith('## ')) {
-      if (inList) { htmlParts.push('</ul>'); inList = false; }
-      htmlParts.push(`<h2 style="font-size:16px;font-weight:600;color:white;margin:20px 0 12px">${line.slice(3)}</h2>`);
-    } else if (line.startsWith('# ')) {
-      if (inList) { htmlParts.push('</ul>'); inList = false; }
-      htmlParts.push(`<h1 style="font-size:20px;font-weight:700;color:white;margin:0 0 16px">${line.slice(2)}</h1>`);
-    } else if (line.startsWith('- ') || line.startsWith('* ')) {
-      if (!inList) { htmlParts.push('<ul style="list-style:disc;padding-left:20px;margin:8px 0">'); inList = true; }
-      const content = line.slice(2).replace(/\*\*(.+?)\*\*/g, '<strong style="font-weight:600;color:var(--primary)">$1</strong>');
-      htmlParts.push(`<li style="margin:4px 0;color:var(--text-secondary);font-size:13px">${content}</li>`);
-    } else if (line.trim() === '') {
-      if (inList) { htmlParts.push('</ul>'); inList = false; }
-    } else {
-      if (inList) { htmlParts.push('</ul>'); inList = false; }
-      const content = line.replace(/\*\*(.+?)\*\*/g, '<strong style="font-weight:600;color:var(--primary)">$1</strong>');
-      htmlParts.push(`<p style="margin:8px 0;color:var(--text-secondary);font-size:13px;line-height:1.6">${content}</p>`);
-    }
-  }
-
-  if (inList) htmlParts.push('</ul>');
-  return htmlParts.join('');
-}
+// react-markdown 自定义组件 — 保持原自写 renderMarkdown 的视觉风格
+const markdownComponents = {
+  h1: ({ children }: { children?: React.ReactNode }) => (
+    <h1 className="mb-4 mt-0 text-xl font-bold text-white">{children}</h1>
+  ),
+  h2: ({ children }: { children?: React.ReactNode }) => (
+    <h2 className="mb-3 mt-5 text-base font-semibold text-white">{children}</h2>
+  ),
+  h3: ({ children }: { children?: React.ReactNode }) => (
+    <h3 className="mb-2 mt-4 text-sm font-medium text-white">{children}</h3>
+  ),
+  p: ({ children }: { children?: React.ReactNode }) => (
+    <p className="my-2 text-[13px] leading-relaxed text-[var(--text-secondary)]">{children}</p>
+  ),
+  ul: ({ children }: { children?: React.ReactNode }) => (
+    <ul className="my-2 list-disc pl-5">{children}</ul>
+  ),
+  li: ({ children }: { children?: React.ReactNode }) => (
+    <li className="my-1 text-[13px] text-[var(--text-secondary)]">{children}</li>
+  ),
+  strong: ({ children }: { children?: React.ReactNode }) => (
+    <strong className="font-semibold text-[var(--primary)]">{children}</strong>
+  ),
+};
 
 export default function ReportPage() {
   const { reports, currentReport, loading, analyzing, downloading, fetchReports, fetchReport, triggerAnalyze, downloadReport } = useReportStore();
@@ -59,51 +42,74 @@ export default function ReportPage() {
   useEffect(() => { fetchReports(); }, [fetchReports]);
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--background)' }}>
+    <div className="min-h-screen bg-[var(--background)]">
       <Header
         title={`报告 ${reports.length} 份`}
         activePath="/report"
         extra={
-          <button onClick={triggerAnalyze} disabled={analyzing} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            {analyzing ? <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>⟳</span> : '⚡'}
+          <button
+            onClick={triggerAnalyze}
+            disabled={analyzing}
+            className="btn-primary flex items-center gap-1.5"
+          >
+            <span
+              className="inline-block"
+              style={{
+                animation: analyzing ? 'spin 1s linear infinite' : 'none',
+              }}
+            >
+              ⟳
+            </span>
             {analyzing ? '分析中...' : '重新分析'}
           </button>
         }
       />
 
-      <main style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: '16px' }}>
+      <main className="mx-auto max-w-[1200px] p-6">
+        <div className="grid grid-cols-[280px_1fr] gap-4">
           {/* Report List */}
           <div>
-            <h2 style={{ fontSize: '13px', fontWeight: '500', color: 'var(--text-muted)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>报告列表</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <h2 className="text-[13px] font-medium uppercase tracking-wider text-[var(--text-muted)] mb-3">
+              报告列表
+            </h2>
+            <div className="flex flex-col gap-2">
               {reports.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)', fontSize: '13px' }}>
+                <div className="py-8 text-center text-[13px] text-[var(--text-muted)]">
                   {loading ? '加载中...' : '暂无报告'}
                 </div>
               ) : (
-                reports.map((report) => (
-                  <button
-                    key={report.id}
-                    onClick={() => fetchReport(report.id)}
-                    style={{
-                      padding: '12px',
-                      background: currentReport?.id === report.id ? 'var(--surface-elevated)' : 'var(--surface)',
-                      border: `1px solid ${currentReport?.id === report.id ? 'var(--primary)' : 'var(--border)'}`,
-                      borderRadius: '6px',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{formatTime(report.timestamp)}</span>
-                      {report.is_current && <span style={{ fontSize: '10px', padding: '2px 6px', background: 'var(--primary)', color: 'white', borderRadius: '4px' }}>最新</span>}
-                    </div>
-                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {report.content?.substring(0, 60) ?? '无内容'}...
-                    </p>
-                  </button>
-                ))
+                reports.map((report) => {
+                  const isSelected = currentReport?.id === report.id;
+                  return (
+                    <button
+                      key={report.id}
+                      onClick={() => fetchReport(report.id)}
+                      className="cursor-pointer rounded-md p-3 text-left"
+                      style={{
+                        background: isSelected ? 'var(--surface-elevated)' : 'var(--surface)',
+                        border: `1px solid ${isSelected ? 'var(--primary)' : 'var(--border)'}`,
+                      }}
+                    >
+                      <div className="mb-1 flex items-center justify-between">
+                        <span className="text-[11px] text-[var(--text-muted)]">{formatTime(report.timestamp)}</span>
+                        {report.is_current && (
+                          <span
+                            className="rounded text-[10px] text-white"
+                            style={{
+                              padding: '2px 6px',
+                              background: 'var(--primary)',
+                            }}
+                          >
+                            最新
+                          </span>
+                        )}
+                      </div>
+                      <p className="truncate text-xs text-[var(--text-secondary)]">
+                        {report.content?.substring(0, 60) ?? '无内容'}...
+                      </p>
+                    </button>
+                  );
+                })
               )}
             </div>
           </div>
@@ -112,29 +118,31 @@ export default function ReportPage() {
           <div>
             {currentReport ? (
               <div className="card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+                <div className="mb-5 flex items-start justify-between">
                   <div>
-                    <h2 style={{ fontSize: '16px', fontWeight: '600', color: 'white' }}>报告详情</h2>
-                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    <h2 className="text-base font-semibold text-white">报告详情</h2>
+                    <p className="mt-1 text-xs text-[var(--text-muted)]">
                       {formatTime(currentReport.timestamp)} · {currentReport.model}
                     </p>
                   </div>
                   <button
                     onClick={() => downloadReport(currentReport.id)}
                     disabled={downloading}
-                    className="btn-primary"
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px', opacity: downloading ? 0.6 : 1 }}
+                    className="btn-primary flex items-center gap-1.5"
+                    style={{ opacity: downloading ? 0.6 : 1 }}
                   >
                     {downloading ? '⏳ 下载中...' : '📥 下载'}
                   </button>
                 </div>
-                <div dangerouslySetInnerHTML={{ __html: renderMarkdown(currentReport.content) }} />
+                <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                  {currentReport.content || ''}
+                </ReactMarkdown>
               </div>
             ) : (
-              <div className="card" style={{ minHeight: '320px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '32px', marginBottom: '8px' }}>📋</div>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>选择左侧报告查看详情</p>
+              <div className="card flex min-h-[320px] items-center justify-center">
+                <div className="text-center">
+                  <div className="mb-2 text-[32px]">📋</div>
+                  <p className="text-[13px] text-[var(--text-muted)]">选择左侧报告查看详情</p>
                 </div>
               </div>
             )}

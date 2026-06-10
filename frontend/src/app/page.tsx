@@ -15,11 +15,6 @@ export default function HomePage() {
     return () => clearTimeout(t);
   }, []);
 
-  useEffect(() => {
-    if (!mounted) return;
-    loadUsers();
-  }, [mounted]);
-
   async function loadUsers() {
     setLoading(true);
     try {
@@ -31,6 +26,12 @@ export default function HomePage() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    if (!mounted) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- pre-existing data fetch pattern
+    loadUsers();
+  }, [mounted]);
 
   function selectUser(userId: string) {
     setAuthToken(userId);
@@ -58,7 +59,7 @@ export default function HomePage() {
             <div className="flex items-baseline gap-2">
               <span className="text-xl font-bold text-white">RHYTHMIND</span>
               <span className="text-sm font-medium" style={{ color: 'var(--primary)' }}>律动</span>
-              <span className="text-xs text-gray-500">v0.1.9</span>
+              <span className="text-xs text-gray-500">v0.2.0</span>
             </div>
             <p className="text-xs text-gray-500 mt-0.5">多智能体 AI 健康管理平台</p>
           </div>

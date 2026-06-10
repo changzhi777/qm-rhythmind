@@ -65,91 +65,100 @@ export default function TestReportPage() {
   }, []);
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--background)' }}>
+    <div className="min-h-screen bg-[var(--background)]">
       <Header title="测试报告" activePath="/test-report" maxWidth="1200px" />
 
-      <main style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
-        <h2 style={{ fontSize: '13px', fontWeight: '500', color: 'var(--text-muted)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>E2E 测试报告列表</h2>
+      <main className="mx-auto max-w-[1200px] p-6">
+        <h2 className="text-[13px] font-medium uppercase tracking-wider text-[var(--text-muted)] mb-3">
+          E2E 测试报告列表
+        </h2>
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>加载中...</div>
+          <div className="py-12 text-center text-[var(--text-muted)]">加载中...</div>
         ) : error ? (
-          <div className="card" style={{ textAlign: 'center', padding: '48px' }}>
-            <div style={{ fontSize: '32px', marginBottom: '8px' }}>⚠️</div>
-            <p style={{ color: 'var(--error)', fontSize: '13px' }}>{error}</p>
-            <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '8px' }}>提示：通过 <code style={{ background: 'var(--surface-elevated)', padding: '2px 6px', borderRadius: '4px' }}>python3 tests/e2e_test.py --upload</code> 生成并上传报告</p>
+          <div className="card py-12 text-center">
+            <div className="mb-2 text-[32px]">⚠️</div>
+            <p className="text-[13px] text-[var(--error)]">{error}</p>
+            <p className="mt-2 text-xs text-[var(--text-muted)]">
+              提示：通过 <code className="rounded bg-[var(--surface-elevated)] px-1.5 py-0.5">python3 tests/e2e_test.py --upload</code> 生成并上传报告
+            </p>
           </div>
         ) : reports.length === 0 ? (
-          <div className="card" style={{ textAlign: 'center', padding: '48px' }}>
-            <div style={{ fontSize: '32px', marginBottom: '8px' }}>📋</div>
-            <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>暂无测试报告</p>
-            <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '8px' }}>运行 <code style={{ background: 'var(--surface-elevated)', padding: '2px 6px', borderRadius: '4px' }}>python3 tests/e2e_test.py --upload</code> 生成并上传报告到服务器</p>
+          <div className="card py-12 text-center">
+            <div className="mb-2 text-[32px]">📋</div>
+            <p className="text-[13px] text-[var(--text-muted)]">暂无测试报告</p>
+            <p className="mt-2 text-xs text-[var(--text-muted)]">
+              运行 <code className="rounded bg-[var(--surface-elevated)] px-1.5 py-0.5">python3 tests/e2e_test.py --upload</code> 生成并上传报告到服务器
+            </p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {reports.map((report) => (
-              <div key={report.id} className="card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                      <h3 style={{ fontSize: '15px', fontWeight: '600', color: 'white' }}>
-                        {report.timestamp.replace('T', ' ').substring(0, 19)}
-                      </h3>
-                      <span style={{
-                        fontSize: '10px', padding: '2px 8px', borderRadius: '4px',
-                        background: report.pass_rate === 100 ? 'var(--success)' : 'var(--warning)',
-                        color: 'white', fontWeight: '500',
-                      }}>
-                        {report.pass_rate.toFixed(1)}%
-                      </span>
+          <div className="flex flex-col gap-4">
+            {reports.map((report) => {
+              const isAllPass = report.pass_rate === 100;
+              return (
+                <div key={report.id} className="card">
+                  <div className="mb-4 flex items-start justify-between">
+                    <div>
+                      <div className="mb-1 flex items-center gap-2">
+                        <h3 className="text-[15px] font-semibold text-white">
+                          {report.timestamp.replace('T', ' ').substring(0, 19)}
+                        </h3>
+                        <span
+                          className="rounded text-[10px] font-medium text-white"
+                          style={{
+                            padding: '2px 8px',
+                            background: isAllPass ? 'var(--success)' : 'var(--warning)',
+                          }}
+                        >
+                          {report.pass_rate.toFixed(1)}%
+                        </span>
+                      </div>
+                      <p className="text-xs text-[var(--text-muted)]">
+                        {report.rounds} 轮 · {report.passed}/{report.total} 通过 · 页面 {report.page_avg_ms}ms · API {report.api_avg_ms}ms
+                      </p>
                     </div>
-                    <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                      {report.rounds} 轮 · {report.passed}/{report.total} 通过 · 页面 {report.page_avg_ms}ms · API {report.api_avg_ms}ms
-                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-2">
+                    {report.files.map((file) => (
+                      <button
+                        key={file.name}
+                        onClick={() => downloadFile(file.url, file.name)}
+                        className="card flex w-full cursor-pointer items-center gap-2 border-none"
+                        style={{
+                          padding: '10px 12px',
+                          background: 'var(--surface-elevated)',
+                        }}
+                      >
+                        <FileIcon type={file.type} />
+                        <div className="flex-1 text-left">
+                          <div className="text-[13px] font-medium text-white">
+                            {downloading === file.name ? '下载中...' : file.type.toUpperCase()}
+                          </div>
+                          <div className="text-[11px] text-[var(--text-muted)]">{file.size_kb} KB</div>
+                        </div>
+                      </button>
+                    ))}
                   </div>
                 </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '8px' }}>
-                  {report.files.map((file) => (
-                    <button
-                      key={file.name}
-                      onClick={() => downloadFile(file.url, file.name)}
-                      className="card"
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: '8px',
-                        padding: '10px 12px',
-                        background: 'var(--surface-elevated)',
-                        cursor: 'pointer', border: 'none', width: '100%',
-                      }}
-                    >
-                      <FileIcon type={file.type} />
-                      <div style={{ flex: 1, textAlign: 'left' }}>
-                        <div style={{ fontSize: '13px', color: 'white', fontWeight: '500' }}>
-                          {downloading === file.name ? '下载中...' : file.type.toUpperCase()}
-                        </div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{file.size_kb} KB</div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
-        <section style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '24px' }}>
-          <Link href="/dashboard" className="card" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
-            <span style={{ fontSize: '20px' }}>📊</span>
+        <section className="mt-6 grid grid-cols-2 gap-3">
+          <Link href="/dashboard" className="card">
+            <span className="text-xl">📊</span>
             <div>
-              <div style={{ fontSize: '14px', fontWeight: '500', color: 'white' }}>仪表盘</div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>健康数据</div>
+              <div className="text-sm font-medium text-white">仪表盘</div>
+              <div className="text-xs text-[var(--text-muted)]">健康数据</div>
             </div>
           </Link>
-          <Link href="/report" className="card" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
-            <span style={{ fontSize: '20px' }}>📋</span>
+          <Link href="/report" className="card">
+            <span className="text-xl">📋</span>
             <div>
-              <div style={{ fontSize: '14px', fontWeight: '500', color: 'white' }}>AI 报告</div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>健康分析</div>
+              <div className="text-sm font-medium text-white">AI 报告</div>
+              <div className="text-xs text-[var(--text-muted)]">健康分析</div>
             </div>
           </Link>
         </section>
@@ -160,5 +169,5 @@ export default function TestReportPage() {
 
 function FileIcon({ type }: { type: string }) {
   const icons: Record<string, string> = { pdf: '📕', html: '🌐', md: '📄', svg: '📊' };
-  return <span style={{ fontSize: '20px' }}>{icons[type] || '📎'}</span>;
+  return <span className="text-xl">{icons[type] || '📎'}</span>;
 }

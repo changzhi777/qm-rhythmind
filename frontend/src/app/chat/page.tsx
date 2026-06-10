@@ -129,27 +129,29 @@ export default function ChatPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--background)', display: 'flex', flexDirection: 'column' }}>
+    <div className="flex min-h-screen flex-col bg-[var(--background)]">
       <Header title="Chat 助手" activePath="/chat" />
 
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', maxWidth: '900px', width: '100%', margin: '0 auto', padding: '0 24px' }}>
+      <main className="mx-auto flex w-full max-w-[900px] flex-1 flex-col px-6">
         {/* 消息区 */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '24px 0' }}>
+        <div className="flex-1 overflow-y-auto py-6">
           {messages.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '80px 20px' }}>
-              <div style={{ fontSize: '48px', marginBottom: '16px' }}>💬</div>
-              <h2 style={{ fontSize: '18px', color: 'white', fontWeight: '500', marginBottom: '8px' }}>RHYTHMIND 健康助手</h2>
-              <p style={{ fontSize: '14px', color: 'var(--text-muted)', maxWidth: '400px', margin: '0 auto', lineHeight: '1.6' }}>
+            <div className="px-5 py-20 text-center">
+              <div className="mb-4 text-[48px]">💬</div>
+              <h2 className="mb-2 text-lg font-medium text-white">RHYTHMIND 健康助手</h2>
+              <p className="mx-auto max-w-[400px] text-sm leading-relaxed text-[var(--text-muted)]">
                 可以向我提问健康问题、上传数据文件、医学报告或图像进行分析
               </p>
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '24px', flexWrap: 'wrap' }}>
+              <div className="mt-6 flex flex-wrap justify-center gap-2">
                 {['我的训练准备度如何？', '分析一下我的睡眠数据', '最近的跑步表现怎么样？'].map(q => (
                   <button
                     key={q}
                     onClick={() => { setInput(q); }}
+                    className="cursor-pointer rounded-full border border-[var(--border)] text-xs"
                     style={{
-                      padding: '8px 14px', background: 'var(--surface)', border: '1px solid var(--border)',
-                      borderRadius: '20px', color: 'var(--text-secondary)', fontSize: '12px', cursor: 'pointer',
+                      padding: '8px 14px',
+                      background: 'var(--surface)',
+                      color: 'var(--text-secondary)',
                     }}
                   >
                     {q}
@@ -159,33 +161,54 @@ export default function ChatPage() {
             </div>
           )}
 
-          {messages.map(msg => (
-            <div key={msg.id} style={{
-              display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
-              marginBottom: '12px',
-            }}>
-              <div style={{
-                maxWidth: '70%', padding: '10px 14px', borderRadius: '12px',
-                background: msg.role === 'user' ? 'var(--primary)' : 'var(--surface)',
-                border: msg.role === 'assistant' ? '1px solid var(--border)' : 'none',
-              }}>
-                <div style={{
-                  fontSize: '13px', color: msg.role === 'user' ? 'white' : 'var(--text-secondary)',
-                  lineHeight: '1.6', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                }}>
-                  {msg.content}
-                </div>
-                <div style={{ fontSize: '10px', color: msg.role === 'user' ? 'rgba(255,255,255,0.6)' : 'var(--text-muted)', marginTop: '4px', textAlign: 'right' }}>
-                  {formatTime(msg.timestamp)}
+          {messages.map(msg => {
+            const isUser = msg.role === 'user';
+            return (
+              <div
+                key={msg.id}
+                className={`mb-3 flex ${isUser ? 'justify-end' : 'justify-start'}`}
+              >
+                <div
+                  className="max-w-[70%] rounded-xl p-2.5"
+                  style={{
+                    padding: '10px 14px',
+                    background: isUser ? 'var(--primary)' : 'var(--surface)',
+                    border: isUser ? 'none' : '1px solid var(--border)',
+                  }}
+                >
+                  <div
+                    className="whitespace-pre-wrap text-[13px] leading-relaxed break-words"
+                    style={{
+                      color: isUser ? 'white' : 'var(--text-secondary)',
+                    }}
+                  >
+                    {msg.content}
+                  </div>
+                  <div
+                    className="mt-1 text-right text-[10px]"
+                    style={{
+                      color: isUser ? 'rgba(255,255,255,0.6)' : 'var(--text-muted)',
+                    }}
+                  >
+                    {formatTime(msg.timestamp)}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {loading && (
-            <div style={{ display: 'flex', marginBottom: '12px' }}>
-              <div style={{ padding: '10px 14px', borderRadius: '12px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>思考中...</span>
+            <div className="mb-3 flex">
+              <div
+                className="rounded-xl text-[13px]"
+                style={{
+                  padding: '10px 14px',
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text-muted)',
+                }}
+              >
+                思考中...
               </div>
             </div>
           )}
@@ -194,62 +217,80 @@ export default function ChatPage() {
 
         {/* 文件预览 */}
         {files.length > 0 && (
-          <div style={{ display: 'flex', gap: '8px', padding: '8px 0', flexWrap: 'wrap' }}>
+          <div className="flex flex-wrap gap-2 py-2">
             {files.map((f, i) => (
-              <div key={i} style={{
-                display: 'flex', alignItems: 'center', gap: '6px',
-                padding: '4px 10px', background: 'var(--surface)', borderRadius: '6px',
-                border: '1px solid var(--border)', fontSize: '12px', color: 'var(--text-secondary)',
-              }}>
+              <div
+                key={i}
+                className="flex items-center gap-1.5 rounded-md border border-[var(--border)] text-xs"
+                style={{
+                  padding: '4px 10px',
+                  background: 'var(--surface)',
+                  color: 'var(--text-secondary)',
+                }}
+              >
                 <span>{getFileIcon(f.name)}</span>
-                <span style={{ maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
-                <button onClick={() => removeFile(i)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0 2px' }}>×</button>
+                <span className="max-w-[120px] truncate">{f.name}</span>
+                <button
+                  onClick={() => removeFile(i)}
+                  className="cursor-pointer border-none px-0.5"
+                  style={{ background: 'none', color: 'var(--text-muted)' }}
+                >
+                  ×
+                </button>
               </div>
             ))}
           </div>
         )}
 
         {/* 输入区 */}
-        <div style={{ padding: '16px 0', borderTop: '1px solid var(--border)' }}>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+        <div className="border-t border-[var(--border)] py-4">
+          <div className="flex items-end gap-2">
             <button
               onClick={() => fileInputRef.current?.click()}
+              className="shrink-0 cursor-pointer rounded-lg border border-[var(--border)] text-base"
               style={{
-                padding: '10px', background: 'var(--surface)', border: '1px solid var(--border)',
-                borderRadius: '8px', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '16px',
-                flexShrink: 0,
+                padding: '10px',
+                background: 'var(--surface)',
+                color: 'var(--text-secondary)',
               }}
             >
               ＋
             </button>
-            <input ref={fileInputRef} type="file" multiple onChange={handleFileChange} style={{ display: 'none' }} accept=".csv,.json,.pdf,.png,.jpg,.jpeg,.txt,.xml" />
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              onChange={handleFileChange}
+              className="hidden"
+              accept=".csv,.json,.pdf,.png,.jpg,.jpeg,.txt,.xml"
+            />
             <textarea
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="输入消息或上传文件..."
               rows={1}
+              className="min-h-10 max-h-[120px] flex-1 resize-none rounded-lg border border-[var(--border)] text-sm leading-relaxed text-white outline-none"
               style={{
-                flex: 1, padding: '10px 14px', background: 'var(--surface)',
-                border: '1px solid var(--border)', borderRadius: '8px',
-                color: 'white', fontSize: '14px', resize: 'none', outline: 'none',
-                minHeight: '40px', maxHeight: '120px', lineHeight: '1.5',
+                padding: '10px 14px',
+                background: 'var(--surface)',
               }}
             />
             <button
               onClick={sendMessage}
               disabled={loading || (!input.trim() && files.length === 0)}
+              className="shrink-0 cursor-pointer rounded-lg border-none text-sm font-medium text-white"
               style={{
-                padding: '10px 16px', background: 'var(--primary)', border: 'none',
-                borderRadius: '8px', color: 'white', fontSize: '14px', fontWeight: '500',
-                cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.5 : 1,
-                flexShrink: 0,
+                padding: '10px 16px',
+                background: 'var(--primary)',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.5 : 1,
               }}
             >
               发送
             </button>
           </div>
-          <p style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '8px' }}>
+          <p className="mt-2 text-[10px] text-[var(--text-muted)]">
             支持 CSV、JSON、PDF、图片上传 · Enter 发送，Shift+Enter 换行
           </p>
         </div>

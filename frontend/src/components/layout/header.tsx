@@ -56,13 +56,7 @@ export function Header({ title, activePath, maxWidth = '1200px', showDate, showB
           {showBack && !isHome && (
             <button
               onClick={() => router.back()}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: 'var(--text-secondary)', fontSize: '14px', padding: '4px 8px',
-                borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '4px',
-              }}
-              onMouseOver={e => e.currentTarget.style.color = 'var(--primary)'}
-              onMouseOut={e => e.currentTarget.style.color = 'var(--text-secondary)'}
+              className="header-back-btn"
             >
               ‹ 返回
             </button>
@@ -80,7 +74,7 @@ export function Header({ title, activePath, maxWidth = '1200px', showDate, showB
                 RHYTHMIND
               </Link>
               <span style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: '500' }}>律动</span>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '400' }}>v0.1.9</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '400' }}>v0.2.0</span>
             </div>
             <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
               {NAV_ITEMS.map((item, i) => (
@@ -124,10 +118,7 @@ export function Header({ title, activePath, maxWidth = '1200px', showDate, showB
                 className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[var(--surface)] hover:bg-[var(--surface-elevated)] transition-colors"
                 style={{ textDecoration: 'none' }}
               >
-                <div
-                  className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
-                  style={{ background: 'var(--primary)', color: '#111' }}
-                >
+                <div className="header-user-avatar">
                   {display.avatar}
                 </div>
                 <span className="text-xs text-gray-300">{display.name}</span>

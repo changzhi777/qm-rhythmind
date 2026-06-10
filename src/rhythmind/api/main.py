@@ -35,10 +35,10 @@ from rhythmind import __version__ as RHYTHMIND_VERSION
 # 路由
 from rhythmind.api.routers.admin import router as admin_router
 from rhythmind.api.routers.dashboard import router as dashboard_router
-from rhythmind.api.routers.health import router as health_router
-from rhythmind.api.routers.medical import router as medical_router
-from rhythmind.api.routers.llm_observe import router as llm_observe_router
 from rhythmind.api.routers.feishu import router as feishu_router
+from rhythmind.api.routers.health import router as health_router
+from rhythmind.api.routers.llm_observe import router as llm_observe_router
+from rhythmind.api.routers.medical import router as medical_router
 from rhythmind.api.routers.privacy import router as privacy_router
 from rhythmind.config import settings
 from rhythmind.core.memory import init_db
@@ -148,6 +148,26 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     cleanup_task = asyncio.create_task(_pool_cleanup())
     log.info("rhythmind.pool_cleanup_task started pool_max=%d", pool.max_users)
+
+    # 6. oMLX 模型预热（冷启动首请求不再 fallback）
+    if settings.model_primary_spec.startswith("omlX://"):
+        async def _warmup_omlx() -> None:
+            try:
+                from rhythmind.adapters.adapter_router import adapter_router
+                adapter = adapter_router.get(settings.model_primary_spec)
+                result = await asyncio.wait_for(
+                    adapter.chat(
+                        [{"role": "user", "content": "ok"}],
+                        max_tokens=5,
+                        temperature=0.1,
+                    ),
+                    timeout=30,
+                )
+                log.info("rhythmind.omlx_warmup done chars=%d", len(result))
+            except Exception as exc:
+                log.warning("rhythmind.omlx_warmup_failed error=%s", exc)
+
+        asyncio.create_task(_warmup_omlx())
 
     yield  # 应用运行期间
 
