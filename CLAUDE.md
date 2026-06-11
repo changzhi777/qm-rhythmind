@@ -1,7 +1,7 @@
 # CLAUDE.md — RHYTHMIND 律动
 
 > **项目版本:** 0.2.0
-> **最后扫描:** 2026-06-09T11:00:25+08:00
+> **最后扫描:** 2026-06-11T10:00:00+08:00
 > **语言:** Python 3.12+
 > **包管理:** uv / Poetry
 
@@ -9,7 +9,9 @@
 
 ## 变更记录 (Changelog)
 
-- **2026-06-09 (本次)** 增量更新：扫描覆盖率重计算（项目内 23 个 CLAUDE.md 全部就绪 + 1 项目级 = 24），扫描时间戳刷新至 11:00:25，Changelog 追加，根级 Mermaid 模块结构图引入
+- **2026-06-11 (本次)** 增量更新：项目上下文知识库管线上线（CLAUDE.md+Memory→knowledge_article→QMD→MCP检索）、轻量QMD兼容服务替代@tobi/qmd、5个模块CLAUDE.md深化（ingestion/privacy/observability/adapters/audit）、E2E测试CLAUDE.md深化
+- **2026-06-10** 增量更新：10 个 CLAUDE.md 接口深化（web/scripts/templates/workflows/knowledge/integrations/charts/layout/cache/mcp）、前端核心补全（InfluxDB 时序图+401+Skeleton+Auto-refresh）+ Tailwind 全量迁移
+- **2026-06-09** 增量更新：扫描覆盖率重计算（25 个 CLAUDE.md 全部就绪 + 1 项目级 = 26），扫描时间戳刷新，Changelog 追加，根级 Mermaid 模块结构图引入
 - **2026-05-27 (P2)** 增量更新：新增 `docs/templates/garmin-health-report-template.md`（佳明健康报告标准化模板，含三种格式章节结构+SpO2分析模板+HTML→PDF脚本）和 `docs/workflows/garmin-data-analysis-workflow.md`（佳明数据分析7阶段工作流，含数据陷阱、产出清单、质量检查）
 - **2026-05-27 (P3)** 增量更新：新增知识库模块（knowledge_models.py + 2 张表 + migration 006）、知识库入库脚本（ingest_knowledge.py）、docs/knowledge/ 领域知识文档（OSA/睡眠/VO2max）
 - **2026-05-27 (P1)** 增量更新：新增 integrations 模块（飞书/Lark 客户端）、Feishu Webhook 路由（3 端点）、多用户首页（用户选择卡片）、LoopGuard 分级限流、GZip 压缩中间件、PG/Redis 连接池翻倍（20/40）、oMLX 合规审查独立 URL、渐进式压力测试脚本、Dashboard `/users/summary` API
@@ -248,6 +250,8 @@ python scripts/ingest_knowledge.py --domain osa # 单领域
 - **报告模板**: `docs/templates/garmin-health-report-template.md` — 佳明健康数据报告标准化模板（三种格式）
 - **分析工作流**: `docs/workflows/garmin-data-analysis-workflow.md` — 佳明数据分析7阶段完整工作流
 - **领域知识库**: `docs/knowledge/*.md` — RAG 知识库源文档；通过 `scripts/ingest_knowledge.py` 入库
+- **项目上下文知识库**: `scripts/ingest_claude_md.py` — CLAUDE.md + Memory → knowledge_article（242篇）；`scripts/run_qmd_server.py` 提供 QMD 兼容检索；MCP `rhythmind_search(collection="project_context")` 可检索
+- **QMD 兼容服务**: `localhost:8181`，`python scripts/run_qmd_server.py` 启动
 
 ---
 
@@ -309,20 +313,21 @@ python scripts/ingest_knowledge.py --domain osa # 单领域
 
 | 指标 | 数值 |
 |------|------|
-| 估算总文件数 | 280+ |
-| 已扫描文件数 | 280+ |
+| 估算总文件数 | 290+ |
+| 已扫描文件数 | 290+ |
 | 覆盖百分比 | **100%** |
 | 后端模块数量 | 13 (含 cache 子模块) |
 | 前端页面数量 | 9 |
-| 子模块数量 | 24 |
+| 子模块数量 | 26 |
 | 文档模块数量 | 3 (templates/workflows/knowledge) |
-| 脚本数量 | 6 |
+| 脚本数量 | 8（含 ingest_claude_md.py + run_qmd_server.py） |
+| CLAUDE.md 总行数 | ~5,660 |
 
 ### 无缺口
 
 - ✓ `tests/unit/adapters/` — 适配器测试在 `test_model_adapters.py` (集中式)
 - ✓ `db/migrations/versions/` — 全部 6 个迁移脚本已扫描
-- ✓ `scripts/` — bump_version.py + ingest_garmin_export.py + run_ingestion.py + stress_test.py + ingest_knowledge.py + ct109_smoke_test.py 共 6 个脚本已扫描
+- ✓ `scripts/` — 8 个脚本已扫描（含 ingest_claude_md.py、run_qmd_server.py）
 - ✓ `src/rhythmind/integrations/` — 飞书集成已扫描
 - ✓ `api/routers/feishu.py` — 飞书 Webhook 路由已扫描
 - ✓ `frontend/tests/e2e_test.py` — E2E 测试已覆盖
