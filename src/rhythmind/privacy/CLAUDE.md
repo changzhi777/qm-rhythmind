@@ -101,7 +101,98 @@ src/rhythmind/privacy/
 
 ---
 
+## API 端点
+
+| 方法 | 路径 | 说明 | 认证 |
+|------|------|------|------|
+| `POST` | `/api/v1/privacy/export` | 导出用户全部数据 | JWT |
+| `POST` | `/api/v1/privacy/delete` | 删除用户全部数据（需 confirm_token） | JWT |
+
+### 导出请求/响应
+
+```python
+# POST /api/v1/privacy/export
+Response 200:
+{
+    "user_id": "alice",
+    "exported_at": "2026-06-11T10:00:00+00:00",
+    "schema_version": "1.0",
+    "agent_memory": [{"id": 1, "namespace": ..., "key": ..., "value": ...}],
+    "health_facts": [{"id": 1, "subject": "profile", "predicate": "gender", ...}],
+    "redis_keys": ["loop:alice:coach", "rl:user:*:alice", "session:alice:*"],
+    "influx_points": 1520,
+    "qmd_collections": ["user_alice_memory", "user_alice_facts"],
+    "notes": []
+}
+```
+
+### 删除请求/响应
+
+```python
+# POST /api/v1/privacy/delete  body: {"confirm_token": "alice"}
+Response 200:
+{
+    "user_id": "alice",
+    "deleted_at": "2026-06-11T10:00:00+00:00",
+    "is_clean": true,
+    "successes": [
+        {"store": "agent_memory", "detail": "deleted 42 rows"},
+        {"store": "health_fact", "detail": "deleted 15 rows"},
+        {"store": "redis", "detail": "deleted 5 keys"},
+        {"store": "influxdb", "detail": "delete predicate dispatched"},
+        {"store": "qmd", "detail": "purged user_alice_memory + user_alice_facts"}
+    ],
+    "failures": []
+}
+```
+
+## 导出/删除流程
+
+```
+POST /api/v1/privacy/export
+    │
+    ├─ 1. PG agent_memory ─→ SELECT WHERE user_id
+    ├─ 2. PG health_fact   ─→ SELECT WHERE user_id
+    ├─ 3. Redis keys       ─→ SCAN loop:{uid}:* + rl:user:*:{uid} + session:{uid}:*
+    ├─ 4. InfluxDB count   ─→ query_range fields=* start=-30d → count data points
+    └─ 5. QMD collections  ─→ 枚举 user_{uid}_memory + user_{uid}_facts
+         │
+         ▼
+    UserDataExport (JSON-friendly, schema v1.0)
+
+POST /api/v1/privacy/delete  {confirm_token: "alice"}
+    │
+    ├─ confirm_token != user_id → HTTP 400 (防误删)
+    ├─ 1. DELETE FROM agent_memory WHERE user_id
+    ├─ 2. DELETE FROM health_fact WHERE user_id
+    ├─ 3. Redis: DEL <keys> (SCAN 匹配后批量删除)
+    ├─ 4. InfluxDB: delete predicate (user_id tag)
+    └─ 5. QMD: purge_user(user_id) → 删除 user_{uid}_memory + user_{uid}_facts
+         │
+         ▼
+    DeletionReport (successes + failures, is_clean 检查)
+```
+
+### Redis Key 模式
+
+| 模式 | 用途 | 示例 |
+|------|------|------|
+| `loop:{user_id}:*` | LoopGuard 节流计数 | `loop:alice:coach_agent` |
+| `rl:user:*:{user_id}` | 用户级限流 | `rl:user:dashboard:alice` |
+| `session:{user_id}:*` | 会话缓存 | `session:alice:abc123` |
+
+### 安全设计
+
+- **防误删**: `confirm_token` 必须等于 `user_id`（生产可升级为 email OTP/TOTP）
+- **不可逆**: 删除后数据无法恢复，调用方应先调 export 备份
+- **Best-effort**: 任一存储失败不阻断其余删除，返回明细报告
+- **审计**: 每次 export/delete 写入 audit_log (`PRIVACY_EXPORT` / `PRIVACY_DELETE`)
+- **PII 约束**: 导出数据中不包含明文 PII（name_hash 脱敏）
+
+---
+
 ## 变更记录 (Changelog)
 
+- **2026-06-11** 深化：补充 API 端点表、导出/删除完整流程图、请求/响应示例、Redis Key 模式表、安全设计说明
 - **2026-05-12** 完整扫描完成，新增数据结构和服务详情
 - **2026-05-12** 首次 AI 上下文初始化

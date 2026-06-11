@@ -142,8 +142,104 @@ src/rhythmind/adapters/
 
 ---
 
+## 模型路由流程
+
+```
+adapter_router.chat(model_spec="omlX://gemma-4-e4b-it-4bit", messages=[...])
+    │
+    ├─ model_spec.startswith("mlx://")    ─→ MLXAdapter(model_name, semaphore=1)
+    │   └─ asyncio.to_thread(mlx_lm.generate, prompt)  # Apple Silicon 本地
+    │
+    ├─ model_spec.startswith("omlX://")   ─→ OMLXAdapter(model_name, base_url=...)
+    │   └─ openai.AsyncOpenAI.chat.completions.create   # HTTP OpenAI 兼容
+    │
+    └─ 其他字符串                          ─→ LiteLLMAdapter(model_spec)
+        └─ litellm.acompletion(model=model_spec)         # LiteLLM Proxy
+```
+
+### 适配器对比
+
+| 特性 | MLXAdapter | OMLXAdapter | LiteLLMAdapter |
+|------|-----------|-------------|----------------|
+| 运行位置 | 本地 Apple Silicon | 本地 HTTP 服务 | 云端网关 |
+| 并发控制 | `Semaphore(1)` | 无限制 | 无限制 |
+| 超时 | 默认 60s | 默认 60s (可覆盖) | LiteLLM 默认 |
+| thinking_mode | ✅ (Qwen3) | ❌ | ❌ |
+| 健康检查 | `mlx_lm` 可用性 | `/v1/models` | `/health` |
+| 故障降级 | 抛异常 | 抛异常 | 抛异常 |
+| 配置前缀 | `mlx_*` | `omlX_*` | `litellm_*` |
+
+### OMLXAdapter 合规审查独立 URL
+
+```python
+# 普通推理
+OMLXAdapter("gemma-4-e4b-it-4bit", base_url=settings.omlX_base_url)
+
+# 合规审查可指定独立实例
+OMLXAdapter("gemma-4-e4b-it-4bit", base_url=settings.omlX_compliance_base_url)
+# 用途：合规模型运行在独立容器/GPU，避免与业务推理争抢资源
+```
+
+## InfluxDB 查询模式
+
+### query_range — 时序范围查询
+
+```python
+data = await influx.query_range(
+    user_id="alice",
+    fields=["heart_rate_avg", "steps", "sleep_hours"],
+    start="-7d",
+    stop="now()",
+    aggregation_window="1h",
+    fn="mean",
+)
+# → {
+#     "heart_rate_avg": TrendSeries(
+#         label="heart_rate_avg",
+#         values=[72.3, 74.1, ...],      # 按 aggregation_window 聚合
+#         timestamps=["2026-06-04T00:00:00Z", ...]
+#     ),
+#     ...
+# }
+```
+
+### query_latest — 最新值查询
+
+```python
+latest = await influx.query_latest(
+    user_id="alice",
+    fields=["vo2max", "hrv", "resting_hr"],
+)
+# → {"vo2max": 48.5, "hrv": 52.0, "resting_hr": 58}
+```
+
+### MetricPoint 写入
+
+```python
+point = MetricPoint(
+    user_id="alice",
+    source="garmin_connect",
+    sport_type="running",
+    fields={"heart_rate_avg": 142, "steps": 12500, "calories": 450},
+    ts=datetime.now(tz=UTC),
+)
+await influx.write_metrics(point)
+```
+
+### InfluxDB 降级策略
+
+| 操作 | 失败行为 |
+|------|---------|
+| `write_metrics()` | 静默降级，不抛异常 |
+| `query_range()` | 返回空 dict `{}` |
+| `query_latest()` | 返回空 dict `{}` |
+| `delete_user_data()` | 抛出 `NotImplementedError`（未实现时） |
+
+---
+
 ## 变更记录 (Changelog)
 
+- **2026-06-11** 深化：补充模型路由流程图、三适配器对比表（并发/超时/降级）、OMLXAdapter 合规独立 URL、InfluxDB query_range/query_latest/MetricPoint 完整签名、降级策略矩阵
 - **2026-05-13** 移除 OllamaAdapter，新增 OMLXAdapter（oMLX 本地模型服务）
 - **2026-05-12** 完整扫描完成，新增文件清单和 InfluxDB Schema
 - **2026-05-12** 首次 AI 上下文初始化

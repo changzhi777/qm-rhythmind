@@ -147,8 +147,47 @@ src/rhythmind/audit/
 
 ---
 
+### Sink 对比
+
+| Sink | 环境 | 持久化 | 防篡改 | 依赖 |
+|------|------|--------|--------|------|
+| `StructlogSink` | 开发/降级 | ❌ (控制台) | ❌ | structlog |
+| `InMemorySink` | 测试 | ❌ (内存) | ❌ | 无 |
+| `PGSink` | 生产 | ✅ `audit_log` 表 | ❌ (DB 管理员可改) | asyncpg |
+| `S3JsonlSink` | 生产 | ✅ S3 JSONL | ✅ (Object Lock) | boto3 |
+
+### PGSink 批量写入
+
+```python
+class PGSink(AuditSink):
+    def __init__(self, batch_size: int = 50, flush_interval: float = 5.0):
+        # batch_size: 累积多少条后批量 flush
+        # flush_interval: 即使未满 batch_size 也定期 flush（秒）
+    
+    def emit(self, record: AuditRecord) -> None:
+        # 追加到内部 buffer → 达到 batch_size 或超时后 → execute INSERT 批量写入
+        # 写入失败 → 降级到 stderr (StructlogSink)
+```
+
+### 审计记录生命周期
+
+```
+audit_log(event=PRIVACY_EXPORT, user_id="alice", record_count=42)
+    │
+    ▼
+audit_log() 函数
+    ├── 构建 AuditRecord(event, user_id, timestamp, record_id=uuid4, fields={...})
+    ├── 调用 get_sink().emit(record)
+    │   ├── PGSink: buffer → 满 batch_size 或 flush_interval → INSERT INTO audit_log
+    │   └── StructlogSink: 控制台 JSON 行
+    └── fire-and-forget（不等待写入完成，不抛异常）
+```
+
+---
+
 ## 变更记录 (Changelog)
 
+- **2026-06-11** 深化：补充 Sink 对比表（4 种/环境/持久化/防篡改/依赖）、PGSink 批量写入参数、审计记录生命周期流程图
 - **2026-05-18** 增量更新：新增 PGSink（PostgreSQL 批量持久化）
 - **2026-05-12** 完整扫描完成，新增 AuditRecord 数据模型和 S3JsonlSink 详情
 - **2026-05-12** 首次 AI 上下文初始化
