@@ -54,6 +54,10 @@ def _make_run_result(
     )
 
 
+# 便捷 helper：metrics_agent 成功结果（避免 7 处重复长行）
+_make_metrics_result = lambda: _make_run_result(METRICS_OUTPUT, agent="metrics_agent")  # noqa: E731
+
+
 METRICS_OUTPUT = {
     "user_id": "test_user",
     "timestamp": "2025-05-09T10:00:00+00:00",
@@ -93,7 +97,12 @@ COACH_OUTPUT = {
 
 USER_ID = "test_user"
 SESSION_ID = "sess-swarm-001"
-INPUT_DATA = {"source": "garmin", "sport_type": "running", "heart_rate_avg": 145.0, "steps": 8000}
+INPUT_DATA = {
+    "source": "garmin",
+    "sport_type": "running",
+    "heart_rate_avg": 145.0,
+    "steps": 8000,
+}
 
 
 # ── 测试：正常三级链 ──────────────────────────────────────────────────────────
@@ -102,7 +111,7 @@ INPUT_DATA = {"source": "garmin", "sport_type": "running", "heart_rate_avg": 145
 async def test_swarm_run_all_success():
     """三个 Agent 全部成功时，SwarmResult.success=True，final_output 字段完整。"""
     metrics_mock = AsyncMock()
-    metrics_mock.run.return_value = _make_run_result(METRICS_OUTPUT, agent="metrics_agent")
+    metrics_mock.run.return_value = _make_metrics_result()
 
     data_mock = AsyncMock()
     data_mock.run.return_value = _make_run_result(DATA_OUTPUT, agent="data_agent")
@@ -134,7 +143,7 @@ async def test_swarm_run_all_success():
 async def test_swarm_run_handoff_data_receives_metrics_analysis():
     """DataAgent 的 run() 调用应携带 metrics_analysis（handoff 验证）。"""
     metrics_mock = AsyncMock()
-    metrics_mock.run.return_value = _make_run_result(METRICS_OUTPUT, agent="metrics_agent")
+    metrics_mock.run.return_value = _make_metrics_result()
 
     data_mock = AsyncMock()
     data_mock.run.return_value = _make_run_result(DATA_OUTPUT, agent="data_agent")
@@ -162,7 +171,7 @@ async def test_swarm_run_handoff_data_receives_metrics_analysis():
 async def test_swarm_run_handoff_coach_receives_data_report():
     """CoachAgent 的 run() 调用应携带 data_report 和 metrics_analysis（透传）。"""
     metrics_mock = AsyncMock()
-    metrics_mock.run.return_value = _make_run_result(METRICS_OUTPUT, agent="metrics_agent")
+    metrics_mock.run.return_value = _make_metrics_result()
 
     data_mock = AsyncMock()
     data_mock.run.return_value = _make_run_result(DATA_OUTPUT, agent="data_agent")
@@ -192,7 +201,7 @@ async def test_swarm_run_handoff_coach_receives_data_report():
 async def test_swarm_run_data_agent_blocked_stops_chain():
     """DataAgent BLOCK 时，CoachAgent 不应被调用，success=False。"""
     metrics_mock = AsyncMock()
-    metrics_mock.run.return_value = _make_run_result(METRICS_OUTPUT, agent="metrics_agent")
+    metrics_mock.run.return_value = _make_metrics_result()
 
     data_mock = AsyncMock()
     data_mock.run.return_value = _make_run_result({}, success=False, agent="data_agent")
@@ -222,13 +231,15 @@ async def test_swarm_run_data_agent_blocked_stops_chain():
 async def test_swarm_run_coach_agent_blocked_overall_fails():
     """CoachAgent BLOCK 时，success=False，但前两级结果仍保留。"""
     metrics_mock = AsyncMock()
-    metrics_mock.run.return_value = _make_run_result(METRICS_OUTPUT, agent="metrics_agent")
+    metrics_mock.run.return_value = _make_metrics_result()
 
     data_mock = AsyncMock()
     data_mock.run.return_value = _make_run_result(DATA_OUTPUT, agent="data_agent")
 
     coach_mock = AsyncMock()
-    coach_mock.run.return_value = _make_run_result({}, success=False, agent="coach_agent")
+    coach_mock.run.return_value = _make_run_result(
+        {}, success=False, agent="coach_agent"
+    )
 
     swarm = SwarmDataCoach()
     result = await swarm.run(
@@ -251,13 +262,19 @@ async def test_swarm_run_coach_agent_blocked_overall_fails():
 async def test_swarm_run_stream_event_sequence():
     """run_stream() 应按顺序产出 start/metrics_done/data_done/coach_done/done 事件。"""
     metrics_mock = AsyncMock()
-    metrics_mock.run.return_value = _make_run_result(METRICS_OUTPUT, agent="metrics_agent", latency_ms=30.0)
+    metrics_mock.run.return_value = _make_run_result(
+        METRICS_OUTPUT, agent="metrics_agent", latency_ms=30.0
+    )
 
     data_mock = AsyncMock()
-    data_mock.run.return_value = _make_run_result(DATA_OUTPUT, agent="data_agent", latency_ms=200.0)
+    data_mock.run.return_value = _make_run_result(
+        DATA_OUTPUT, agent="data_agent", latency_ms=200.0
+    )
 
     coach_mock = AsyncMock()
-    coach_mock.run.return_value = _make_run_result(COACH_OUTPUT, agent="coach_agent", latency_ms=180.0)
+    coach_mock.run.return_value = _make_run_result(
+        COACH_OUTPUT, agent="coach_agent", latency_ms=180.0
+    )
 
     swarm = SwarmDataCoach()
     events = []
@@ -280,7 +297,11 @@ async def test_swarm_run_stream_metrics_done_payload():
     """metrics_done 事件的 data 应含 load_level 和 anomaly_count。"""
     metrics_mock = AsyncMock()
     metrics_mock.run.return_value = _make_run_result(
-        {**METRICS_OUTPUT, "anomalies": [{"field": "hrv", "severity": "warn"}], "load_level": "high"},
+        {
+            **METRICS_OUTPUT,
+            "anomalies": [{"field": "hrv", "severity": "warn"}],
+            "load_level": "high",
+        },
         agent="metrics_agent",
     )
     data_mock = AsyncMock()
@@ -307,7 +328,7 @@ async def test_swarm_run_stream_metrics_done_payload():
 async def test_swarm_run_stream_data_blocked_yields_error():
     """DataAgent BLOCK 时，run_stream 应产出 error 事件并停止。"""
     metrics_mock = AsyncMock()
-    metrics_mock.run.return_value = _make_run_result(METRICS_OUTPUT, agent="metrics_agent")
+    metrics_mock.run.return_value = _make_metrics_result()
 
     data_mock = AsyncMock()
     data_mock.run.return_value = _make_run_result({}, success=False, agent="data_agent")
@@ -329,7 +350,7 @@ async def test_swarm_run_stream_data_blocked_yields_error():
 async def test_swarm_run_stream_done_payload_is_complete():
     """done 事件的 data 应是完整的 final_output（含 training_plan）。"""
     metrics_mock = AsyncMock()
-    metrics_mock.run.return_value = _make_run_result(METRICS_OUTPUT, agent="metrics_agent")
+    metrics_mock.run.return_value = _make_metrics_result()
 
     data_mock = AsyncMock()
     data_mock.run.return_value = _make_run_result(DATA_OUTPUT, agent="data_agent")
