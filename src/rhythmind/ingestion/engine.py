@@ -53,22 +53,28 @@ class IngestionEngine:
             result.errors = errors
             return result
 
+        # 闭包：固定 source 参数简化多次 write_fact 调用
+        _src = self._adapter.source_name
+
+        async def _write(subject: str, predicate: str, value: Any) -> None:
+            await self._fm.write_fact(subject, predicate, value, source=_src)
+
         # 1. 用户画像
         try:
             profile = self._adapter.load_profile()
-            await self._fm.write_fact("profile", "gender", profile.gender, source=self._adapter.source_name)
-            await self._fm.write_fact("profile", "height_cm", profile.height_cm, source=self._adapter.source_name)
-            await self._fm.write_fact("profile", "weight_kg", profile.weight_kg, source=self._adapter.source_name)
-            await self._fm.write_fact("profile", "bmi", round(profile.bmi, 1), source=self._adapter.source_name)
-            await self._fm.write_fact("profile", "age", profile.age, source=self._adapter.source_name)
+            await _write("profile", "gender", profile.gender)
+            await _write("profile", "height_cm", profile.height_cm)
+            await _write("profile", "weight_kg", profile.weight_kg)
+            await _write("profile", "bmi", round(profile.bmi, 1))
+            await _write("profile", "age", profile.age)
             if profile.vo2_max:
-                await self._fm.write_fact("profile", "vo2_max", profile.vo2_max, source=self._adapter.source_name)
+                await _write("profile", "vo2_max", profile.vo2_max)
             if profile.resting_hr:
-                await self._fm.write_fact("profile", "resting_hr", profile.resting_hr, source=self._adapter.source_name)
+                await _write("profile", "resting_hr", profile.resting_hr)
             if profile.max_hr:
-                await self._fm.write_fact("profile", "max_hr", profile.max_hr, source=self._adapter.source_name)
+                await _write("profile", "max_hr", profile.max_hr)
             if profile.hr_zones:
-                await self._fm.write_fact("profile", "hr_zones", profile.hr_zones, source=self._adapter.source_name)
+                await _write("profile", "hr_zones", profile.hr_zones)
             result.profile_records += 9
         except Exception as e:
             result.errors.append(f"profile: {e}")
@@ -77,29 +83,35 @@ class IngestionEngine:
         # 2. 运动活动
         try:
             activities = self._adapter.load_activities()
-            await self._fm.write_fact("activity_summary", "total_count", len(activities), source=self._adapter.source_name)
+            await _write("activity_summary", "total_count", len(activities))
 
             # 按年统计
             from collections import defaultdict
-            year_stats: dict[int, dict] = defaultdict(lambda: {"count": 0, "distance": 0, "duration": 0})
+            year_stats: dict[int, dict] = defaultdict(
+                lambda: {"count": 0, "distance": 0, "duration": 0}
+            )
             for a in activities:
                 y = a.date.year
                 year_stats[y]["count"] += 1
                 year_stats[y]["distance"] += a.distance_meters
                 year_stats[y]["duration"] += a.duration_seconds
-            await self._fm.write_fact("activity_summary", "yearly", dict(year_stats), source=self._adapter.source_name)
+            await _write("activity_summary", "yearly", dict(year_stats))
 
             # 跑步专项
             runs = [a for a in activities if a.activity_type == "running"]
             total_run_km = sum(r.distance_meters for r in runs) / 1000
-            avg_pace = sum(r.pace_min_per_km for r in runs if r.pace_min_per_km) / max(1, len([r for r in runs if r.pace_min_per_km]))
-            avg_hr = sum(r.avg_hr for r in runs if r.avg_hr) / max(1, len([r for r in runs if r.avg_hr]))
-            await self._fm.write_fact("running", "summary", {
+            runs_with_pace = [r for r in runs if r.pace_min_per_km]
+            avg_pace = sum(
+                r.pace_min_per_km for r in runs_with_pace
+            ) / max(1, len(runs_with_pace))
+            runs_with_hr = [r for r in runs if r.avg_hr]
+            avg_hr = sum(r.avg_hr for r in runs_with_hr) / max(1, len(runs_with_hr))
+            await _write("running", "summary", {
                 "total_runs": len(runs),
                 "total_km": round(total_run_km, 0),
                 "avg_pace_min_per_km": round(avg_pace, 1),
                 "avg_hr": round(avg_hr, 0),
-            }, source=self._adapter.source_name)
+            })
 
             result.activity_records += 3
         except Exception as e:
@@ -110,17 +122,19 @@ class IngestionEngine:
         try:
             sleep_records = self._adapter.load_sleep()
             if sleep_records:
-                avg_total = sum(s.total_hours for s in sleep_records) / len(sleep_records)
+                avg_total = (
+                    sum(s.total_hours for s in sleep_records) / len(sleep_records)
+                )
                 avg_deep = sum(s.deep_hours for s in sleep_records) / len(sleep_records)
                 avg_rem = sum(s.rem_hours for s in sleep_records) / len(sleep_records)
-                deep_pct = sum(s.deep_pct for s in sleep_records) / len(sleep_records)
-                await self._fm.write_fact("sleep", "summary", {
+                deep_pct = sum(s.deep_pct for s in sleep_records) / len(sleep_records)  # noqa: E501
+                await _write("sleep", "summary", {
                     "record_days": len(sleep_records),
                     "avg_total_hours": round(avg_total, 1),
                     "avg_deep_hours": round(avg_deep, 1),
                     "avg_rem_hours": round(avg_rem, 1),
                     "deep_pct": round(deep_pct, 0),
-                }, source=self._adapter.source_name)
+                })
                 result.sleep_records += 1
         except Exception as e:
             result.errors.append(f"sleep: {e}")
@@ -142,11 +156,13 @@ class IngestionEngine:
                 metrics_data["hrv_avg"] = round(sum(hrv_values) / len(hrv_values), 1)
                 metrics_data["hrv_max"] = max(hrv_values)
             if rhr_values:
-                metrics_data["resting_hr_avg"] = round(sum(rhr_values) / len(rhr_values), 0)
+                metrics_data["resting_hr_avg"] = round(
+                    sum(rhr_values) / len(rhr_values), 0
+                )
             if fitness_ages:
                 metrics_data["fitness_age_latest"] = fitness_ages[-1]
 
-            await self._fm.write_fact("body_metrics", "summary", metrics_data, source=self._adapter.source_name)
+            await _write("body_metrics", "summary", metrics_data)
             result.body_metric_records += 1
         except Exception as e:
             result.errors.append(f"body_metrics: {e}")
@@ -155,7 +171,7 @@ class IngestionEngine:
         # 5. 训练指标
         try:
             tm = self._adapter.load_training_metrics()
-            await self._fm.write_fact("training", "metrics", {
+            await _write("training", "metrics", {
                 "endurance_score": tm.endurance_score,
                 "endurance_class": tm.endurance_classification,
                 "hill_score": tm.hill_score,
@@ -166,7 +182,7 @@ class IngestionEngine:
                 "readiness_score": tm.training_readiness_score,
                 "readiness_level": tm.training_readiness_level,
                 "race_predictions": tm.race_predictions,
-            }, source=self._adapter.source_name)
+            })
             result.training_records += 1
         except Exception as e:
             result.errors.append(f"training: {e}")
@@ -176,17 +192,21 @@ class IngestionEngine:
         try:
             events = self._adapter.load_health_events()
             if events:
-                await self._fm.write_fact("health_events", "abnormal_hr", {
+                await _write("health_events", "abnormal_hr", {
                     "total_count": len(events),
                     "threshold": events[0].threshold if events else 0,
                     "recent": [{"date": e.date, "value": e.value} for e in events[-5:]],
-                }, source=self._adapter.source_name)
+                })
                 result.health_event_records += 1
         except Exception as e:
             result.errors.append(f"health_events: {e}")
             logger.warning("ingest health_events error: %s", e)
 
-        logger.info("ingestion complete: %s records, %d errors", result.total, len(result.errors))
+        logger.info(
+            "ingestion complete: %s records, %d errors",
+            result.total,
+            len(result.errors),
+        )
         return result
 
     # ── AI 分析 ──────────────────────────────────────────────────────────
@@ -201,23 +221,29 @@ class IngestionEngine:
         # 构建事实摘要
         fact_summary = []
         for f in facts:
-            fact_summary.append(f"- [{f.subject}/{f.predicate}]: {json.dumps(f.object_json, ensure_ascii=False)}")
+            fact_summary.append(
+                f"- [{f.subject}/{f.predicate}]: "
+                f"{json.dumps(f.object_json, ensure_ascii=False)}"
+            )
 
-        system_prompt = """你是一位专业的运动健康 AI 分析师。根据用户的健康数据事实，生成一份专业的中文分析报告。
-
-报告格式要求：
-1. **总体评价**（1-2段）
-2. **运动能力评估**（VO2Max、耐力、配速分析）
-3. **健康风险评估**（心率、HRV、睡眠）
-4. **训练负荷分析**（急性/慢性负荷比）
-5. **赛事能力预测**（基于当前数据）
-6. **个性化建议**（3-5条具体可执行的建议）
-
-注意：
-- 所有分析基于事实数据，不做无依据推测
-- 如果某项数据异常，指出具体问题和建议
-- 语言专业但不晦涩，适合运动爱好者阅读
-- 报告长度控制在 800-1200 字"""
+        system_prompt = (
+            "你是一位专业的运动健康 AI 分析师。"
+            "根据用户的健康数据事实，生成一份专业的中文分析报告。"
+            "\n\n"
+            "报告格式要求：\n"
+            "1. **总体评价**（1-2段）\n"
+            "2. **运动能力评估**（VO2Max、耐力、配速分析）\n"
+            "3. **健康风险评估**（心率、HRV、睡眠）\n"
+            "4. **训练负荷分析**（急性/慢性负荷比）\n"
+            "5. **赛事能力预测**（基于当前数据）\n"
+            "6. **个性化建议**（3-5条具体可执行的建议）\n"
+            "\n"
+            "注意：\n"
+            "- 所有分析基于事实数据，不做无依据推测\n"
+            "- 如果某项数据异常，指出具体问题和建议\n"
+            "- 语言专业但不晦涩，适合运动爱好者阅读\n"
+            "- 报告长度控制在 800-1200 字"
+        )
 
         user_prompt = f"""以下是用户的健康数据事实（来自 Garmin Connect 导出）：
 
