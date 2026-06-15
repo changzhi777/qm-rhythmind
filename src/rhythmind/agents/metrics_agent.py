@@ -220,8 +220,23 @@ class MetricsProcessor:
                 "last_load_level": load_level,
                 "latest_anomalies_count": len(anomalies),
             },
-            requires_human_review=has_critical,
+            advisor_review=has_critical,
         )
+
+        # ── 6. 持久化 memory_updates ─────────────────────────────────────
+        # MetricsProcessor 不继承 HermesBase，因此 compliance.memory_updates
+        # 不会被 HermesBase.run() 自动消费。显式调用 MemoryManager.update()
+        # 写库，失败不阻断主流程（仅记录日志）。
+        if compliance.memory_updates:
+            try:
+                from rhythmind.core.memory import MemoryManager
+
+                mm = MemoryManager(self.user_id, agent="metrics_processor")
+                await mm.update(compliance.memory_updates)
+            except Exception as mem_exc:
+                bound_log.warning(
+                    "metrics.memory_persist_skipped error=%s", mem_exc
+                )
 
         return HermesRunResult(
             compliance=compliance,
