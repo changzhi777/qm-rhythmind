@@ -48,7 +48,9 @@ METRICS_ANALYSIS = {
         "visceral_fat": None,
     },
     "trends": {
-        "heart_rate_avg": {"avg": 140.0, "latest": 145.0, "oldest": 135.0, "delta": 10.0, "points": 7},
+        "heart_rate_avg": {
+            "avg": 140.0, "latest": 145.0, "oldest": 135.0, "delta": 10.0, "points": 7
+        },
     },
     "anomalies": [],
     "load_level": "moderate",
@@ -100,7 +102,7 @@ async def test_data_agent_normal_flow():
     """正常流程：call_llm 返回合法 JSON，AgentResult 应有正确置信度。"""
     agent = DataAgent(user_id=USER_ID)
 
-    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(VALID_REPORT))):
+    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(VALID_REPORT))):  # noqa: E501
         result = await agent.execute(
             ctx=_make_ctx(),
             memory_ctx=_make_memory({}),
@@ -119,13 +121,18 @@ async def test_data_agent_confidence_decreases_with_anomalies():
     analysis_with_anomaly = {
         **METRICS_ANALYSIS,
         "anomalies": [
-            {"field": "heart_rate_max", "value": 210.0, "expected": "[50, 200]", "severity": "critical"}
+            {
+                "field": "heart_rate_max",
+                "value": 210.0,
+                "expected": "[50, 200]",
+                "severity": "critical",
+            }
         ],
         "metrics": {**METRICS_ANALYSIS["metrics"], "heart_rate_max": 210.0},
     }
     agent = DataAgent(user_id=USER_ID)
 
-    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(VALID_REPORT))):
+    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(VALID_REPORT))):  # noqa: E501
         result = await agent.execute(
             ctx=_make_ctx({"metrics_analysis": analysis_with_anomaly}),
             memory_ctx=_make_memory({}),
@@ -142,12 +149,17 @@ async def test_data_agent_warn_anomaly_reduces_confidence():
     analysis_with_warn = {
         **METRICS_ANALYSIS,
         "anomalies": [
-            {"field": "sleep_hours", "value": 3.5, "expected": "[4, 12]", "severity": "warn"}
+            {
+                "field": "sleep_hours",
+                "value": 3.5,
+                "expected": "[4, 12]",
+                "severity": "warn",
+            }
         ],
     }
     agent = DataAgent(user_id=USER_ID)
 
-    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(VALID_REPORT))):
+    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(VALID_REPORT))):  # noqa: E501
         result = await agent.execute(
             ctx=_make_ctx({"metrics_analysis": analysis_with_warn}),
             memory_ctx=_make_memory({}),
@@ -175,7 +187,7 @@ async def test_data_agent_no_metrics_analysis_fallback():
         },
     )
 
-    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(VALID_REPORT))):
+    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(VALID_REPORT))):  # noqa: E501
         result = await agent.execute(
             ctx=raw_ctx,
             memory_ctx=_make_memory({}),
@@ -209,7 +221,7 @@ async def test_data_agent_llm_exception_uses_fallback():
     """call_llm 抛通用异常时，应返回 fallback_report 而非崩溃。"""
     agent = DataAgent(user_id=USER_ID)
 
-    with patch.object(agent, "call_llm", new=AsyncMock(side_effect=RuntimeError("LLM timeout"))):
+    with patch.object(agent, "call_llm", new=AsyncMock(side_effect=RuntimeError("LLM timeout"))):  # noqa: E501
         result = await agent.execute(
             ctx=_make_ctx(),
             memory_ctx=_make_memory({}),
@@ -224,7 +236,7 @@ async def test_data_agent_invalid_json_uses_fallback():
     """call_llm 返回无法解析的 JSON 时，使用 fallback。"""
     agent = DataAgent(user_id=USER_ID)
 
-    with patch.object(agent, "call_llm", new=AsyncMock(return_value="not valid json {{{")):
+    with patch.object(agent, "call_llm", new=AsyncMock(return_value="not valid json {{{")):  # noqa: E501
         result = await agent.execute(
             ctx=_make_ctx(),
             memory_ctx=_make_memory({}),
@@ -240,7 +252,7 @@ async def test_data_agent_memory_updates_populated():
     """memory_updates 应包含 metrics_baseline 和 last_report_date。"""
     agent = DataAgent(user_id=USER_ID)
 
-    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(VALID_REPORT))):
+    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(VALID_REPORT))):  # noqa: E501
         result = await agent.execute(
             ctx=_make_ctx(),
             memory_ctx=_make_memory({}),
@@ -258,7 +270,7 @@ async def test_data_agent_skill_candidates_include_sport_type():
     """skill_candidates 应含运动类型标识。"""
     agent = DataAgent(user_id=USER_ID)
 
-    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(VALID_REPORT))):
+    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(VALID_REPORT))):  # noqa: E501
         result = await agent.execute(
             ctx=_make_ctx({"sport_type": "cycling"}),
             memory_ctx=_make_memory({}),
@@ -288,7 +300,14 @@ def test_build_prompt_with_anomalies():
     prompt = DataAgent._build_prompt(
         metrics={"heart_rate_max": 210.0},
         trends={},
-        anomalies=[{"field": "heart_rate_max", "value": 210.0, "expected": "[50, 200]", "severity": "critical"}],
+        anomalies=[
+            {
+                "field": "heart_rate_max",
+                "value": 210.0,
+                "expected": "[50, 200]",
+                "severity": "critical",
+            }
+        ],
         load_level="high",
         baseline={},
         sport_type="running",
