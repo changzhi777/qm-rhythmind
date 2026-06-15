@@ -9,7 +9,7 @@ tests/unit/test_metrics_agent.py — MetricsProcessor 单元测试
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Never
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -47,7 +47,9 @@ def normal_input() -> dict[str, Any]:
 
 
 @pytest.fixture
-def agent_ctx(normal_input, user_id, session_id) -> AgentContext:
+def agent_ctx(
+    normal_input: Any, user_id: Any, session_id: Any
+) -> AgentContext:
     return AgentContext(
         user_id=user_id,
         session_id=session_id,
@@ -62,8 +64,8 @@ class TestMetricsProcessorHappyPath:
 
     @pytest.mark.asyncio
     async def test_run_returns_metrics_analysis(
-        self, mock_influx, agent_ctx, user_id, session_id
-    ):
+        self: Any, mock_influx: Any, agent_ctx: Any, user_id: Any, session_id: Any
+    ) -> None:
         """正常流程：写入成功 + 返回 MetricsAnalysis 结构"""
         agent = MetricsProcessor(user_id=user_id, influx=mock_influx)
         result: HermesRunResult = await agent.run(agent_ctx)
@@ -82,8 +84,8 @@ class TestMetricsProcessorHappyPath:
 
     @pytest.mark.asyncio
     async def test_write_metrics_called_with_correct_point(
-        self, mock_influx, agent_ctx, user_id
-    ):
+        self: Any, mock_influx: Any, agent_ctx: Any, user_id: Any
+    ) -> None:
         """InfluxClient.write_metrics 应以正确字段被调用。"""
         agent = MetricsProcessor(user_id=user_id, influx=mock_influx)
         result = await agent.run(agent_ctx)
@@ -98,8 +100,8 @@ class TestMetricsProcessorHappyPath:
 
     @pytest.mark.asyncio
     async def test_trends_populated_from_influx(
-        self, mock_influx, agent_ctx, user_id
-    ):
+        self: Any, mock_influx: Any, agent_ctx: Any, user_id: Any
+    ) -> None:
         """InfluxDB 返回趋势数据时，output["trends"] 应有内容。"""
         ts = datetime(2024, 1, 1, tzinfo=UTC)
         mock_influx.query_range.return_value = {
@@ -120,8 +122,8 @@ class TestMetricsProcessorHappyPath:
 
     @pytest.mark.asyncio
     async def test_confidence_is_1_for_pure_rules(
-        self, mock_influx, agent_ctx, user_id
-    ):
+        self: Any, mock_influx: Any, agent_ctx: Any, user_id: Any
+    ) -> None:
         """MetricsProcessor 纯规则，置信度应恒为 1.0。"""
         agent = MetricsProcessor(user_id=user_id, influx=mock_influx)
         result = await agent.run(agent_ctx)
@@ -130,8 +132,8 @@ class TestMetricsProcessorHappyPath:
 
     @pytest.mark.asyncio
     async def test_latency_ms_recorded(
-        self, mock_influx, agent_ctx, user_id
-    ):
+        self: Any, mock_influx: Any, agent_ctx: Any, user_id: Any
+    ) -> None:
         """结果应包含有效的延迟时间。"""
         agent = MetricsProcessor(user_id=user_id, influx=mock_influx)
         result = await agent.run(agent_ctx)
@@ -146,8 +148,8 @@ class TestInfluxUnavailableDegradation:
 
     @pytest.mark.asyncio
     async def test_influx_write_unavailable_continues(
-        self, mock_influx, agent_ctx, user_id
-    ):
+        self: Any, mock_influx: Any, agent_ctx: Any, user_id: Any
+    ) -> None:
         """InfluxUnavailableError 写入失败 → 不中断链路，output 仍返回。"""
         mock_influx.write_metrics = AsyncMock(side_effect=InfluxUnavailableError("down"))
         mock_influx.query_range = AsyncMock(side_effect=InfluxUnavailableError("down"))
@@ -162,8 +164,8 @@ class TestInfluxUnavailableDegradation:
 
     @pytest.mark.asyncio
     async def test_influx_write_ok_but_query_unavailable(
-        self, mock_influx, agent_ctx, user_id
-    ):
+        self: Any, mock_influx: Any, agent_ctx: Any, user_id: Any
+    ) -> None:
         """写入成功但查询不可用 → write_ok=True，trends 为空。"""
         mock_influx.write_metrics = AsyncMock(return_value=True)
         mock_influx.query_range = AsyncMock(side_effect=InfluxUnavailableError("query down"))
@@ -181,8 +183,8 @@ class TestAnomalyDetection:
 
     @pytest.mark.asyncio
     async def test_no_anomaly_for_normal_data(
-        self, mock_influx, user_id, session_id
-    ):
+        self: Any, mock_influx: Any, user_id: Any, session_id: Any
+    ) -> None:
         normal_data = {
             "heart_rate_avg": 72, "sleep_hours": 7.5, "hrv": 55,
             "sport_type": "running", "source": "garmin",
@@ -197,8 +199,8 @@ class TestAnomalyDetection:
 
     @pytest.mark.asyncio
     async def test_warn_anomaly_for_borderline_heart_rate(
-        self, mock_influx, user_id, session_id
-    ):
+        self: Any, mock_influx: Any, user_id: Any, session_id: Any
+    ) -> None:
         """心率略超 WARN 阈值（>120 但 ≤150）→ warn 级异常，不触发人工复核。"""
         data = {"heart_rate_avg": 130, "sport_type": "cycling", "source": "manual"}
         ctx = AgentContext(user_id=user_id, session_id=session_id,
@@ -214,8 +216,8 @@ class TestAnomalyDetection:
 
     @pytest.mark.asyncio
     async def test_critical_anomaly_triggers_human_review(
-        self, mock_influx, user_id, session_id
-    ):
+        self: Any, mock_influx: Any, user_id: Any, session_id: Any
+    ) -> None:
         """心率超 critical 阈值（>150）→ critical 级，requires_human_review=True。"""
         data = {"heart_rate_avg": 160, "sport_type": "running", "source": "apple"}
         ctx = AgentContext(user_id=user_id, session_id=session_id,
@@ -230,8 +232,8 @@ class TestAnomalyDetection:
 
     @pytest.mark.asyncio
     async def test_multiple_anomalies_detected(
-        self, mock_influx, user_id, session_id
-    ):
+        self: Any, mock_influx: Any, user_id: Any, session_id: Any
+    ) -> None:
         """多字段异常都应被检出。"""
         data = {
             "heart_rate_avg": 130,   # warn
@@ -256,8 +258,8 @@ class TestLoadClassification:
 
     @pytest.mark.asyncio
     async def test_very_low_load(
-        self, mock_influx, user_id, session_id
-    ):
+        self: Any, mock_influx: Any, user_id: Any, session_id: Any
+    ) -> None:
         """distance_km=2 → very_low"""
         data = {"distance_km": 2.0, "sport_type": "walking", "source": "huawei"}
         ctx = AgentContext(user_id=user_id, session_id=session_id,
@@ -268,8 +270,8 @@ class TestLoadClassification:
 
     @pytest.mark.asyncio
     async def test_high_load_from_trend_avg(
-        self, mock_influx, user_id, session_id
-    ):
+        self: Any, mock_influx: Any, user_id: Any, session_id: Any
+    ) -> None:
         """7 日 distance_km 均值 = 10km/day × 7 = 70km → high"""
         ts = datetime(2024, 1, 1, tzinfo=UTC)
         mock_influx.query_range.return_value = {
@@ -290,8 +292,8 @@ class TestLoadClassification:
 
     @pytest.mark.asyncio
     async def test_zero_distance_is_very_low(
-        self, mock_influx, user_id, session_id
-    ):
+        self: Any, mock_influx: Any, user_id: Any, session_id: Any
+    ) -> None:
         """距离为 0 或无 → very_low"""
         data = {"sport_type": "yoga", "source": "manual"}
         ctx = AgentContext(user_id=user_id, session_id=session_id,
@@ -305,24 +307,24 @@ class TestLoadClassification:
 
 class TestStaticMethods:
 
-    def test_parse_metrics_filters_none(self):
+    def test_parse_metrics_filters_none(self: Any) -> None:
         raw = {"heart_rate_avg": 75, "steps": None, "unknown_field": "ignored"}
         m = MetricsProcessor._parse_metrics(raw)
         assert m["heart_rate_avg"] == 75.0
         assert m["steps"] is None
         assert "unknown_field" not in m
 
-    def test_parse_metrics_coerces_to_float(self):
+    def test_parse_metrics_coerces_to_float(self: Any) -> None:
         raw = {"heart_rate_avg": "72", "distance_km": "5.5"}
         m = MetricsProcessor._parse_metrics(raw)
         assert isinstance(m["heart_rate_avg"], float)
         assert m["distance_km"] == 5.5
 
-    def test_detect_anomalies_empty_metrics(self):
+    def test_detect_anomalies_empty_metrics(self: Any) -> None:
         result = MetricsProcessor._detect_anomalies({k: None for k in _ANOMALY_RULES})
         assert result == []
 
-    def test_classify_load_boundaries(self):
+    def test_classify_load_boundaries(self: Any) -> None:
         assert MetricsProcessor._classify_load(0) == "very_low"
         assert MetricsProcessor._classify_load(4.9) == "very_low"
         assert MetricsProcessor._classify_load(5.0) == "low"
@@ -348,8 +350,8 @@ class TestMetricsProcessorMemoryPersistence:
 
     @pytest.mark.asyncio
     async def test_memory_updates_persisted_to_agent_memory_table(
-        self, mock_influx, agent_ctx,
-    ):
+        self: Any, mock_influx: Any, agent_ctx: Any,
+    ) -> None:
         """调用 run() 后，AgentMemory 表中应存在 last_metrics_ts/last_load_level/latest_anomalies_count 三行。"""
         from sqlalchemy import select
 
@@ -376,8 +378,8 @@ class TestMetricsProcessorMemoryPersistence:
 
     @pytest.mark.asyncio
     async def test_memory_persist_failure_does_not_break_run(
-        self, mock_influx, agent_ctx, monkeypatch
-    ):
+        self: Any, mock_influx: Any, agent_ctx: Any, monkeypatch: Any
+    ) -> None:
         """MemoryManager.update() 抛异常时，run() 不应崩溃（降级为 warning 日志）。"""
         processor = MetricsProcessor(user_id="test_user_001", influx=mock_influx)
 
@@ -385,8 +387,8 @@ class TestMetricsProcessorMemoryPersistence:
         from rhythmind.core import memory as mem_mod
 
         class _Boom:
-            def __init__(self, *a, **kw): pass
-            async def update(self, updates):
+            def __init__(self: Any, *a, **kw) -> None: pass
+            async def update(self: Any, updates: Any) -> Never:
                 raise RuntimeError("simulated db error")
 
         monkeypatch.setattr(mem_mod, "MemoryManager", _Boom, raising=True)
@@ -398,8 +400,8 @@ class TestMetricsProcessorMemoryPersistence:
 
     @pytest.mark.asyncio
     async def test_empty_memory_updates_skips_persistence(
-        self, mock_influx, agent_ctx, monkeypatch
-    ):
+        self: Any, mock_influx: Any, agent_ctx: Any, monkeypatch: Any
+    ) -> None:
         """compliance.memory_updates 为空时，不调用 MemoryManager（避免无意义 DB 写入）。"""
         processor = MetricsProcessor(user_id="test_user_001", influx=mock_influx)
 
@@ -408,8 +410,8 @@ class TestMetricsProcessorMemoryPersistence:
         call_count = 0
 
         class _Counting:
-            def __init__(self, *a, **kw): pass
-            async def update(self, updates):
+            def __init__(self: Any, *a, **kw) -> None: pass
+            async def update(self: Any, updates: Any) -> None:
                 nonlocal call_count
                 call_count += 1
 
@@ -419,7 +421,7 @@ class TestMetricsProcessorMemoryPersistence:
 
         original_run = processor.run
 
-        async def run_with_empty_memory(ctx):
+        async def run_with_empty_memory(ctx: Any):
             # 临时禁用：我们通过把 compliance 的 memory_updates 模拟为空
             # 简单做法：直接调 _build_compliance 路径前拦截。 这里通过 monkeypatch
             # ComplianceResult.__post_init__ 不行 → 改用直接构造验证路径：

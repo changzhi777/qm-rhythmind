@@ -82,6 +82,8 @@ ignore = ["ANN101", "ANN102"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/unit/test_thoth_client.py" = ["ANN201", "ANN001", "ANN202"]  # pytest 风格豁免
+# pytest 测试文件豁免：fixtures 参数与 return Any 注解在测试中是合理简化
+"tests/**/*.py" = ["ANN001", "ANN002", "ANN003", "ANN201", "ANN202", "ANN204", "ANN401"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["rhythmind"]
