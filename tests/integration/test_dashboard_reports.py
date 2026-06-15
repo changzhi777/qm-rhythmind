@@ -28,44 +28,9 @@ os.environ.setdefault("COMPLIANCE_AUDIT_ENABLED", "false")
 
 
 import pytest
-from httpx import ASGITransport, AsyncClient
 
-
-@pytest.fixture
-def auth_headers() -> dict[str, str]:
-    return {"Authorization": "Bearer test_user_001"}
-
-
-@pytest.fixture
-async def app_client(patched_redis):
-    """返回一个绑定到 FastAPI app 的 AsyncClient。"""
-    from rhythmind.api.main import app
-
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
-        yield client
-
-
-@pytest.fixture
-async def patched_redis(monkeypatch):
-    """把 rate_limit + LoopGuard 的 redis.from_url 换成 fakeredis。"""
-    import fakeredis.aioredis as fake_aioredis
-
-    fake = fake_aioredis.FakeRedis(decode_responses=True)
-
-    def _from_url(*args, **kwargs):
-        return fake
-
-    import redis.asyncio as aioredis
-    monkeypatch.setattr(aioredis, "from_url", _from_url, raising=True)
-
-    import rhythmind.api.rate_limit as rl
-    rl._redis_client = None  # type: ignore[attr-defined]
-
-    yield fake
-
-    await fake.flushdb()
-    await fake.aclose()
+# Fixtures: auth_headers / app_client / patched_redis 由 conftest.py 提供
+# （tests/integration/conftest.py line 37-67）
 
 
 @pytest.fixture

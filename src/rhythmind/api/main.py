@@ -40,6 +40,8 @@ from rhythmind.api.routers.health import router as health_router
 from rhythmind.api.routers.llm_observe import router as llm_observe_router
 from rhythmind.api.routers.medical import router as medical_router
 from rhythmind.api.routers.privacy import router as privacy_router
+from rhythmind.api.routers.reports import router as reports_router
+from rhythmind.api.routers.users_summary import router as users_summary_router
 from rhythmind.config import settings
 from rhythmind.core.memory import init_db
 from rhythmind.mcp.router import router as mcp_router
@@ -253,7 +255,9 @@ app.include_router(llm_observe_router, prefix="/api/v1")  # /llm-observe/metrics
 app.include_router(feishu_router, prefix="/api/v1")      # /feishu/webhook, /poll, /status
 app.include_router(privacy_router, prefix="/api/v1")  # /privacy/export, /delete, /policy
 app.include_router(admin_router, prefix="/api/v1")    # /admin/skills/* (R-4)
-app.include_router(dashboard_router)    # /api/dashboard, /api/reports, /api/analyze
+app.include_router(dashboard_router)    # /api/dashboard, /api/influxdb/timeseries, /api/analyze, /api/import-facts, /api/upload/file, /api/chat
+app.include_router(reports_router)     # /api/reports, /api/reports/{id}, /api/reports/{id}/download, /api/test-reports/*
+app.include_router(users_summary_router)  # /api/users/summary
 app.include_router(mcp_router)  # /mcp/sse  +  /mcp/messages/
 
 
