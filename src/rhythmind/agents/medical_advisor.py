@@ -90,12 +90,12 @@ class MedicalAdvisor(HermesBase):
             task = "analyze"
 
         patient: dict[str, Any] = ctx.input_data.get("patient", {})
-        diagnoses: list[dict] = ctx.input_data.get("diagnoses", [])
-        events: list[dict] = ctx.input_data.get("events", [])
-        lab_results: list[dict] = ctx.input_data.get("lab_results", [])
-        medications: list[dict] = ctx.input_data.get("medications", [])
+        diagnoses: list[dict[str, Any]] = ctx.input_data.get("diagnoses", [])
+        events: list[dict[str, Any]] = ctx.input_data.get("events", [])
+        lab_results: list[dict[str, Any]] = ctx.input_data.get("lab_results", [])
+        medications: list[dict[str, Any]] = ctx.input_data.get("medications", [])
 
-        prior_summary: dict = memory_ctx.get("last_medical_summary", {}) or {}
+        prior_summary: dict[str, Any] = memory_ctx.get("last_medical_summary", {}) or {}
 
         prompt_builder = getattr(self, f"_{TASK_HANDLERS[task]}")
         prompt = prompt_builder(
@@ -167,12 +167,12 @@ class MedicalAdvisor(HermesBase):
 
     @staticmethod
     def _build_analyze_prompt(
-        patient: dict,
-        diagnoses: list[dict],
-        events: list[dict],
-        lab_results: list[dict],
-        medications: list[dict],
-        prior_summary: dict,
+        patient: dict[str, Any],
+        diagnoses: list[dict[str, Any]],
+        events: list[dict[str, Any]],
+        lab_results: list[dict[str, Any]],
+        medications: list[dict[str, Any]],
+        prior_summary: dict[str, Any],
     ) -> str:
         diag_lines = "\n".join(
             f"  - {d.get('diagnosis_name', '?')} ({d.get('diagnosis_date', '?')})"
@@ -230,12 +230,12 @@ class MedicalAdvisor(HermesBase):
 
     @staticmethod
     def _build_timeline_prompt(
-        patient: dict,
-        diagnoses: list[dict],
-        events: list[dict],
-        lab_results: list[dict],
-        medications: list[dict],
-        prior_summary: dict,
+        patient: dict[str, Any],
+        diagnoses: list[dict[str, Any]],
+        events: list[dict[str, Any]],
+        lab_results: list[dict[str, Any]],
+        medications: list[dict[str, Any]],
+        prior_summary: dict[str, Any],
     ) -> str:
         event_lines = "\n".join(
             f"  - [{e.get('event_date', '?')}] {e.get('event_type', '?')} "
@@ -265,12 +265,12 @@ class MedicalAdvisor(HermesBase):
 
     @staticmethod
     def _build_medications_prompt(
-        patient: dict,
-        diagnoses: list[dict],
-        events: list[dict],
-        lab_results: list[dict],
-        medications: list[dict],
-        prior_summary: dict,
+        patient: dict[str, Any],
+        diagnoses: list[dict[str, Any]],
+        events: list[dict[str, Any]],
+        lab_results: list[dict[str, Any]],
+        medications: list[dict[str, Any]],
+        prior_summary: dict[str, Any],
     ) -> str:
         active_meds = [m for m in medications if m.get("status") == "active"]
         past_meds = [m for m in medications if m.get("status") != "active"]
@@ -321,14 +321,14 @@ class MedicalAdvisor(HermesBase):
 
     @staticmethod
     def _build_labs_prompt(
-        patient: dict,
-        diagnoses: list[dict],
-        events: list[dict],
-        lab_results: list[dict],
-        medications: list[dict],
-        prior_summary: dict,
+        patient: dict[str, Any],
+        diagnoses: list[dict[str, Any]],
+        events: list[dict[str, Any]],
+        lab_results: list[dict[str, Any]],
+        medications: list[dict[str, Any]],
+        prior_summary: dict[str, Any],
     ) -> str:
-        grouped: dict[str, list] = {}
+        grouped: dict[str, list[Any]] = {}
         for lr in lab_results:
             name = lr.get("test_name", "未知")
             grouped.setdefault(name, []).append(lr)
@@ -381,8 +381,8 @@ class MedicalAdvisor(HermesBase):
     @staticmethod
     def _fallback_result(
         task: str,
-        diagnoses: list[dict],
-        medications: list[dict],
+        diagnoses: list[dict[str, Any]],
+        medications: list[dict[str, Any]],
     ) -> dict[str, Any]:
         active_diag = sum(1 for d in diagnoses if d.get("is_active", True))
         active_med = sum(
