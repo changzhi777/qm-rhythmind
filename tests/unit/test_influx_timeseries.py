@@ -13,8 +13,7 @@ tests/unit/test_influx_timeseries.py — /qm/api/influxdb/timeseries 端点测�
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -22,7 +21,6 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from rhythmind.adapters.influx_client import TrendSeries
-
 
 # ── Fixtures ───────────────────────────────────────────────────────────────
 
@@ -106,7 +104,7 @@ class TestHappyPath:
     @patch("rhythmind.adapters.influx_client.InfluxClient")
     def test_returns_series_with_latest_avg(self, mock_influx_cls, client):
         """正常查询返回 data + count + latest + avg。"""
-        now = datetime(2026, 6, 10, 0, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 6, 10, 0, 0, 0, tzinfo=UTC)
         mock_series = TrendSeries(
             field="heart_rate_avg",
             values=[

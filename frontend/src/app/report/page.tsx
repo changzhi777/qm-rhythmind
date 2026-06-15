@@ -84,21 +84,13 @@ export default function ReportPage() {
                     <button
                       key={report.id}
                       onClick={() => fetchReport(report.id)}
-                      className="cursor-pointer rounded-md p-3 text-left"
-                      style={{
-                        background: isSelected ? 'var(--surface-elevated)' : 'var(--surface)',
-                        border: `1px solid ${isSelected ? 'var(--primary)' : 'var(--border)'}`,
-                      }}
+                      className={`cursor-pointer rounded-md p-3 text-left border ${isSelected ? 'bg-[var(--surface-elevated)] border-[var(--primary)]' : 'bg-[var(--surface)] border-[var(--border)]'}`}
                     >
                       <div className="mb-1 flex items-center justify-between">
                         <span className="text-[11px] text-[var(--text-muted)]">{formatTime(report.timestamp)}</span>
                         {report.is_current && (
                           <span
-                            className="rounded text-[10px] text-white"
-                            style={{
-                              padding: '2px 6px',
-                              background: 'var(--primary)',
-                            }}
+                            className="rounded px-1.5 py-0.5 text-[10px] text-white bg-[var(--primary)]"
                           >
                             最新
                           </span>
@@ -128,8 +120,7 @@ export default function ReportPage() {
                   <button
                     onClick={() => downloadReport(currentReport.id)}
                     disabled={downloading}
-                    className="btn-primary flex items-center gap-1.5"
-                    style={{ opacity: downloading ? 0.6 : 1 }}
+                    className="btn-primary flex items-center gap-1.5 disabled:opacity-60"
                   >
                     {downloading ? '⏳ 下载中...' : '📥 下载'}
                   </button>

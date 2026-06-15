@@ -357,6 +357,7 @@ class TestOMLXAdapter:
         让 agent 层能通过显式 except 走 fallback_report 路径。
         """
         import asyncio
+
         from rhythmind.adapters import omlX_adapter as omlx_mod
         from rhythmind.adapters.omlX_adapter import OMLXAdapter, OMLXTimeoutError
         omlx_mod._CLIENT_CACHE.clear()
@@ -383,6 +384,7 @@ class TestOMLXAdapter:
         方便运维定位"哪个模型、配的超时是多少"。
         """
         import asyncio
+
         from rhythmind.adapters import omlX_adapter as omlx_mod
         from rhythmind.adapters.omlX_adapter import OMLXAdapter, OMLXTimeoutError
         omlx_mod._CLIENT_CACHE.clear()
@@ -414,6 +416,7 @@ class TestOMLXAdapter:
         保留调试堆栈（__cause__）。
         """
         import asyncio
+
         from rhythmind.adapters import omlX_adapter as omlx_mod
         from rhythmind.adapters.omlX_adapter import OMLXAdapter, OMLXTimeoutError
         omlx_mod._CLIENT_CACHE.clear()

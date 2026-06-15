@@ -57,7 +57,7 @@ class KnowledgeArticle(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now(),
     )
 
-    references: Mapped[list["KnowledgeReference"]] = relationship(
+    references: Mapped[list[KnowledgeReference]] = relationship(
         back_populates="article", cascade="all, delete-orphan",
     )
 
@@ -93,7 +93,7 @@ class KnowledgeReference(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now(),
     )
 
-    article: Mapped["KnowledgeArticle"] = relationship(back_populates="references")
+    article: Mapped[KnowledgeArticle] = relationship(back_populates="references")
 
     __table_args__ = (
         Index("ix_kr_article_id", "article_id"),

@@ -147,12 +147,7 @@ export default function ChatPage() {
                   <button
                     key={q}
                     onClick={() => { setInput(q); }}
-                    className="cursor-pointer rounded-full border border-[var(--border)] text-xs"
-                    style={{
-                      padding: '8px 14px',
-                      background: 'var(--surface)',
-                      color: 'var(--text-secondary)',
-                    }}
+                    className="cursor-pointer rounded-full border border-[var(--border)] text-xs px-3.5 py-2 bg-[var(--surface)] text-[var(--text-secondary)]"
                   >
                     {q}
                   </button>
@@ -169,26 +164,15 @@ export default function ChatPage() {
                 className={`mb-3 flex ${isUser ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className="max-w-[70%] rounded-xl p-2.5"
-                  style={{
-                    padding: '10px 14px',
-                    background: isUser ? 'var(--primary)' : 'var(--surface)',
-                    border: isUser ? 'none' : '1px solid var(--border)',
-                  }}
+                  className={`max-w-[70%] rounded-xl px-3.5 py-2.5 ${isUser ? 'bg-[var(--primary)]' : 'bg-[var(--surface)] border border-[var(--border)]'}`}
                 >
                   <div
-                    className="whitespace-pre-wrap text-[13px] leading-relaxed break-words"
-                    style={{
-                      color: isUser ? 'white' : 'var(--text-secondary)',
-                    }}
+                    className={`whitespace-pre-wrap text-[13px] leading-relaxed break-words ${isUser ? 'text-white' : 'text-[var(--text-secondary)]'}`}
                   >
                     {msg.content}
                   </div>
                   <div
-                    className="mt-1 text-right text-[10px]"
-                    style={{
-                      color: isUser ? 'rgba(255,255,255,0.6)' : 'var(--text-muted)',
-                    }}
+                    className={`mt-1 text-right text-[10px] ${isUser ? 'text-white/60' : 'text-[var(--text-muted)]'}`}
                   >
                     {formatTime(msg.timestamp)}
                   </div>
@@ -200,13 +184,7 @@ export default function ChatPage() {
           {loading && (
             <div className="mb-3 flex">
               <div
-                className="rounded-xl text-[13px]"
-                style={{
-                  padding: '10px 14px',
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--text-muted)',
-                }}
+                className="rounded-xl px-3.5 py-2.5 text-[13px] bg-[var(--surface)] border border-[var(--border)] text-[var(--text-muted)]"
               >
                 思考中...
               </div>
@@ -221,19 +199,13 @@ export default function ChatPage() {
             {files.map((f, i) => (
               <div
                 key={i}
-                className="flex items-center gap-1.5 rounded-md border border-[var(--border)] text-xs"
-                style={{
-                  padding: '4px 10px',
-                  background: 'var(--surface)',
-                  color: 'var(--text-secondary)',
-                }}
+                className="flex items-center gap-1.5 rounded-md border border-[var(--border)] text-xs px-2.5 py-1 bg-[var(--surface)] text-[var(--text-secondary)]"
               >
                 <span>{getFileIcon(f.name)}</span>
                 <span className="max-w-[120px] truncate">{f.name}</span>
                 <button
                   onClick={() => removeFile(i)}
-                  className="cursor-pointer border-none px-0.5"
-                  style={{ background: 'none', color: 'var(--text-muted)' }}
+                  className="cursor-pointer border-none px-0.5 bg-transparent text-[var(--text-muted)]"
                 >
                   ×
                 </button>
@@ -247,12 +219,7 @@ export default function ChatPage() {
           <div className="flex items-end gap-2">
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="shrink-0 cursor-pointer rounded-lg border border-[var(--border)] text-base"
-              style={{
-                padding: '10px',
-                background: 'var(--surface)',
-                color: 'var(--text-secondary)',
-              }}
+              className="shrink-0 cursor-pointer rounded-lg border border-[var(--border)] text-base p-2.5 bg-[var(--surface)] text-[var(--text-secondary)]"
             >
               ＋
             </button>
@@ -270,22 +237,12 @@ export default function ChatPage() {
               onKeyDown={handleKeyDown}
               placeholder="输入消息或上传文件..."
               rows={1}
-              className="min-h-10 max-h-[120px] flex-1 resize-none rounded-lg border border-[var(--border)] text-sm leading-relaxed text-white outline-none"
-              style={{
-                padding: '10px 14px',
-                background: 'var(--surface)',
-              }}
+              className="min-h-10 max-h-[120px] flex-1 resize-none rounded-lg border border-[var(--border)] text-sm leading-relaxed text-white outline-none px-3.5 py-2.5 bg-[var(--surface)]"
             />
             <button
               onClick={sendMessage}
               disabled={loading || (!input.trim() && files.length === 0)}
-              className="shrink-0 cursor-pointer rounded-lg border-none text-sm font-medium text-white"
-              style={{
-                padding: '10px 16px',
-                background: 'var(--primary)',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.5 : 1,
-              }}
+              className="shrink-0 cursor-pointer rounded-lg border-none text-sm font-medium text-white px-4 py-2.5 bg-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               发送
             </button>

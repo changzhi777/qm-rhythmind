@@ -9,8 +9,8 @@ import pytest
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 
-from rhythmind.api.deps import get_current_user_id, get_router, get_pool
 import rhythmind.api.deps as deps
+from rhythmind.api.deps import get_current_user_id, get_pool, get_router
 
 TEST_JWT_SECRET = "test-secret-32-chars-minimum-length!"
 
@@ -78,6 +78,7 @@ class TestJWTValidation:
     @pytest.mark.asyncio
     async def test_valid_jwt_returns_user_id(self, monkeypatch):
         from jose import jwt as jose_jwt
+
         from rhythmind.config import settings
         monkeypatch.setattr(settings, "jwt_secret", TEST_JWT_SECRET)
         monkeypatch.setattr(settings, "jwt_algorithm", "HS256")
@@ -106,6 +107,7 @@ class TestJWTValidation:
     @pytest.mark.asyncio
     async def test_jwt_missing_sub_raises_401(self, monkeypatch):
         from jose import jwt as jose_jwt
+
         from rhythmind.config import settings
         monkeypatch.setattr(settings, "jwt_secret", TEST_JWT_SECRET)
         monkeypatch.setattr(settings, "jwt_algorithm", "HS256")

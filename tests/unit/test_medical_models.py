@@ -6,7 +6,7 @@ MedLabResult, MedMedication。使用 SQLite in-memory（conftest reset_db）。
 """
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import pytest
 from sqlalchemy import select
@@ -22,7 +22,7 @@ from rhythmind.db.medical_models import (
 
 
 def _dt(*args) -> datetime:
-    return datetime(*args, tzinfo=timezone.utc)
+    return datetime(*args, tzinfo=UTC)
 
 
 # ── MedPatientProfile ────────────────────────────────────────────────────

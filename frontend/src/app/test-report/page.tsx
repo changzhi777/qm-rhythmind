@@ -104,11 +104,7 @@ export default function TestReportPage() {
                           {report.timestamp.replace('T', ' ').substring(0, 19)}
                         </h3>
                         <span
-                          className="rounded text-[10px] font-medium text-white"
-                          style={{
-                            padding: '2px 8px',
-                            background: isAllPass ? 'var(--success)' : 'var(--warning)',
-                          }}
+                          className={`rounded px-2 py-0.5 text-[10px] font-medium text-white ${isAllPass ? 'bg-[var(--success)]' : 'bg-[var(--warning)]'}`}
                         >
                           {report.pass_rate.toFixed(1)}%
                         </span>
@@ -124,11 +120,7 @@ export default function TestReportPage() {
                       <button
                         key={file.name}
                         onClick={() => downloadFile(file.url, file.name)}
-                        className="card flex w-full cursor-pointer items-center gap-2 border-none"
-                        style={{
-                          padding: '10px 12px',
-                          background: 'var(--surface-elevated)',
-                        }}
+                        className="card flex w-full cursor-pointer items-center gap-2 border-none px-3 py-2.5 bg-[var(--surface-elevated)]"
                       >
                         <FileIcon type={file.type} />
                         <div className="flex-1 text-left">

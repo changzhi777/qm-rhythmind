@@ -50,9 +50,9 @@ export function Header({ title, activePath, maxWidth = '1200px', showDate, showB
   const isHome = activePath === '/dashboard';
 
   return (
-    <header style={{ borderBottom: '1px solid var(--border)', padding: '16px 24px' }}>
-      <div style={{ maxWidth, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+    <header className="border-b border-[var(--border)] px-6 py-4">
+      <div className="flex items-center justify-between mx-auto" style={{ maxWidth }}>
+        <div className="flex items-center gap-3">
           {showBack && !isHome && (
             <button
               onClick={() => router.back()}
@@ -61,45 +61,36 @@ export function Header({ title, activePath, maxWidth = '1200px', showDate, showB
               ‹ 返回
             </button>
           )}
-          <div style={{
-            width: '36px', height: '36px', borderRadius: '8px',
-            background: 'var(--primary)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <span style={{ color: 'white', fontWeight: '700', fontSize: '16px' }}>R</span>
+          <div className="w-9 h-9 rounded-lg bg-[var(--primary)] flex items-center justify-center">
+            <span className="text-white font-bold text-base">R</span>
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-              <Link href="/dashboard" style={{ fontSize: '18px', fontWeight: '600', color: 'white', textDecoration: 'none' }}>
+            <div className="flex items-baseline gap-2">
+              <Link href="/dashboard" className="text-lg font-semibold text-white no-underline">
                 RHYTHMIND
               </Link>
-              <span style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: '500' }}>律动</span>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '400' }}>v0.2.0</span>
+              <span className="text-xs text-[var(--primary)] font-medium">律动</span>
+              <span className="text-[11px] text-[var(--text-muted)] font-normal">v0.2.0</span>
             </div>
-            <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+            <p className="text-xs text-[var(--text-secondary)]">
               {NAV_ITEMS.map((item, i) => (
                 <span key={item.href}>
                   {i > 0 && ' · '}
                   <Link
                     href={item.href}
-                    style={{
-                      fontSize: '12px',
-                      color: activePath === item.href ? 'var(--primary)' : 'var(--text-secondary)',
-                      fontWeight: activePath === item.href ? '500' : '400',
-                      textDecoration: 'none',
-                    }}
+                    className={`text-xs no-underline ${activePath === item.href ? 'text-[var(--primary)] font-medium' : 'text-[var(--text-secondary)] font-normal'}`}
                   >
                     {item.label}
                   </Link>
                 </span>
               ))}
-              <span style={{ marginLeft: '8px', color: 'var(--text-muted)' }}>— {title}</span>
+              <span className="ml-2 text-[var(--text-muted)]">— {title}</span>
             </p>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div className="flex items-center gap-3">
           {showDate && mounted && (
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+            <span className="text-xs text-[var(--text-muted)]">
               {new Date().toLocaleDateString('zh-CN')}
             </span>
           )}
@@ -115,8 +106,7 @@ export function Header({ title, activePath, maxWidth = '1200px', showDate, showB
                     localStorage.removeItem('user_display');
                   }
                 }}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[var(--surface)] hover:bg-[var(--surface-elevated)] transition-colors"
-                style={{ textDecoration: 'none' }}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[var(--surface)] hover:bg-[var(--surface-elevated)] transition-colors no-underline"
               >
                 <div className="header-user-avatar">
                   {display.avatar}

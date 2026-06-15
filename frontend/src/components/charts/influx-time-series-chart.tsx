@@ -119,21 +119,15 @@ export function InfluxTimeSeriesChart({
   }, [state, color, metric, metricLabel]);
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div className="relative">
       <div ref={containerRef} style={{ width: '100%', height: `${height}px` }} />
       {state.kind === 'loading' && (
-        <div style={{
-          position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(17,17,17,0.6)', color: 'var(--text-muted)', fontSize: 12,
-        }}>
+        <div className="absolute inset-0 flex items-center justify-center bg-[rgba(17,17,17,0.6)] text-[var(--text-muted)] text-xs">
           加载中...
         </div>
       )}
       {state.kind === 'empty' && (
-        <div style={{
-          position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: 'var(--text-muted)', fontSize: 13,
-        }}>
+        <div className="absolute inset-0 flex items-center justify-center text-[var(--text-muted)] text-[13px]">
           {state.message}
         </div>
       )}

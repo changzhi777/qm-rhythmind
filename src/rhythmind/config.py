@@ -63,6 +63,11 @@ class Settings(BaseSettings):
     omlX_api_key: str = Field(default="ak47", repr=False)
     omlX_compliance_base_url: str = ""  # 合规审查专用 oMLX，空则复用 omlX_base_url
 
+    # Thoth 知识库系统（10.10.10.15，CT106 容器）
+    thoth_base_url: str = "https://10.10.10.15"
+    thoth_username: str = Field(default="", repr=False)
+    thoth_password: str = Field(default="", repr=False)
+
     # 合规审查器行为开关
     compliance_audit_enabled: bool = True   # 生产 True，压测时可临时关闭
     compliance_audit_timeout: float = 8.0   # gemma 本地推理超时（秒）

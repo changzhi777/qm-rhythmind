@@ -29,8 +29,9 @@ os.environ.setdefault("ENFORCE_MODEL_PLATFORM", "false")
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 import rhythmind.core.memory.manager as mem_manager
-from rhythmind.core.memory.models import Base
+import rhythmind.db.knowledge_models  # noqa: F401 — 注册知识库表到 Base.metadata
 import rhythmind.db.medical_models  # noqa: F401 — 注册医疗表到 Base.metadata
+from rhythmind.core.memory.models import Base
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -55,7 +56,7 @@ async def reset_db():
     mem_manager.AsyncSessionLocal = session_factory
 
     # 清除 Redis 缓存，避免测试间数据泄漏
-    from rhythmind.core.cache import close_redis, _get_redis
+    from rhythmind.core.cache import _get_redis, close_redis
     await close_redis()
     try:
         r = _get_redis()

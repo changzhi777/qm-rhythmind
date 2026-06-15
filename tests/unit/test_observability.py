@@ -18,12 +18,11 @@ from starlette.requests import Request
 from starlette.testclient import TestClient
 
 from rhythmind.observability.metrics import (
-    _NoopMetric,
     _PROMETHEUS_AVAILABLE,
+    _NoopMetric,
     _resolve_route_template,
     install_metrics,
 )
-
 
 # ── _NoopMetric ─────────────────────────────────────────────────────────────
 

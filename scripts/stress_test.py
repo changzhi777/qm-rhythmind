@@ -90,10 +90,11 @@ class StageResult:
 
 # ── 请求函数 ──────────────────────────────────────────────
 
-async def fetch_get(session: aiohttp.ClientSession, url: str, label: str, layer: str) -> RequestResult:
+async def fetch_get(session: aiohttp.ClientSession, url: str, label: str, layer: str,
+                  headers: dict | None = None) -> RequestResult:
     t0 = time.monotonic()
     try:
-        async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+        async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
             elapsed = time.monotonic() - t0
             return RequestResult(
                 ok=200 <= resp.status < 300, status=resp.status,
@@ -198,7 +199,7 @@ async def _l1_worker(session: aiohttp.ClientSession, wid: int, end_time: float, 
     while time.monotonic() < end_time:
         for label, url in LAYER1_ENDPOINTS:
             headers = {"Authorization": f"Bearer {uid}"}
-            r = await fetch_get(session, url, label, "Layer1")
+            r = await fetch_get(session, url, label, "Layer1", headers=headers)
             results.append(r)
             if time.monotonic() >= end_time:
                 break

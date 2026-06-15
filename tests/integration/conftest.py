@@ -30,6 +30,7 @@ os.environ.setdefault("ENFORCE_MODEL_PLATFORM", "false")
 os.environ.setdefault("MODEL_PRIMARY_SPEC", "ollama://stub")
 os.environ.setdefault("COMPLIANCE_AUDIT_ENABLED", "false")  # 跳过 prompt audit
 
+import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
@@ -65,6 +66,12 @@ async def app_client(patched_redis):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         yield client
+
+
+@pytest.fixture
+def auth_headers() -> dict[str, str]:
+    """默认 dev_auth_bypass 下的明文 Bearer。"""
+    return {"Authorization": "Bearer test_user_001"}
 
 
 @pytest_asyncio.fixture

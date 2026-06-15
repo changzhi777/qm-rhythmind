@@ -19,11 +19,10 @@ export function Skeleton({
 }: SkeletonProps) {
   return (
     <div
-      className={`animate-pulse ${className}`}
+      className={`animate-pulse bg-[var(--surface-elevated)] ${className}`}
       style={{
         width,
         height,
-        background: 'var(--surface-elevated)',
         borderRadius,
         ...style,
       }}
@@ -39,7 +38,7 @@ interface SkeletonGroupProps {
 
 export function SkeletonGroup({ count, gap = 12, height = 80 }: SkeletonGroupProps) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap }}>
+    <div className="flex flex-col" style={{ gap }}>
       {Array.from({ length: count }).map((_, i) => (
         <Skeleton key={i} height={height} />
       ))}

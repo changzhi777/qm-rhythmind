@@ -13,14 +13,12 @@ api/routers/feishu.py — 飞书事件回调 Webhook + 消息轮询
 """
 from __future__ import annotations
 
-import asyncio
-import hashlib
 import json
 import uuid
 from typing import Any
 
 import structlog
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from pydantic import BaseModel
 
 from rhythmind.config import settings
@@ -28,6 +26,7 @@ from rhythmind.config import settings
 log = structlog.get_logger(__name__)
 
 import shutil
+
 _LARK_CLI_PATH = shutil.which("lark-cli") or "/Users/mac/.npm-global/bin/lark-cli"
 _LARK_CLI_EXISTS = bool(_LARK_CLI_PATH)
 
@@ -145,7 +144,8 @@ async def _handle_message_event(event: dict, schema_v2: bool) -> None:
 
         # 回复到飞书
         if message_id and reply_text:
-            from rhythmind.integrations.feishu_client import reply_text as send_reply, reply_markdown
+            from rhythmind.integrations.feishu_client import reply_markdown
+            from rhythmind.integrations.feishu_client import reply_text as send_reply
 
             if len(reply_text) > 200:
                 await reply_markdown(message_id, reply_text[:4000])
@@ -208,8 +208,10 @@ async def poll_feishu_messages(body: PollRequest) -> PollResponse:
     from rhythmind.integrations.feishu_client import (
         get_chat_messages,
         list_bot_chats,
-        reply_text as send_reply,
         reply_markdown,
+    )
+    from rhythmind.integrations.feishu_client import (
+        reply_text as send_reply,
     )
 
     chats = await list_bot_chats(page_size=5)
@@ -276,7 +278,10 @@ async def poll_feishu_messages(body: PollRequest) -> PollResponse:
     summary="飞书集成状态",
 )
 async def feishu_status() -> FeishuStatusResponse:
-    from rhythmind.integrations.feishu_client import get_bot_info, _has_direct_credentials
+    from rhythmind.integrations.feishu_client import (
+        _has_direct_credentials,
+        get_bot_info,
+    )
 
     bot_name = None
     webhook_ok = False

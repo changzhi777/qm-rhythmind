@@ -42,14 +42,7 @@ export default function DashboardPage() {
           <button
             onClick={() => fetchDashboard()}
             disabled={loading}
-            className="cursor-pointer rounded-md border border-[var(--border)] text-xs"
-            style={{
-              padding: '6px 14px',
-              background: 'var(--surface)',
-              color: 'var(--text-secondary)',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              opacity: loading ? 0.5 : 1,
-            }}
+            className="cursor-pointer rounded-md border border-[var(--border)] text-xs px-3.5 py-1.5 bg-[var(--surface)] text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? '刷新中...' : '🔄 刷新'}
           </button>
@@ -142,13 +135,7 @@ export default function DashboardPage() {
                     <button
                       key={t.key}
                       onClick={() => setActiveSeries(t.key)}
-                      className="cursor-pointer rounded text-[11px] font-medium"
-                      style={{
-                        padding: '4px 10px',
-                        background: active ? 'var(--primary)' : 'var(--surface-elevated)',
-                        color: active ? '#111' : 'var(--text-secondary)',
-                        border: 'none',
-                      }}
+                      className={`cursor-pointer rounded px-2.5 py-1 text-[11px] font-medium border-none ${active ? 'bg-[var(--primary)] text-[#111]' : 'bg-[var(--surface-elevated)] text-[var(--text-secondary)]'}`}
                     >
                       {t.label}
                     </button>

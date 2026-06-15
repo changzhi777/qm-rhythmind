@@ -50,15 +50,14 @@ export default function HomePage() {
       <header className="border-b border-[var(--border)] px-6 py-4">
         <div className="max-w-[900px] mx-auto flex items-center gap-3">
           <div
-            className="w-10 h-10 rounded-lg flex items-center justify-center"
-            style={{ background: 'var(--primary)' }}
+            className="w-10 h-10 rounded-lg flex items-center justify-center bg-[var(--primary)]"
           >
             <span className="text-white font-bold text-lg">R</span>
           </div>
           <div>
             <div className="flex items-baseline gap-2">
               <span className="text-xl font-bold text-white">RHYTHMIND</span>
-              <span className="text-sm font-medium" style={{ color: 'var(--primary)' }}>律动</span>
+              <span className="text-sm font-medium text-[var(--primary)]">律动</span>
               <span className="text-xs text-gray-500">v0.2.0</span>
             </div>
             <p className="text-xs text-gray-500 mt-0.5">多智能体 AI 健康管理平台</p>
@@ -109,8 +108,7 @@ function UserCard({ user, onSelect }: { user: UserSummary; onSelect: () => void 
       {/* 用户信息 */}
       <div className="flex items-center gap-4 mb-4">
         <div
-          className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold"
-          style={{ background: 'var(--primary)', color: '#111' }}
+          className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold bg-[var(--primary)] text-[#111]"
         >
           {user.avatar}
         </div>

@@ -94,11 +94,7 @@ export default function UploadPage() {
           onDragOver={handleDragOver}
           onDragLeave={() => setDragOver(false)}
           onClick={() => fileInputRef.current?.click()}
-          className="cursor-pointer rounded-lg border-2 border-dashed p-12 text-center transition-colors"
-          style={{
-            borderColor: dragOver ? 'var(--primary)' : 'var(--border)',
-            background: dragOver ? 'rgba(0,201,167,0.05)' : 'var(--surface)',
-          }}
+          className={`cursor-pointer rounded-lg border-2 border-dashed p-12 text-center transition-colors ${dragOver ? 'border-[var(--primary)] bg-[rgba(0,201,167,0.05)]' : 'border-[var(--border)] bg-[var(--surface)]'}`}
         >
           <div className="mb-3 text-[40px]">{uploading ? '⏳' : '📁'}</div>
           <h3 className="mb-2 text-base font-medium text-white">
@@ -145,11 +141,7 @@ export default function UploadPage() {
                       <div className="mb-1 flex items-center gap-2">
                         <span className="text-[13px] font-medium text-white">{r.filename}</span>
                         <span
-                          className="rounded text-[10px] font-medium text-white"
-                          style={{
-                            padding: '2px 8px',
-                            background: isSuccess ? 'var(--success)' : 'var(--error)',
-                          }}
+                          className={`rounded px-2 py-0.5 text-[10px] font-medium text-white ${isSuccess ? 'bg-[var(--success)]' : 'bg-[var(--error)]'}`}
                         >
                           {isSuccess ? '成功' : '失败'}
                         </span>

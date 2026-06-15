@@ -52,7 +52,7 @@ class TestLoopGuard:
     @pytest.mark.asyncio
     async def test_over_limit_returns_true(self, guard: LoopGuard):
         """超过 max_calls 应拦截。"""
-        mock_redis, _ = self._make_mock_redis(incr_result=4, ttl_result=60)
+        mock_redis, _ = self._make_mock_redis(incr_result=6, ttl_result=60)
         guard._redis = mock_redis
 
         is_cooling = await guard.is_cooling_down("user", "intent")
@@ -65,7 +65,7 @@ class TestLoopGuard:
         mock_pipeline_a = MagicMock()
         mock_pipeline_a.__aenter__ = AsyncMock(return_value=mock_pipeline_a)
         mock_pipeline_a.__aexit__ = AsyncMock()
-        mock_pipeline_a.execute = AsyncMock(return_value=["4", 60])
+        mock_pipeline_a.execute = AsyncMock(return_value=["6", 60])
 
         mock_pipeline_b = MagicMock()
         mock_pipeline_b.__aenter__ = AsyncMock(return_value=mock_pipeline_b)
@@ -87,7 +87,7 @@ class TestLoopGuard:
         mock_pipeline_a = MagicMock()
         mock_pipeline_a.__aenter__ = AsyncMock(return_value=mock_pipeline_a)
         mock_pipeline_a.__aexit__ = AsyncMock()
-        mock_pipeline_a.execute = AsyncMock(return_value=["4", 60])
+        mock_pipeline_a.execute = AsyncMock(return_value=["6", 60])
 
         mock_pipeline_b = MagicMock()
         mock_pipeline_b.__aenter__ = AsyncMock(return_value=mock_pipeline_b)

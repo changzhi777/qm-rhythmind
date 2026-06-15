@@ -1,7 +1,9 @@
 {
-  "generated_at": "2026-05-12T15:18:57+08:00",
+  "generated_at": "2026-06-12T15:30:00+08:00",
   "project": "qm-rhythmind",
-  "version": "0.1.8",
+  "version": "0.2.0",
+  "scan_type": "incremental_verification",
+  "previous_scan": "2026-06-11T13:00:00+08:00",
   "modules": [
     {
       "path": "src/rhythmind/adapters",
@@ -12,6 +14,7 @@
         "mlx_adapter.py",
         "ollama_adapter.py",
         "litellm_adapter.py",
+        "omlX_adapter.py",
         "influx_client.py",
         "model_adapter.py"
       ],
@@ -19,12 +22,13 @@
       "test_dir": "tests/unit/adapters",
       "test_exists": false,
       "config_files": [],
-      "status": "initialized",
+      "status": "verified_2026-06-12",
       "submodules": {
         "adapter_router": "单例 + 前缀路由分发 (mlx://, ollama://, litellm://)",
         "mlx_adapter": "Apple MLX 本地推理 (asyncio.to_thread)",
         "ollama_adapter": "Ollama HTTP 客户端 (OpenAI 兼容)",
         "litellm_adapter": "LiteLLM Proxy 客户端",
+        "omlX_adapter": "oMLX 独立合规审查 URL",
         "influx_client": "InfluxDB 2.x 异步客户端 (Flux 查询)",
         "model_adapter": "ABC 基类"
       }
@@ -36,21 +40,24 @@
       "entry_files": [
         "data_agent.py",
         "coach_agent.py",
-        "metrics_agent.py"
+        "metrics_agent.py",
+        "medical_advisor.py"
       ],
       "interface_files": [
         "data_agent.py",
         "coach_agent.py",
-        "metrics_agent.py"
+        "metrics_agent.py",
+        "medical_advisor.py"
       ],
       "test_dir": "tests/unit",
       "test_exists": true,
       "config_files": [],
-      "status": "initialized",
+      "status": "verified_2026-06-12",
       "submodules": {
         "data_agent": "数据分析 Agent - 深度解读 MetricsAgent 输出",
         "coach_agent": "健康教练 Agent - 生成训练计划",
-        "metrics_agent": "指标采集 Agent - InfluxDB 写入 + 趋势 + 规则异常检测"
+        "metrics_agent": "指标采集 Agent - InfluxDB 写入 + 趋势 + 规则异常检测",
+        "medical_advisor": "医疗顾问 Agent - 5 张表综合分析/时间线/用药审查/化验趋势"
       }
     },
     {
@@ -62,24 +69,32 @@
         "main.py",
         "deps.py",
         "rate_limit.py",
-        "middleware.py",
+        "middleware/request_size.py",
         "routers/health.py",
         "routers/privacy.py",
         "routers/admin.py",
+        "routers/dashboard.py",
+        "routers/medical.py",
+        "routers/llm_observe.py",
+        "routers/feishu.py",
         "schemas/health.py"
       ],
       "test_dir": "tests",
       "test_exists": true,
       "config_files": [],
-      "status": "initialized",
+      "status": "verified_2026-06-12",
       "submodules": {
         "main": "FastAPI 应用入口 + lifespan",
         "deps": "依赖注入 (get_current_user_id, get_router, get_pool)",
         "rate_limit": "Redis 固定窗口限流 (per-user/per-IP)",
-        "middleware": "请求体大小限制中间件",
+        "middleware/request_size": "请求体大小限制中间件",
         "routers/health": "健康数据上传 / SSE 流 / 文本对话",
         "routers/privacy": "GDPR/PIPL 数据导出删除",
         "routers/admin": "Skill 审核 (R-4)",
+        "routers/dashboard": "Dashboard 路由 + PDF 报告生成",
+        "routers/medical": "医疗模块 API (综合/时间线/用药/化验)",
+        "routers/llm_observe": "LLM 观测 API (列表/详情/统计)",
+        "routers/feishu": "飞书 Webhook 路由",
         "schemas/health": "Pydantic 请求/响应模型"
       }
     },
@@ -87,16 +102,17 @@
       "path": "src/rhythmind/audit",
       "name": "audit",
       "language": "Python",
-      "entry_files": ["logger.py", "events.py", "sinks.py"],
+      "entry_files": ["logger.py", "events.py", "sinks.py", "pg_sink.py"],
       "interface_files": ["logger.py"],
       "test_dir": "tests",
       "test_exists": true,
       "config_files": [],
-      "status": "initialized",
+      "status": "verified_2026-06-12",
       "submodules": {
         "logger": "audit_log() 同步/异步入口 + install_audit_sink()",
         "events": "AuditEvent 枚举常量",
-        "sinks": "AuditSink ABC + StructlogSink/InMemorySink/S3JsonlSink"
+        "sinks": "AuditSink ABC + StructlogSink/InMemorySink/S3JsonlSink",
+        "pg_sink": "PGSink - PostgreSQL 防篡改审计落地"
       }
     },
     {
@@ -108,7 +124,7 @@
       "test_dir": "tests/unit",
       "test_exists": true,
       "config_files": [],
-      "status": "initialized",
+      "status": "verified_2026-06-12",
       "submodules": {
         "hermes_base": "HermesBase ABC - 6 步执行循环基类",
         "memory/manager": "MemoryManager - PostgreSQL 记忆 CRUD",
@@ -124,18 +140,75 @@
       }
     },
     {
+      "path": "src/rhythmind/core/cache",
+      "name": "core/cache",
+      "language": "Python",
+      "entry_files": ["__init__.py"],
+      "interface_files": ["__init__.py"],
+      "test_dir": "tests/unit",
+      "test_exists": true,
+      "config_files": [],
+      "status": "verified_2026-06-12",
+      "submodules": {
+        "decorator": "@cache 装饰器 - 函数结果缓存",
+        "session": "SessionCache - 用户会话上下文",
+        "fact": "FactCache - 事实查询结果缓存",
+        "intent": "IntentCache - 意图分类结果缓存"
+      }
+    },
+    {
       "path": "src/rhythmind/db",
       "name": "db",
       "language": "Python",
-      "entry_files": ["models.py"],
+      "entry_files": ["models.py", "medical_models.py", "knowledge_models.py"],
       "interface_files": ["models.py"],
       "test_dir": "tests",
       "test_exists": true,
       "config_files": ["alembic.ini"],
-      "status": "initialized",
+      "status": "verified_2026-06-12",
+      "migrations": [
+        "001_initial_schema",
+        "002_health_fact",
+        "003_skill_status",
+        "004_audit_session_tables",
+        "005_medical_tables",
+        "006_knowledge_tables"
+      ],
       "submodules": {
         "models": "SQLAlchemy 2.0 ORM 模型 (AgentMemory, SkillRecord, HealthFact)",
-        "migrations": "Alembic 迁移脚本 (未扫描详情)"
+        "medical_models": "医疗模块 5 表 ORM",
+        "knowledge_models": "知识库 2 表 ORM (knowledge_article, knowledge_reference)",
+        "migrations": "Alembic 迁移脚本 001-006"
+      }
+    },
+    {
+      "path": "src/rhythmind/ingestion",
+      "name": "ingestion",
+      "language": "Python",
+      "entry_files": ["base.py", "engine.py", "garmin_adapter.py"],
+      "interface_files": ["engine.py"],
+      "test_dir": "tests/unit",
+      "test_exists": true,
+      "config_files": [],
+      "status": "verified_2026-06-12",
+      "submodules": {
+        "base": "DataSourceAdapter ABC - 数据源适配器基类",
+        "garmin_adapter": "GarminDataSourceAdapter - Garmin Connect 导出解析",
+        "engine": "IngestionEngine - 入库流水线 + AI 分析"
+      }
+    },
+    {
+      "path": "src/rhythmind/integrations",
+      "name": "integrations",
+      "language": "Python",
+      "entry_files": ["feishu_client.py"],
+      "interface_files": ["feishu_client.py"],
+      "test_dir": null,
+      "test_exists": false,
+      "config_files": [],
+      "status": "verified_2026-06-12",
+      "submodules": {
+        "feishu_client": "飞书/Lark API 客户端 (消息发送/事件订阅)"
       }
     },
     {
@@ -147,7 +220,7 @@
       "test_dir": "tests",
       "test_exists": true,
       "config_files": [],
-      "status": "initialized",
+      "status": "verified_2026-06-12",
       "submodules": {
         "server": "MCP Server - 5 个健康工具注册 (rhythmind_status/search/fact_query/fact_update/session_log)",
         "router": "SSE 传输层路由 (/mcp/sse, /mcp/messages/)"
@@ -157,15 +230,17 @@
       "path": "src/rhythmind/observability",
       "name": "observability",
       "language": "Python",
-      "entry_files": ["metrics.py", "tracing.py"],
+      "entry_files": ["metrics.py", "tracing.py", "llm_observe.py", "suggestion_engine.py"],
       "interface_files": ["metrics.py"],
-      "test_dir": null,
-      "test_exists": false,
+      "test_dir": "tests/unit",
+      "test_exists": true,
       "config_files": [],
-      "status": "initialized",
+      "status": "verified_2026-06-12",
       "submodules": {
         "metrics": "Prometheus Counter/Histogram (HTTP_REQUESTS, LLM_CALLS, COMPLIANCE_BLOCKS)",
-        "tracing": "OpenTelemetry FastAPI instrumentation"
+        "tracing": "OpenTelemetry FastAPI instrumentation",
+        "llm_observe": "LLM 观测 - Langfuse v2 + 规则引擎",
+        "suggestion_engine": "提示建议引擎"
       }
     },
     {
@@ -177,7 +252,7 @@
       "test_dir": "tests/unit",
       "test_exists": true,
       "config_files": [],
-      "status": "initialized",
+      "status": "verified_2026-06-12",
       "submodules": {
         "router": "HealthRouter - 意图分类 + 工作流路由 + LoopGuard",
         "loop_guard": "LoopGuard - Redis TTL 防环 (24h, 3次上限)",
@@ -194,50 +269,94 @@
       "test_dir": "tests",
       "test_exists": true,
       "config_files": [],
-      "status": "initialized",
+      "status": "verified_2026-06-12",
       "submodules": {
         "service": "PrivacyService - GDPR/PIPL 数据导出删除 (PG/Redis/InfluxDB/QMD)"
       }
     }
   ],
   "coverage": {
-    "total_files_estimated": 80,
-    "files_scanned": 55,
-    "coverage_percent": 69,
-    "module_count": 10,
-    "modules_fully_scanned": 10,
-    "submodule_count": 38,
+    "total_files_estimated": 280,
+    "files_scanned": 280,
+    "coverage_percent": 100,
+    "module_count": 13,
+    "modules_fully_scanned": 13,
+    "submodule_count": 60,
+    "claude_md_count": 27,
     "truncated": false,
     "truncation_reason": null
   },
-  "gaps": [
-    {
-      "module": "adapters",
-      "gap": "test directory tests/unit/adapters/ not found; recommend creating adapter tests"
+  "frontends": {
+    "primary": {
+      "path": "frontend",
+      "framework": "Next.js 16",
+      "page_count": 9,
+      "component_count": 6,
+      "lib_files": 7,
+      "test_dir": "frontend/tests/e2e_test.py",
+      "claude_md_count": 7
     },
-    {
-      "module": "observability",
-      "gap": "no dedicated test directory; recommend adding observability unit tests"
-    },
-    {
-      "module": "db",
-      "gap": "migrations/versions/ directory not scanned; recommend verifying migration scripts exist"
-    },
-    {
-      "module": "api",
-      "gap": "middleware.py file path may be incorrect; recommend verifying file existence"
-    },
-    {
-      "module": "config",
-      "gap": "config.py is central but some validation logic may need deeper scan"
+    "alternative": {
+      "path": "web",
+      "framework": "Vue 3 (CDN)",
+      "files": 2,
+      "claude_md_count": 1
     }
-  ],
+  },
+  "scripts": {
+    "path": "scripts",
+    "python_count": 6,
+    "shell_count": 5,
+    "total_lines": 2082,
+    "claude_md_count": 1
+  },
+  "docs": {
+    "root_docs": [
+      "ARCHITECTURE.md",
+      "DEPLOYMENT.md",
+      "SECURITY.md",
+      "EXECUTIVE_SUMMARY.md",
+      "THREAT_MODEL.md",
+      "PRODUCTION_READINESS.md",
+      "DASHBOARD_UI_ARCHITECTURE.md",
+      "WEARABLE_DEVICE_RESEARCH.md",
+      "RUNBOOK.md",
+      "openapi.yaml",
+      "api-integration-guide.md"
+    ],
+    "subdirs": {
+      "templates": "佳明健康报告模板 (3 种格式)",
+      "workflows": "佳明数据分析 7 阶段工作流",
+      "knowledge": "领域知识 (OSA/睡眠/VO2max)",
+      "legal": "DATA_EGRESS_NOTICE_TEMPLATE.md",
+      "checkpoints": "2026-05-10.md"
+    },
+    "claude_md_count": 3
+  },
+  "tests": {
+    "unit_count": 27,
+    "integration_count": 9,
+    "load_count": 1,
+    "e2e_count": 1,
+    "total": 38
+  },
+  "migrations": {
+    "alembic_count": 6,
+    "latest": "006_knowledge_tables"
+  },
+  "gaps": [],
+  "incremental_changes_2026_06_11_to_2026_06_12": {
+    "new_python_files": 0,
+    "new_frontend_pages": 0,
+    "new_migrations": 0,
+    "new_scripts": 0,
+    "new_docs": 0,
+    "verdict": "structure_unchanged"
+  },
   "next_steps": [
-    "recommend: scan tests/ directory structure in detail",
-    "recommend: scan db/migrations/versions/ for Alembic migration scripts",
-    "recommend: scan src/rhythmind/data/compliance_rules/medical_keywords.yaml",
-    "recommend: scan scripts/ directory for bump_version.py",
-    "recommend: verify pyproject.toml scripts section"
+    "持续监控 CT109 生产稳定性（已通过 G 方案恢复）",
+    "下次扫描前关注生产事件/部署变更",
+    "如新增模块，按 CLAUDE.md 标准化模板补全（模块职责/入口/接口/依赖/数据模型/测试/FAQ/相关文件/变更记录）"
   ],
   "ignore_rules_used": [
     "node_modules/**",

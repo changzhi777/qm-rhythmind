@@ -96,13 +96,7 @@ export default function LLMObservePage() {
               <button
                 key={d}
                 onClick={() => setDays(d)}
-                className="cursor-pointer rounded-md border-none"
-                style={{
-                  padding: '6px 16px',
-                  background: active ? '#00C9A7' : 'var(--surface)',
-                  color: active ? '#111' : '#ccc',
-                  fontWeight: active ? 600 : 400,
-                }}
+                className={`cursor-pointer rounded-md border-none px-4 py-1.5 ${active ? 'bg-[#00C9A7] text-[#111] font-semibold' : 'bg-[var(--surface)] text-[#ccc] font-normal'}`}
               >
                 {d} 天
               </button>
@@ -195,15 +189,7 @@ export default function LLMObservePage() {
             <button
               onClick={handleAnalyze}
               disabled={analysisLoading}
-              className="cursor-pointer rounded-lg border-none"
-              style={{
-                padding: '8px 20px',
-                background: analysisLoading ? '#333' : '#00C9A7',
-                color: analysisLoading ? '#666' : '#111',
-                cursor: analysisLoading ? 'not-allowed' : 'pointer',
-                fontWeight: 600,
-                fontSize: 13,
-              }}
+              className={`cursor-pointer rounded-lg border-none px-5 py-2 text-[13px] font-semibold disabled:cursor-not-allowed ${analysisLoading ? 'bg-[#333] text-[#666]' : 'bg-[#00C9A7] text-[#111]'}`}
             >
               {analysisLoading ? 'AI 分析中...' : 'AI 深度分析'}
             </button>

@@ -19,20 +19,17 @@ export function KpiCard({ title, value, unit, status = 'good', icon }: KpiCardPr
   };
 
   return (
-    <div style={{
-      background: 'var(--surface)',
-      border: '1px solid var(--border)',
-      borderLeft: `3px solid ${statusColors[status]}`,
-      borderRadius: '6px',
-      padding: '12px 16px',
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-        <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{title}</span>
-        {icon && <span style={{ fontSize: '14px' }}>{icon}</span>}
+    <div
+      className="bg-[var(--surface)] border border-[var(--border)] rounded-md px-4 py-3"
+      style={{ borderLeft: `3px solid ${statusColors[status]}` }}
+    >
+      <div className="flex justify-between items-start mb-2">
+        <span className="text-[11px] text-[var(--text-muted)] uppercase tracking-wider">{title}</span>
+        {icon && <span className="text-sm">{icon}</span>}
       </div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-        <span style={{ fontSize: '24px', fontWeight: '600', color: 'white' }}>{value}</span>
-        {unit && <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{unit}</span>}
+      <div className="flex items-baseline gap-1">
+        <span className="text-2xl font-semibold text-white">{value}</span>
+        {unit && <span className="text-xs text-[var(--text-muted)]">{unit}</span>}
       </div>
     </div>
   );

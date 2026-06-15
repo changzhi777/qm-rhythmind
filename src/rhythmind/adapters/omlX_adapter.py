@@ -124,7 +124,7 @@ class OMLXAdapter(ModelAdapter):
                 client.chat.completions.create(**call_kwargs),
                 timeout=self._timeout,
             )
-        except asyncio.TimeoutError as e:
+        except TimeoutError as e:
             logger.warning(
                 "omlX_adapter.timeout model=%s after=%.1fs — raising OMLXTimeoutError",
                 self._model_name, self._timeout,

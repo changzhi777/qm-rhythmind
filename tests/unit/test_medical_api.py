@@ -11,7 +11,6 @@ Mock MedicalAdvisor.run() 返回固定结果，隔离 LLM 依赖。
 """
 from __future__ import annotations
 
-import json
 from datetime import UTC, date, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 

@@ -27,7 +27,7 @@ import pytest
 
 from rhythmind.agents.medical_advisor import MedicalAdvisor
 from rhythmind.core.hermes_base import AgentContext, ComplianceBlockedError
-from rhythmind.core.memory.types import MemoryEntry, MemoryRecallResult, MemoryType
+from rhythmind.core.memory.types import MemoryRecallResult
 
 USER_ID = "test_user_med"
 
