@@ -230,7 +230,9 @@ class FactManager:
         if predicate is None:
             cached = await FactCache.get(self.user_id, subject, "all")
             if cached is not None:
-                return [HealthFact(**r) for r in cached]
+                # 支持 dict 包裹（FactCache.set 期望 dict[str, Any]）或 list 直接返回
+                items = cached.get("items") if isinstance(cached, dict) else cached
+                return [HealthFact(**r) for r in items]
         else:
             cached = await FactCache.get(self.user_id, subject, predicate)
             if cached is not None:

@@ -93,7 +93,7 @@ def _generate_qr_image(data: str, size: int = 80) -> bytes:
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")
     buffer = BytesIO()
-    img.save(buffer, format="PNG")
+    img.save(buffer, format="PNG")  # type: ignore[call-arg]
     return buffer.getvalue()
 
 
@@ -172,7 +172,7 @@ async def download_report_pdf(
         leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0,
     )
 
-    def on_page(canvas, doc) -> None:
+    def on_page(canvas: Any, doc: Any) -> None:
         """每页绘制右上角二维码。"""
         canvas.saveState()
         # 报告右上角二维码
@@ -221,7 +221,7 @@ async def download_report_pdf(
         parent=styles["Normal"],
         fontName=font_name,
         fontSize=8,
-        textColor="#666666",
+        textColor="#666666",  # type: ignore[arg-type]
         spaceAfter=8,
     )
     body_style = ParagraphStyle(
@@ -237,7 +237,7 @@ async def download_report_pdf(
         parent=styles["Normal"],
         fontName=font_name,
         fontSize=8,
-        textColor="#888888",
+        textColor="#888888",  # type: ignore[arg-type]
         leading=11,
         spaceAfter=4,
     )
@@ -245,7 +245,7 @@ async def download_report_pdf(
     story = []
     story.append(Paragraph("RHYTHMIND 健康分析报告", title_style))
     story.append(Paragraph(f"生成时间：{timestamp} | 模型：{model}", meta_style))
-    story.append(Spacer(1, 4 * mm))
+    story.append(Spacer(1, 4 * mm))  # type: ignore[arg-type]
 
     # 将 Markdown 内容转换为简单段落，并清理 LaTeX 数学语法
     import re
@@ -270,7 +270,7 @@ async def download_report_pdf(
     for line in content_lines:
         line = clean_latex(line).strip()
         if not line:
-            story.append(Spacer(1, 3 * mm))
+            story.append(Spacer(1, 3 * mm))  # type: ignore[arg-type]
         elif line.startswith("# "):
             story.append(Paragraph(line[2:], title_style))
         elif line.startswith("## "):
@@ -283,7 +283,7 @@ async def download_report_pdf(
             story.append(Paragraph(line, body_style))
 
     # 添加结尾提示
-    story.append(Spacer(1, 6 * mm))
+    story.append(Spacer(1, 6 * mm))  # type: ignore[arg-type]
     story.append(Paragraph("━" * 28, meta_style))
     story.append(Paragraph(
         "💡 需要更专业指导和深度分析，请使用拍照上传的形式提供进阶数据或者订阅 Pro 套餐。",
@@ -294,7 +294,7 @@ async def download_report_pdf(
         tip_style,
     ))
 
-    doc.build(story)
+    doc.build(story)  # type: ignore[arg-type]
     buffer.seek(0)
 
     return Response(
@@ -364,7 +364,7 @@ async def list_test_reports(user_id: CurrentUserId) -> dict[str, Any]:
 
 
 @router.get("/test-reports/{report_id}/{filename}")
-async def download_test_report(report_id: str, filename: str, user_id: CurrentUserId):
+async def download_test_report(report_id: str, filename: str, user_id: CurrentUserId) -> Response:
     """下载测试报告文件。"""
     safe_report = report_id.replace("..", "").replace("/", "")
     safe_filename = filename.replace("..", "").replace("/", "")
