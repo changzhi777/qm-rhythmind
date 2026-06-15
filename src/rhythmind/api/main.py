@@ -250,15 +250,26 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 # ── 路由挂载 ──────────────────────────────────────────────────────────────
 
 app.include_router(health_router, prefix="/api/v1")
-app.include_router(medical_router, prefix="/api/v1")  # /medical/analyze, /timeline, /medications, /labs/{test}
-app.include_router(llm_observe_router, prefix="/api/v1")  # /llm-observe/metrics, /traces, /suggestions, /analyze
-app.include_router(feishu_router, prefix="/api/v1")      # /feishu/webhook, /poll, /status
-app.include_router(privacy_router, prefix="/api/v1")  # /privacy/export, /delete, /policy
-app.include_router(admin_router, prefix="/api/v1")    # /admin/skills/* (R-4)
-app.include_router(dashboard_router)    # /api/dashboard, /api/influxdb/timeseries, /api/analyze, /api/import-facts, /api/upload/file, /api/chat
-app.include_router(reports_router)     # /api/reports, /api/reports/{id}, /api/reports/{id}/download, /api/test-reports/*
-app.include_router(users_summary_router)  # /api/users/summary
-app.include_router(mcp_router)  # /mcp/sse  +  /mcp/messages/
+# /medical/analyze, /timeline, /medications, /labs/{test}
+app.include_router(medical_router, prefix="/api/v1")
+# /llm-observe/metrics, /traces, /suggestions, /analyze
+app.include_router(llm_observe_router, prefix="/api/v1")
+# /feishu/webhook, /poll, /status
+app.include_router(feishu_router, prefix="/api/v1")
+# /privacy/export, /delete, /policy
+app.include_router(privacy_router, prefix="/api/v1")
+# /admin/skills/* (R-4)
+app.include_router(admin_router, prefix="/api/v1")
+# /qm/api/dashboard, /qm/api/influxdb/timeseries, /qm/api/analyze,
+# /qm/api/import-facts, /qm/api/upload/file, /qm/api/chat
+app.include_router(dashboard_router)
+# /qm/api/reports, /qm/api/reports/{id},
+# /qm/api/reports/{id}/download, /qm/api/test-reports/*
+app.include_router(reports_router)
+# /qm/api/users/summary
+app.include_router(users_summary_router)
+# /mcp/sse  +  /mcp/messages/
+app.include_router(mcp_router)
 
 
 # ── 健康检查（K8s 探针分级）──────────────────────────────────────────────
@@ -322,7 +333,9 @@ async def readyz() -> JSONResponse:
         async def _check_litellm() -> str:
             try:
                 import httpx
-                async with httpx.AsyncClient(timeout=settings.readyz_llm_timeout) as cli:
+                async with httpx.AsyncClient(
+                    timeout=settings.readyz_llm_timeout
+                ) as cli:
                     resp = await cli.get(f"{settings.litellm_url}/health")
                     if resp.status_code < 500:
                         return "ok"
@@ -333,7 +346,9 @@ async def readyz() -> JSONResponse:
         async def _check_omlX() -> str:
             try:
                 import httpx
-                async with httpx.AsyncClient(timeout=settings.readyz_llm_timeout) as cli:
+                async with httpx.AsyncClient(
+                    timeout=settings.readyz_llm_timeout
+                ) as cli:
                     resp = await cli.get(
                         f"{settings.omlX_base_url.rstrip('/')}/v1/models",
                         headers={"Authorization": f"Bearer {settings.omlX_api_key}"},
