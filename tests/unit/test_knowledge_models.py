@@ -19,7 +19,7 @@ from rhythmind.db.medical_models import (
 
 
 def _session():
-    """每次取 mem_manager.AsyncSessionLocal 属性，确保拿到 conftest 重置后的 factory。"""
+    """每次取 mem_manager.AsyncSessionLocal 属性，确保拿到 conftest 重置后的 factory。"""  # noqa: E501
     return mem_manager.AsyncSessionLocal
 
 
@@ -56,7 +56,11 @@ class TestKnowledgeArticle:
                     domain="sleep_performance",
                     title="深度睡眠与运动表现",
                     summary="深度睡眠对运动恢复的影响综述",
-                    content={"sections": [{"heading": "引言", "body": "...", "key_points": ["A", "B"]}]},
+                    content={
+                        "sections": [
+                            {"heading": "引言", "body": "...", "key_points": ["A", "B"]}
+                        ]
+                    },
                     source="Sports Medicine Journal",
                     source_type="academic",
                     source_url="https://example.com/paper.pdf",
@@ -75,12 +79,18 @@ class TestKnowledgeArticle:
         """按 domain 索引查询。"""
         async with _session()() as session:
             async with session.begin():
-                session.add(KnowledgeArticle(domain="vo2max_training", title="VO2max 训练法"))
-                session.add(KnowledgeArticle(domain="vo2max_training", title="VO2max 测试"))
+                session.add(
+                    KnowledgeArticle(domain="vo2max_training", title="VO2max 训练法")
+                )
+                session.add(
+                    KnowledgeArticle(domain="vo2max_training", title="VO2max 测试")
+                )
                 session.add(KnowledgeArticle(domain="osa", title="OSA 治疗"))
             async with _session()() as session:
                 from sqlalchemy import select
-                stmt = select(KnowledgeArticle).where(KnowledgeArticle.domain == "vo2max_training")
+                stmt = select(KnowledgeArticle).where(
+                    KnowledgeArticle.domain == "vo2max_training"
+                )
                 result = (await session.execute(stmt)).scalars().all()
                 assert len(result) >= 2
                 assert all(a.domain == "vo2max_training" for a in result)
@@ -126,7 +136,10 @@ class TestKnowledgeReference:
                     ref_year=2017,
                     ref_journal="Journal of Clinical Sleep Medicine",
                     ref_doi="10.5664/jcsm.6746",
-                    key_findings={"finding": "STOP-Bang ≥3 高风险", "evidence_level": "strong"},
+                    key_findings={
+                        "finding": "STOP-Bang ≥3 高风险",
+                        "evidence_level": "strong",
+                    },
                 )
                 session.add(ref)
             await session.refresh(ref)
@@ -143,8 +156,12 @@ class TestKnowledgeReference:
                 article = KnowledgeArticle(domain="osa", title="被删除的文章")
                 session.add(article)
                 await session.flush()
-                ref1 = KnowledgeReference(article_id=article.id, ref_title="Ref 1", ref_type="citation")
-                ref2 = KnowledgeReference(article_id=article.id, ref_title="Ref 2", ref_type="guideline")
+                ref1 = KnowledgeReference(
+                    article_id=article.id, ref_title="Ref 1", ref_type="citation"
+                )
+                ref2 = KnowledgeReference(
+                    article_id=article.id, ref_title="Ref 2", ref_type="guideline"
+                )
                 session.add_all([ref1, ref2])
                 article_id = article.id
             ref_ids = (ref1.id, ref2.id)
@@ -184,7 +201,9 @@ class TestKnowledgeReference:
                 await session.flush()
                 for i in range(3):
                     session.add(KnowledgeReference(
-                        article_id=article.id, ref_title=f"Ref {i}", ref_type="citation",
+                        article_id=article.id,
+                        ref_title=f"Ref {i}",
+                        ref_type="citation",
                     ))
             await session.refresh(article, attribute_names=["references"])
             assert len(article.references) == 3
