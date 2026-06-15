@@ -180,7 +180,9 @@ class SwarmDataCoach:
             return
 
         if not data_result.success:
-            yield _sse_event("error", {"step": "data", "message": "数据解读合规检查未通过"})
+            yield _sse_event(
+                "error", {"step": "data", "message": "数据解读合规检查未通过"}
+            )
             return
 
         dr = data_result.output or {}
@@ -313,7 +315,9 @@ class SwarmDataCoach:
             "swarm.data_coach done user=%s success=%s total_ms=%.1f",
             user_id,
             overall_success,
-            metrics_result.latency_ms + data_result.latency_ms + coach_result.latency_ms,
+            metrics_result.latency_ms
+            + data_result.latency_ms
+            + coach_result.latency_ms,
         )
 
         return SwarmResult(
@@ -413,9 +417,16 @@ async def run_ag2_swarm(
             result = await _coach_hermes.run(ctx)
             return _json.dumps(result.output or {}, ensure_ascii=False)
 
-        metrics_tool = FunctionTool(run_metrics_agent, description="运行指标分析 Agent，输入原始健康数据 JSON")
-        data_tool    = FunctionTool(run_data_agent,    description="运行数据解读 Agent，输入 MetricsAnalysis JSON")
-        coach_tool   = FunctionTool(run_coach_agent,   description="运行教练 Agent，输入 DataReport JSON，生成训练计划")
+        metrics_tool = FunctionTool(
+            run_metrics_agent, description="运行指标分析 Agent，输入原始健康数据 JSON"
+        )
+        data_tool = FunctionTool(
+            run_data_agent, description="运行数据解读 Agent，输入 MetricsAnalysis JSON"
+        )
+        coach_tool = FunctionTool(
+            run_coach_agent,
+            description="运行教练 Agent，输入 DataReport JSON，生成训练计划",
+        )
 
         # ── 3. 创建 AG2 AssistantAgent（三个角色）──────────────────────────
         metrics_ag2 = AssistantAgent(
@@ -480,7 +491,9 @@ async def run_ag2_swarm(
         # （工具函数闭包持有 HermesBase 实例）
         from rhythmind.core.compliance.gate import ComplianceLevel, ComplianceResult
 
-        def _make_result(hermes_agent, output_json: str, agent_name: str) -> HermesRunResult:
+        def _make_result(
+            hermes_agent, output_json: str, agent_name: str
+        ) -> HermesRunResult:
             try:
                 output = _json.loads(output_json)
             except Exception:
