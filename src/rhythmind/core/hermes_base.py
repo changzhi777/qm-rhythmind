@@ -247,11 +247,14 @@ class HermesBase(ABC):
         bound_log.debug("hermes.run step=3 compliance_check")
         checked: ComplianceResult = self.compliance.validate(raw_result)
 
-        if checked.level == ComplianceLevel.BLOCK or raw_result.requires_human_review:
-            checked.requires_human_review = True
+        if checked.level == ComplianceLevel.BLOCK:
+            checked.compliance_block = True
             bound_log.warning(
                 "hermes.run output_BLOCKED kws=%s", checked.triggered_keywords
             )
+        if raw_result.requires_human_review:
+            checked.advisor_review = True
+            bound_log.warning("hermes.run advisor_review_requested")
             latency_ms = (time.perf_counter() - t0) * 1000
             return HermesRunResult(
                 compliance=checked,
@@ -411,6 +414,6 @@ def _make_blocked_compliance(reason: str) -> ComplianceResult:
         level=ComplianceLevel.BLOCK,
         output=None,
         confidence=0.0,
-        requires_human_review=True,
+        compliance_block=True,
         triggered_keywords=[reason],
     )

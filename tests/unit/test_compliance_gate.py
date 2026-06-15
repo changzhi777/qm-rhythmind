@@ -117,3 +117,86 @@ class TestComplianceGate:
         gate = _make_gate()
         good_input = {"text": "我今天跑步了 5 公里"}
         assert gate.pre_check(good_input) is True
+
+
+# ── P3 解耦回归：compliance_block / advisor_review / requires_human_review 派生 ──
+
+
+class TestComplianceResultDecoupling:
+    """P3 修复回归：ComplianceResult.requires_human_review 改为 @property 派生，
+    下游可通过 compliance_block / advisor_review 区分根因。
+    """
+
+    def test_property_derives_from_either_signal(self):
+        """requires_human_review = compliance_block OR advisor_review。"""
+        from rhythmind.core.compliance.gate import ComplianceResult
+
+        cr1 = ComplianceResult(
+            level=ComplianceLevel.PASS, output="x", confidence=0.9,
+            compliance_block=True,
+        )
+        assert cr1.requires_human_review is True
+        assert cr1.compliance_block is True
+        assert cr1.advisor_review is False
+
+        cr2 = ComplianceResult(
+            level=ComplianceLevel.PASS, output="x", confidence=0.9,
+            advisor_review=True,
+        )
+        assert cr2.requires_human_review is True
+        assert cr2.compliance_block is False
+        assert cr2.advisor_review is True
+
+        cr3 = ComplianceResult(
+            level=ComplianceLevel.PASS, output="x", confidence=0.9,
+        )
+        assert cr3.requires_human_review is False
+
+    def test_construction_rejects_old_field_name(self):
+        """requires_human_review 不再是构造参数，TypeError 强制使用新字段。"""
+        import pytest as _pt
+
+        from rhythmind.core.compliance.gate import ComplianceResult
+
+        with _pt.raises(TypeError, match="requires_human_review"):
+            ComplianceResult(
+                level=ComplianceLevel.PASS, output="x", confidence=0.9,
+                requires_human_review=True,  # type: ignore[call-arg]
+            )
+
+    def test_block_path_sets_compliance_block(self):
+        """BLOCK 分支：validate() 返回的 ComplianceResult.compliance_block=True。"""
+        gate = _make_gate()
+        result = FakeAgentResult(
+            output="处方建议服药。", confidence=0.90,
+        )
+        checked = gate.validate(result)
+        assert checked.level == ComplianceLevel.BLOCK
+        assert checked.compliance_block is True
+        assert checked.advisor_review is False
+        # 向后兼容：property 仍返回 True
+        assert checked.requires_human_review is True
+
+    def test_warn_path_keeps_both_signals_false(self):
+        """WARN 分支：两个新信号都 False，property 也 False。"""
+        gate = _make_gate()
+        result = FakeAgentResult(
+            output="建议治疗后再运动。", confidence=0.90,
+        )
+        checked = gate.validate(result)
+        assert checked.level == ComplianceLevel.WARN
+        assert checked.compliance_block is False
+        assert checked.advisor_review is False
+        assert checked.requires_human_review is False
+
+    def test_pass_path_keeps_both_signals_false(self):
+        """PASS 分支：两个新信号都 False，property 也 False。"""
+        gate = _make_gate()
+        result = FakeAgentResult(
+            output="您今天跑步 5 公里，状态不错。", confidence=0.95,
+        )
+        checked = gate.validate(result)
+        assert checked.level == ComplianceLevel.PASS
+        assert checked.compliance_block is False
+        assert checked.advisor_review is False
+        assert checked.requires_human_review is False

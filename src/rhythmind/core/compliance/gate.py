@@ -45,9 +45,21 @@ class ComplianceResult:
     confidence: float
     skill_candidates: list[str] = field(default_factory=list)
     memory_updates: dict[str, Any] = field(default_factory=dict)
-    requires_human_review: bool = False
+    # P3 解耦：拆分 requires_human_review 为两个独立信号
+    #   compliance_block — 合规门禁拦截（高风险，建议拒绝）
+    #   advisor_review   — Agent/Advisor 主动建议复核（中等风险）
+    compliance_block: bool = False
+    advisor_review: bool = False
     triggered_keywords: list[str] = field(default_factory=list)
     disclaimer_appended: bool = False
+
+    @property
+    def requires_human_review(self) -> bool:
+        """向后兼容属性：任一信号触发即 True。下游消费者可继续使用此字段。
+
+        新代码应直接消费 compliance_block / advisor_review 以区分根因。
+        """
+        return self.compliance_block or self.advisor_review
 
 
 class ComplianceGate:
@@ -98,7 +110,7 @@ class ComplianceGate:
                 level=level,
                 output=None,
                 confidence=confidence,
-                requires_human_review=True,
+                compliance_block=True,
                 triggered_keywords=blocked_kws,
             )
 
@@ -130,7 +142,6 @@ class ComplianceGate:
             confidence=confidence,
             skill_candidates=list(result.skill_candidates),
             memory_updates=dict(result.memory_updates),
-            requires_human_review=False,
             triggered_keywords=warned_kws,
             disclaimer_appended=disclaimer_appended,
         )

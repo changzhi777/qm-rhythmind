@@ -43,7 +43,7 @@ def _make_run_result(
         level=level,
         output=output if success else None,
         confidence=0.90 if success else 0.0,
-        requires_human_review=not success,
+        compliance_block=not success,
     )
     return HermesRunResult(
         compliance=compliance,

@@ -5,8 +5,6 @@ tests/unit/test_hermes_base.py — HermesBase 闭环流程测试
 """
 from __future__ import annotations
 
-from typing import Any
-
 import pytest
 
 from rhythmind.core.compliance.gate import ComplianceLevel
