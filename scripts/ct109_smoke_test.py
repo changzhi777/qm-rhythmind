@@ -166,7 +166,7 @@ def test_l3():
     record("L3", "redis_connectivity", PASS if redis_ok else FAIL, f"via readyz", ms)
 
     # 3.3 oMLX 连通
-    code, body, ms = http("http://10.10.10.138:8001/v1/models", headers={"Authorization": "Bearer ak47"})
+    code, body, ms = http("http://10.10.10.35:8000/v1/models", headers={"Authorization": "Bearer ak47"})
     omlx_ok = code == 200 and "data" in body
     model_count = 0
     if omlx_ok:
@@ -178,12 +178,12 @@ def test_l3():
 
     # 3.4 oMLX 推理测试
     payload = json.dumps({
-        "model": "gemma-4-e4b-it-4bit",
+        "model": "gemma-4-12B-it-4bit",
         "messages": [{"role": "user", "content": "Say hello in 5 words"}],
         "max_tokens": 30,
     }).encode()
     code, body, ms = http(
-        "http://10.10.10.138:8001/v1/chat/completions",
+        "http://10.10.10.35:8000/v1/chat/completions",
         method="POST",
         headers={"Authorization": "Bearer ak47", "Content-Type": "application/json"},
         data=payload,
@@ -342,7 +342,7 @@ def test_l6():
     record("L6", "reports_auth", PASS if code == 403 else FAIL, f"code={code}", ms)
 
     # 6.4 oMLX → API 联动（模型列表可达）
-    code, body, ms = http("http://10.10.10.138:8001/v1/models", headers={"Authorization": "Bearer ak47"})
+    code, body, ms = http("http://10.10.10.35:8000/v1/models", headers={"Authorization": "Bearer ak47"})
     models = []
     if code == 200:
         try:
