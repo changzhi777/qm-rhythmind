@@ -126,8 +126,8 @@ async def upload_health_data(
             "content": {
                 "text/event-stream": {
                     "example": (
-                        "event: start\ndata: {\"session_id\": \"...\", \"message\": \"开始分析\"}\n\n"
-                        "event: metrics_done\ndata: {\"load_level\": \"moderate\", ...}\n\n"
+                        "event: start\ndata: {\"session_id\": \"...\", \"message\": \"开始分析\"}\n\n"  # noqa: E501
+                        "event: metrics_done\ndata: {\"load_level\": \"moderate\", ...}\n\n"  # noqa: E501
                         "event: data_done\ndata: {\"summary\": \"...\", ...}\n\n"
                         "event: coach_done\ndata: {\"plan_name\": \"...\", ...}\n\n"
                         "event: done\ndata: {完整 SwarmResult.final_output}\n\n"
@@ -156,7 +156,10 @@ async def upload_health_data_stream(
 
         const res = await fetch('/api/v1/health/upload/stream', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ...'},
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ...',
+            },
             body: JSON.stringify(payload),
         });
         const reader = res.body.getReader();
@@ -203,7 +206,9 @@ async def upload_health_data_stream_ws(websocket: WebSocket) -> None:
 
     前端 JS 示例::
 
-        const ws = new WebSocket('ws://localhost:8000/api/v1/health/upload/stream/ws?token=' + token);
+        const ws = new WebSocket(
+            'ws://localhost:8000/api/v1/health/upload/stream/ws?token=' + token
+        );
         ws.onopen = () => ws.send(JSON.stringify({input_data: payload}));
         ws.onmessage = (e) => {
             const msg = JSON.parse(e.data);
@@ -242,13 +247,15 @@ async def upload_health_data_stream_ws(websocket: WebSocket) -> None:
     try:
         client_msg = await websocket.receive_json()
     except Exception:
-        await websocket.send_json({"type": "error", "data": {"message": "Invalid JSON"}})
+        await websocket.send_json({"type": "error", "data": {"message": "Invalid JSON"}})  # noqa: E501
         await websocket.close()
         return
 
     input_data = client_msg.get("input_data")
     if not input_data:
-        await websocket.send_json({"type": "error", "data": {"message": "Missing input_data"}})
+        await websocket.send_json(
+            {"type": "error", "data": {"message": "Missing input_data"}}
+        )
         await websocket.close()
         return
 
@@ -256,7 +263,9 @@ async def upload_health_data_stream_ws(websocket: WebSocket) -> None:
     # 延迟导入：让测试能正确 monkeypatch（模块级导入在加载时被绑定）
     from rhythmind.api import rate_limit as rate_limit_mod
     limit_user_key = f"rl:user:upload:{user_id}"
-    allowed, _, _ = await rate_limit_mod._check_and_incr(limit_user_key, *LIMIT_UPLOAD_PER_USER)
+    allowed, _, _ = await rate_limit_mod._check_and_incr(
+        limit_user_key, *LIMIT_UPLOAD_PER_USER
+    )
     if not allowed:
         await websocket.send_json({
             "type": "error",
@@ -481,8 +490,10 @@ async def ingest_wearable_data(
                         "steps": int(steps_str) if steps_str else None,
                         "sleep_minutes": int(sleep_str) if sleep_str else None,
                         "spo2": float(spo2_str) if spo2_str else None,
-                        "blood_pressure_systolic": int(bp_sys_str) if bp_sys_str else None,
-                        "blood_pressure_diastolic": int(bp_dia_str) if bp_dia_str else None,
+                        "blood_pressure_systolic":
+                            int(bp_sys_str) if bp_sys_str else None,
+                        "blood_pressure_diastolic":
+                            int(bp_dia_str) if bp_dia_str else None,
                     }.items()
                     if v is not None
                 },
