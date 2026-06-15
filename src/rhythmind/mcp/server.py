@@ -87,8 +87,12 @@ _TOOLS: list[Tool] = [
         inputSchema={
             "type": "object",
             "properties": {
-                "user_id": {"type": "string", "description": "用户 ID（用于个性化排序）"},
-                "query":   {"type": "string", "description": "检索查询语句（中文/英文均可）"},
+                "user_id": {
+                    "type": "string", "description": "用户 ID（用于个性化排序）"
+                },
+                "query": {
+                    "type": "string", "description": "检索查询语句（中文/英文均可）"
+                },
                 "collection": {
                     "type": "string",
                     "description": "检索集合，默认 health_knowledge",
@@ -120,7 +124,7 @@ _TOOLS: list[Tool] = [
                 },
                 "predicate": {
                     "type": "string",
-                    "description": "关系谓词（可选），如 targets / restricts / heart_rate_avg",
+                    "description": "关系谓词（可选），如 targets / restricts / heart_rate_avg",  # noqa: E501
                 },
                 "mode": {
                     "type": "string",
@@ -154,8 +158,8 @@ _TOOLS: list[Tool] = [
                     "enum": ["write", "invalidate"],
                     "description": "write=写入新事实并过期旧值；invalidate=批量过期",
                 },
-                "subject":     {"type": "string", "description": "主体，如 user_goal / injury"},
-                "predicate":   {"type": "string", "description": "谓词，如 targets / restricts"},
+                "subject":     {"type": "string", "description": "主体，如 user_goal / injury"},  # noqa: E501
+                "predicate":   {"type": "string", "description": "谓词，如 targets / restricts"},  # noqa: E501
                 "object":      {
                     "type": "object",
                     "description": "事实值（write 时必填），任意 JSON 结构",
@@ -187,11 +191,11 @@ _TOOLS: list[Tool] = [
                 "user_id": {"type": "string", "description": "用户 ID"},
                 "source":  {
                     "type": "string",
-                    "description": "设备来源，如 garmin / apple / huawei / manual",
+                    "description": "设备来源，如 garmin / apple / huawei / manual",  # noqa: E501
                 },
                 "sport_type": {
                     "type": "string",
-                    "description": "运动类型，如 running / cycling / yoga，默认 general",
+                    "description": "运动类型，如 running / cycling / yoga，默认 general",  # noqa: E501
                     "default": "general",
                 },
                 "metrics": {
@@ -319,15 +323,22 @@ async def _handle_fact_update(args: dict[str, Any]) -> dict[str, Any]:
     confidence = float(args.get("confidence", 1.0))
 
     if not all([user_id, action, subject, predicate]):
-        return {"error": "missing_argument", "required": ["user_id", "action", "subject", "predicate"]}
+        return {
+            "error": "missing_argument",
+            "required": ["user_id", "action", "subject", "predicate"],
+        }
 
     try:
         fm = FactManager(user_id=user_id)
 
         if action == "write":
             if obj is None:
-                return {"error": "missing_argument", "field": "object", "action": "write"}
-            fact = await fm.write_fact(subject, predicate, obj, source=source, confidence=confidence)
+                return {
+                    "error": "missing_argument", "field": "object", "action": "write"
+                }
+            fact = await fm.write_fact(
+                subject, predicate, obj, source=source, confidence=confidence
+            )
             return {
                 "action": "write",
                 "fact_id": fact.id,
