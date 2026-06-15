@@ -19,6 +19,9 @@ import pytest
 
 from rhythmind.orchestrator.pool import AgentBundle, AgentPool
 
+# 测试用 patch 路径常量（避免长行重复，提取为模块常量）
+_CREATE_BUNDLE_PATH = "rhythmind.orchestrator.pool.AgentPool._create_bundle"
+
 
 class TestAgentPoolAcquire:
     """acquire 上下文管理器测试。"""
@@ -30,7 +33,7 @@ class TestAgentPoolAcquire:
     @pytest.mark.asyncio
     async def test_acquire_creates_new_bundle_on_miss(self, pool: AgentPool):
         """首次 acquire 为新用户创建 bundle。"""
-        with patch("rhythmind.orchestrator.pool.AgentPool._create_bundle") as mock_create:
+        with patch(_CREATE_BUNDLE_PATH) as mock_create:
             mock_create.return_value = AgentBundle(
                 user_id="new_user",
                 metrics=AsyncMock(),
@@ -45,7 +48,7 @@ class TestAgentPoolAcquire:
     @pytest.mark.asyncio
     async def test_acquire_returns_cached_bundle_on_hit(self, pool: AgentPool):
         """同一用户的第二次 acquire 返回缓存的 bundle。"""
-        with patch("rhythmind.orchestrator.pool.AgentPool._create_bundle") as mock_create:
+        with patch(_CREATE_BUNDLE_PATH) as mock_create:
             mock_create.return_value = AgentBundle(
                 user_id="cached_user",
                 metrics=AsyncMock(),
@@ -66,7 +69,7 @@ class TestAgentPoolAcquire:
     @pytest.mark.asyncio
     async def test_acquire_touches_last_used(self, pool: AgentPool):
         """acquire 归还后更新 last_used 时间戳。"""
-        with patch("rhythmind.orchestrator.pool.AgentPool._create_bundle") as mock_create:
+        with patch(_CREATE_BUNDLE_PATH) as mock_create:
             mock_bundle = AgentBundle(
                 user_id="touch_user",
                 metrics=AsyncMock(),
@@ -97,7 +100,7 @@ class TestAgentPoolLRUEviction:
     @pytest.mark.asyncio
     async def test_pool_evicts_lru_when_full(self, pool: AgentPool):
         """容量满时驱逐最久未使用的用户。"""
-        with patch("rhythmind.orchestrator.pool.AgentPool._create_bundle") as mock_create:
+        with patch(_CREATE_BUNDLE_PATH) as mock_create:
             # 创建 3 个 mock bundle
             bundles = {}
             for uid in ["user_a", "user_b", "user_c"]:
@@ -109,7 +112,12 @@ class TestAgentPoolLRUEviction:
                 )
             mock_create.side_effect = lambda uid: bundles.setdefault(
                 uid,
-                AgentBundle(user_id=uid, metrics=AsyncMock(), data=AsyncMock(), coach=AsyncMock()),
+                AgentBundle(
+                    user_id=uid,
+                    metrics=AsyncMock(),
+                    data=AsyncMock(),
+                    coach=AsyncMock(),
+                ),
             )
 
             # 填满池子
@@ -137,7 +145,7 @@ class TestAgentPoolLRUEviction:
     @pytest.mark.asyncio
     async def test_recently_used不会被_evicted(self, pool: AgentPool):
         """最近使用的用户不会被驱逐。"""
-        with patch("rhythmind.orchestrator.pool.AgentPool._create_bundle") as mock_create:
+        with patch(_CREATE_BUNDLE_PATH) as mock_create:
             bundles = {}
             for uid in ["user_x", "user_y", "user_z"]:
                 bundles[uid] = AgentBundle(
@@ -148,7 +156,12 @@ class TestAgentPoolLRUEviction:
                 )
             mock_create.side_effect = lambda uid: bundles.setdefault(
                 uid,
-                AgentBundle(user_id=uid, metrics=AsyncMock(), data=AsyncMock(), coach=AsyncMock()),
+                AgentBundle(
+                    user_id=uid,
+                    metrics=AsyncMock(),
+                    data=AsyncMock(),
+                    coach=AsyncMock(),
+                ),
             )
 
             # 填满池子
@@ -179,7 +192,7 @@ class TestAgentPoolTTL:
         """超过 TTL 的 bundle 被重建而非返回。"""
         pool = AgentPool(max_users=3, ttl_seconds=0.1)  # 100ms TTL
 
-        with patch("rhythmind.orchestrator.pool.AgentPool._create_bundle") as mock_create:
+        with patch(_CREATE_BUNDLE_PATH) as mock_create:
             bundle1 = AgentBundle(
                 user_id="ttl_user",
                 metrics=AsyncMock(),
@@ -208,7 +221,7 @@ class TestAgentPoolTTL:
         """TTL 内未过期的 bundle 不被重建。"""
         pool = AgentPool(max_users=3, ttl_seconds=60)
 
-        with patch("rhythmind.orchestrator.pool.AgentPool._create_bundle") as mock_create:
+        with patch(_CREATE_BUNDLE_PATH) as mock_create:
             bundle = AgentBundle(
                 user_id="fresh_user",
                 metrics=AsyncMock(),
@@ -238,7 +251,7 @@ class TestAgentPoolInvalidate:
     @pytest.mark.asyncio
     async def test_invalidate_removes_user(self, pool: AgentPool):
         """invalidate 强制移除用户的 bundle。"""
-        with patch("rhythmind.orchestrator.pool.AgentPool._create_bundle") as mock_create:
+        with patch(_CREATE_BUNDLE_PATH) as mock_create:
             bundle = AgentBundle(
                 user_id="to_remove",
                 metrics=AsyncMock(),
@@ -273,7 +286,7 @@ class TestAgentPoolPurgeExpired:
     @pytest.mark.asyncio
     async def test_purge_expired_returns_count(self, pool: AgentPool):
         """purge_expired 返回清理的条目数量。"""
-        with patch("rhythmind.orchestrator.pool.AgentPool._create_bundle") as mock_create:
+        with patch(_CREATE_BUNDLE_PATH) as mock_create:
             bundles = {}
             for uid in ["expire_1", "expire_2", "expire_3"]:
                 bundles[uid] = AgentBundle(
@@ -284,7 +297,12 @@ class TestAgentPoolPurgeExpired:
                 )
             mock_create.side_effect = lambda uid: bundles.setdefault(
                 uid,
-                AgentBundle(user_id=uid, metrics=AsyncMock(), data=AsyncMock(), coach=AsyncMock()),
+                AgentBundle(
+                    user_id=uid,
+                    metrics=AsyncMock(),
+                    data=AsyncMock(),
+                    coach=AsyncMock(),
+                ),
             )
 
             # 创建 3 个 bundle
@@ -304,7 +322,7 @@ class TestAgentPoolPurgeExpired:
     @pytest.mark.asyncio
     async def test_purge_nonexpired_returns_zero(self, pool: AgentPool):
         """未过期的 bundle 不被清理。"""
-        with patch("rhythmind.orchestrator.pool.AgentPool._create_bundle") as mock_create:
+        with patch(_CREATE_BUNDLE_PATH) as mock_create:
             bundle = AgentBundle(
                 user_id="alive",
                 metrics=AsyncMock(),
@@ -371,7 +389,7 @@ class TestAgentPoolStats:
     @pytest.mark.asyncio
     async def test_stats_returns_pool_state(self, pool: AgentPool):
         """stats 返回正确的池状态。"""
-        with patch("rhythmind.orchestrator.pool.AgentPool._create_bundle") as mock_create:
+        with patch(_CREATE_BUNDLE_PATH) as mock_create:
             bundle = AgentBundle(
                 user_id="stat_user",
                 metrics=AsyncMock(),
