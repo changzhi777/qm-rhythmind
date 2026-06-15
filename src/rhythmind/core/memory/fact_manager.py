@@ -34,12 +34,13 @@ from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import and_, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from rhythmind.core.cache import FactCache
 from rhythmind.core.memory.models import HealthFact
 
 
-def _get_session():
+def _get_session() -> AsyncSession:
     """懒导入 AsyncSessionLocal，避免模块加载时触发 PG 引擎构建。"""
     from rhythmind.core.memory.manager import AsyncSessionLocal  # noqa: PLC0415
     return AsyncSessionLocal()
@@ -169,11 +170,11 @@ class FactManager:
                 )
                 .values(valid_until=now)
             )
-            updated = result.rowcount > 0
+            updated = result.rowcount > 0  # type: ignore[attr-defined]
             if updated:
                 logger.debug("fact.invalidate id=%s user=%s", fact_id, self.user_id)
                 await FactCache.invalidate_user(self.user_id)
-            return updated
+            return bool(updated)
 
     async def invalidate_by_subject(
         self,
@@ -204,13 +205,13 @@ class FactManager:
                 .where(and_(*conditions))
                 .values(valid_until=now)
             )
-            count = result.rowcount
+            count = result.rowcount  # type: ignore[attr-defined]
             logger.debug(
                 "fact.invalidate_by_subject user=%s subject=%s predicate=%s count=%d",
                 self.user_id, subject, predicate, count,
             )
             await FactCache.invalidate_user(self.user_id)
-            return count
+            return int(count) if count is not None else 0
 
     # ── 查询 ─────────────────────────────────────────────────────────────────
 
@@ -256,8 +257,10 @@ class FactManager:
             if predicate is None:
                 await FactCache.set(
                     self.user_id, subject, "all",
-                    [{"id": f.id, "subject": f.subject, "predicate": f.predicate,
-                      "object_json": f.object_json} for f in facts],
+                    {"items": [
+                        {"id": f.id, "subject": f.subject, "predicate": f.predicate,
+                         "object_json": f.object_json} for f in facts
+                    ]},
                 )
             else:
                 f = facts[0]
