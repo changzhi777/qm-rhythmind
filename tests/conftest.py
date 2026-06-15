@@ -55,18 +55,19 @@ async def reset_db():
     )
     mem_manager.AsyncSessionLocal = session_factory
 
-    # 清除 Redis 缓存，避免测试间数据泄漏
+    # 清除 Redis 缓存 + 限流键，避免测试间数据泄漏
     from rhythmind.core.cache import _get_redis, close_redis
     await close_redis()
     try:
         r = _get_redis()
-        cursor = 0
-        while True:
-            cursor, keys = await r.scan(cursor=cursor, match="fact:test_user*", count=100)
-            if keys:
-                await r.delete(*keys)
-            if cursor == 0:
-                break
+        for pattern in ("fact:*", "rl:*"):
+            cursor = 0
+            while True:
+                cursor, keys = await r.scan(cursor=cursor, match=pattern, count=100)
+                if keys:
+                    await r.delete(*keys)
+                if cursor == 0:
+                    break
     except Exception:
         pass
     await close_redis()
