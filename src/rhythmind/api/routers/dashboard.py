@@ -6,7 +6,8 @@ api/routers/dashboard.py — 仪表盘 + 多模态上传 + Chat 代理 API 端�
   GET  /qm/api/influxdb/timeseries   — InfluxDB 时序数据查询（白名单字段）
   POST /qm/api/analyze               — 触发本地模型重新分析
   POST /qm/api/import-facts          — 批量导入健康事实数据
-  POST /qm/api/upload/file           — 通用文件上传（CSV/JSON/TXT/PDF/图像，多模态 AI 分析）
+  POST /qm/api/upload/file           — 通用文件上传
+                                          （CSV/JSON/TXT/PDF/图像，多模态 AI 分析）
   POST /qm/api/chat                  — Chat 代理（转发到 HealthRouter）
 
 注：报告相关端点（/reports、/test-reports）已迁移至 `reports.py`
@@ -491,7 +492,9 @@ async def upload_file(
                 if val:
                     with contextlib.suppress(ValueError):
                         val = float(val) if "." in val else int(val)
-                    await fm.write_fact("upload_csv", f"{col}", val, source="file_upload")
+                    await fm.write_fact(
+                        "upload_csv", f"{col}", val, source="file_upload"
+                    )
                     facts_imported += 1
         summary = f"CSV {len(rows)} 行 × {len(cols)} 列，导入 {facts_imported} 条数据"
 
@@ -505,10 +508,16 @@ async def upload_file(
             summary = f"JSON 对象，导入 {facts_imported} 个字段"
         elif isinstance(data, list):
             facts_imported = len(data)
-            await fm.write_fact("upload_json", "array_data", {"count": len(data)}, source="file_upload")
+            await fm.write_fact(
+                "upload_json", "array_data", {"count": len(data)}, source="file_upload"
+            )
             summary = f"JSON 数组，{len(data)} 条记录"
         else:
-            return {"status": "ok", "message": "不支持的 JSON 格式", "facts_imported": 0}
+            return {
+                "status": "ok",
+                "message": "不支持的 JSON 格式",
+                "facts_imported": 0,
+            }
 
     elif ext == "txt":
         text = content.decode("utf-8", errors="replace")
@@ -529,7 +538,9 @@ async def upload_file(
                 images_b64,
                 "这是一份医学/健康 PDF 报告。请提取其中所有健康相关数据（如血液指标、身高体重、心率、血压、血糖、血脂等），以 JSON 格式返回。只返回 JSON，不要其他文字。",  # noqa: E501
             )
-            facts_imported = await _write_vision_facts(fm, "pdf_report", ai_result, filename)
+            facts_imported = await _write_vision_facts(
+                fm, "pdf_report", ai_result, filename
+            )
             summary = f"PDF 多模态分析完成，提取 {facts_imported} 条数据"
         except Exception as e:
             logger.warning("PDF vision analysis failed, fallback: %s", e)
@@ -551,7 +562,9 @@ async def upload_file(
                 [{"b64": img_b64, "mime": mime}],
                 "这是一张健康/医学相关的图片（如化验单、体检报告、体脂秤读数等）。请提取其中所有健康数据，以 JSON 格式返回。只返回 JSON，不要其他文字。",  # noqa: E501
             )
-            facts_imported = await _write_vision_facts(fm, "image_report", ai_result, filename)
+            facts_imported = await _write_vision_facts(
+                fm, "image_report", ai_result, filename
+            )
             summary = f"图像多模态分析完成，提取 {facts_imported} 条数据"
         except Exception as e:
             logger.warning("Image vision analysis failed, fallback: %s", e)
@@ -565,9 +578,15 @@ async def upload_file(
             summary = f"图像已接收（AI 分析暂不可用: {str(e)[:60]}）"
 
     else:
-        return {"status": "error", "message": f"不支持的文件格式: .{ext}", "facts_imported": 0}
+        return {
+            "status": "error",
+            "message": f"不支持的文件格式: .{ext}",
+            "facts_imported": 0,
+        }
 
-    logger.info("upload_file user=%s file=%s facts=%d", user_id, filename, facts_imported)
+    logger.info(
+        "upload_file user=%s file=%s facts=%d", user_id, filename, facts_imported
+    )
     return {
         "status": "ok",
         "message": f"{filename} 上传成功",
@@ -609,7 +628,11 @@ async def chat_proxy(
         )
 
         return {
-            "status": result.status.value if hasattr(result.status, "value") else str(result.status),
+            "status": (
+                result.status.value
+                if hasattr(result.status, "value")
+                else str(result.status)
+            ),
             "session_id": session_id,
             "message": result.message,
             "data": result.data,
@@ -622,18 +645,23 @@ async def chat_proxy(
             return {
                 "status": "ok",
                 "message": "暂无健康数据，请先上传数据文件。",
-                "data": {"coach_response": "暂无健康数据，请先通过上传页面导入数据文件，我才能为你提供健康分析。"},
+                "data": {
+                    "coach_response": "暂无健康数据，请先通过上传页面导入数据文件，我才能为你提供健康分析。",  # noqa: E501
+                },
             }
 
         fact_lines = [
-            f"- [{f.subject}/{f.predicate}]: {json.dumps(f.object_json, ensure_ascii=False)}"
+            f"- [{f.subject}/{f.predicate}]: "
+            f"{json.dumps(f.object_json, ensure_ascii=False)}"
             for f in facts[:20]
         ]
         return {
             "status": "ok",
             "message": "数据摘要",
             "data": {
-                "coach_response": f"当前已录入 {len(facts)} 条健康数据：\n" + "\n".join(fact_lines),
+                "coach_response": (
+                    f"当前已录入 {len(facts)} 条健康数据：\n" + "\n".join(fact_lines)
+                ),
             },
         }
 
