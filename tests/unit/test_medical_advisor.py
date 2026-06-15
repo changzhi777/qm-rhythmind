@@ -138,7 +138,7 @@ async def test_medical_advisor_analyze_normal():
     """analyze 正常流程：返回完整分析结果。"""
     agent = MedicalAdvisor(user_id=USER_ID)
 
-    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(VALID_ANALYSIS))):
+    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(VALID_ANALYSIS))):  # noqa: E501
         result = await agent.execute(ctx=_make_ctx(), memory_ctx=_make_memory())
 
     assert result.output["summary"] == VALID_ANALYSIS["summary"]
@@ -161,8 +161,8 @@ async def test_medical_advisor_timeline_task():
         "recommendations": ["定期复查"],
         "risk_flags": [],
     }
-    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(timeline_result))):
-        result = await agent.execute(ctx=_make_ctx(task_type="timeline"), memory_ctx=_make_memory())
+    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(timeline_result))):  # noqa: E501
+        result = await agent.execute(ctx=_make_ctx(task_type="timeline"), memory_ctx=_make_memory())  # noqa: E501
 
     assert result.output["summary"] != ""
 
@@ -181,8 +181,8 @@ async def test_medical_advisor_medications_task():
         "recommendations": ["定期检查肾功能"],
         "risk_flags": [],
     }
-    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(med_result))):
-        result = await agent.execute(ctx=_make_ctx(task_type="medications"), memory_ctx=_make_memory())
+    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(med_result))):  # noqa: E501
+        result = await agent.execute(ctx=_make_ctx(task_type="medications"), memory_ctx=_make_memory())  # noqa: E501
 
     assert result.output["summary"] != ""
 
@@ -201,8 +201,8 @@ async def test_medical_advisor_labs_task():
         "recommendations": ["继续定期监测"],
         "risk_flags": [],
     }
-    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(lab_result))):
-        result = await agent.execute(ctx=_make_ctx(task_type="labs"), memory_ctx=_make_memory())
+    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(lab_result))):  # noqa: E501
+        result = await agent.execute(ctx=_make_ctx(task_type="labs"), memory_ctx=_make_memory())  # noqa: E501
 
     assert result.output["summary"] != ""
 
@@ -214,8 +214,8 @@ async def test_medical_advisor_invalid_task_defaults_to_analyze():
     """无效 task_type 应降级到 analyze。"""
     agent = MedicalAdvisor(user_id=USER_ID)
 
-    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(VALID_ANALYSIS))):
-        result = await agent.execute(ctx=_make_ctx(task_type="unknown_type"), memory_ctx=_make_memory())
+    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(VALID_ANALYSIS))):  # noqa: E501
+        result = await agent.execute(ctx=_make_ctx(task_type="unknown_type"), memory_ctx=_make_memory())  # noqa: E501
 
     assert result.output["summary"] != ""
 
@@ -240,7 +240,7 @@ async def test_medical_advisor_llm_exception_uses_fallback():
     """call_llm 抛通用异常时使用 fallback。"""
     agent = MedicalAdvisor(user_id=USER_ID)
 
-    with patch.object(agent, "call_llm", new=AsyncMock(side_effect=ConnectionError("model down"))):
+    with patch.object(agent, "call_llm", new=AsyncMock(side_effect=ConnectionError("model down"))):  # noqa: E501
         result = await agent.execute(ctx=_make_ctx(), memory_ctx=_make_memory())
 
     assert "不可用" in result.output["summary"]
@@ -271,7 +271,7 @@ async def test_medical_advisor_confidence_decreases_with_diagnoses():
         for i in range(5)
     ]
 
-    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(VALID_ANALYSIS))):
+    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(VALID_ANALYSIS))):  # noqa: E501
         result = await agent.execute(
             ctx=_make_ctx(extra={"diagnoses": many_diagnoses}),
             memory_ctx=_make_memory(),
@@ -292,7 +292,7 @@ async def test_medical_advisor_human_review_with_many_diagnoses():
         for i in range(3)
     ]
 
-    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(VALID_ANALYSIS))):
+    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(VALID_ANALYSIS))):  # noqa: E501
         result = await agent.execute(
             ctx=_make_ctx(extra={"diagnoses": three_diagnoses}),
             memory_ctx=_make_memory(),
@@ -308,7 +308,7 @@ async def test_medical_advisor_memory_updates_populated():
     """memory_updates 应包含分析和统计信息。"""
     agent = MedicalAdvisor(user_id=USER_ID)
 
-    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(VALID_ANALYSIS))):
+    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(VALID_ANALYSIS))):  # noqa: E501
         result = await agent.execute(ctx=_make_ctx(), memory_ctx=_make_memory())
 
     assert "last_medical_summary" in result.memory_updates
