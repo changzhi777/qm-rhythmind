@@ -180,7 +180,9 @@ async def get_dashboard(user_id: CurrentUserId) -> dict[str, Any]:
 
     if cache:
         try:
-            await cache.setex(f"dashboard:{user_id}", 30, json.dumps(result, ensure_ascii=False))
+            await cache.setex(
+                f"dashboard:{user_id}", 30, json.dumps(result, ensure_ascii=False)
+            )
         except Exception:
             pass
 
@@ -196,30 +198,39 @@ async def trigger_analysis(user_id: CurrentUserId) -> dict[str, Any]:
     fm = _fm(user_id)
     facts = await fm.get_all_current()
     if not facts:
-        raise HTTPException(status_code=400, detail="无数据，请先执行入库 (python scripts/run_ingestion.py)")
+        raise HTTPException(
+            status_code=400,
+            detail="无数据，请先执行入库 (python scripts/run_ingestion.py)",
+        )
 
     import json
     from datetime import UTC
 
     fact_summary = []
     for f in facts:
-        fact_summary.append(f"- [{f.subject}/{f.predicate}]: {json.dumps(f.object_json, ensure_ascii=False)}")
+        fact_summary.append(
+            f"- [{f.subject}/{f.predicate}]: "
+            f"{json.dumps(f.object_json, ensure_ascii=False)}"
+        )
 
-    system_prompt = """你是一位专业的运动健康 AI 分析师。根据用户的健康数据事实，生成一份专业的中文分析报告。
-
-报告格式要求（Markdown）：
-1. **总体评价**（1-2段）
-2. **运动能力评估**（VO2Max、耐力、配速分析）
-3. **健康风险评估**（心率、HRV、睡眠）
-4. **训练负荷分析**（急性/慢性负荷比）
-5. **赛事能力预测**（基于当前数据）
-6. **个性化建议**（3-5条具体可执行的建议）
-
-注意：
-- 所有分析基于事实数据，不做无依据推测
-- 如果某项数据异常，指出具体问题和建议
-- 语言专业但不晦涩，适合运动爱好者阅读
-- 报告长度控制在 800-1200 字"""
+    system_prompt = (
+        "你是一位专业的运动健康 AI 分析师。"
+        "根据用户的健康数据事实，生成一份专业的中文分析报告。"
+        "\n\n"
+        "报告格式要求（Markdown）：\n"
+        "1. **总体评价**（1-2段）\n"
+        "2. **运动能力评估**（VO2Max、耐力、配速分析）\n"
+        "3. **健康风险评估**（心率、HRV、睡眠）\n"
+        "4. **训练负荷分析**（急性/慢性负荷比）\n"
+        "5. **赛事能力预测**（基于当前数据）\n"
+        "6. **个性化建议**（3-5条具体可执行的建议）\n"
+        "\n"
+        "注意：\n"
+        "- 所有分析基于事实数据，不做无依据推测\n"
+        "- 如果某项数据异常，指出具体问题和建议\n"
+        "- 语言专业但不晦涩，适合运动爱好者阅读\n"
+        "- 报告长度控制在 800-1200 字"
+    )
 
     user_prompt = f"""以下是用户的健康数据事实：
 
@@ -236,13 +247,19 @@ async def trigger_analysis(user_id: CurrentUserId) -> dict[str, Any]:
         model_name = model_spec[len("omlX://"):]
         analysis_adapter = OMLXAdapter(model_name, timeout=120.0)
         report_content = await analysis_adapter.chat(
-            [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
+            [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
             temperature=0.4,
             max_tokens=4096,
         )
     else:
         report_content = await adapter_router.chat(
-            [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
+            [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
             model_spec=model_spec,
             temperature=0.4,
             max_tokens=4096,
@@ -266,8 +283,18 @@ async def import_facts(
 
     请求体格式：
     [
-      {"subject": "profile", "predicate": "gender", "object_json": "MALE", "source": "garmin"},
-      {"subject": "profile", "predicate": "vo2_max", "object_json": 52.0, "source": "garmin"},
+      {
+          "subject": "profile",
+          "predicate": "gender",
+          "object_json": "MALE",
+          "source": "garmin",
+      },
+      {
+          "subject": "profile",
+          "predicate": "vo2_max",
+          "object_json": 52.0,
+          "source": "garmin",
+      },
       ...
     ]
     """
@@ -294,7 +321,10 @@ async def import_facts(
         except Exception as exc:
             errors.append(f"第 {i} 条写入失败: {exc}")
 
-    logger.info("import_facts user=%s imported=%d errors=%d", user_id, imported, len(errors))
+    logger.info(
+        "import_facts user=%s imported=%d errors=%d",
+        user_id, imported, len(errors),
+    )
 
     return {
         "status": "ok",
@@ -348,7 +378,10 @@ async def _analyze_with_vision(
         })
 
     messages = [
-        {"role": "system", "content": "你是专业的健康数据分析助手，擅长从医学报告和健康数据图片中提取结构化数据。只返回纯 JSON。"},
+        {
+            "role": "system",
+            "content": "你是专业的健康数据分析助手，擅长从医学报告和健康数据图片中提取结构化数据。只返回纯 JSON。",  # noqa: E501
+        },
         {"role": "user", "content": content_parts},
     ]
 
@@ -381,37 +414,46 @@ async def _write_vision_facts(
     fm: FactManager, subject_prefix: str, data: dict, filename: str,
 ) -> int:
     """将 AI 提取的结构化数据写入 FactManager，展开嵌套结构。"""
+    _SOURCE = "vision_analysis"  # noqa: N806 — 模块内常量
+
+    async def _write(predicate: str, obj: Any) -> None:
+        await fm.write_fact(subject_prefix, predicate, obj, source=_SOURCE)
+
     count = 0
     if isinstance(data, dict):
         for key, value in data.items():
             if isinstance(value, (str, int, float, bool)):
-                await fm.write_fact(subject_prefix, key, value, source="vision_analysis")
+                await _write(key, value)
                 count += 1
             elif isinstance(value, dict):
                 # 展开嵌套 dict
                 for sub_key, sub_val in value.items():
-                    if isinstance(sub_val, (str, int, float, bool)):
-                        await fm.write_fact(subject_prefix, f"{key}.{sub_key}", sub_val, source="vision_analysis")
-                        count += 1
-                    else:
-                        await fm.write_fact(subject_prefix, f"{key}.{sub_key}", sub_val, source="vision_analysis")
-                        count += 1
+                    await _write(f"{key}.{sub_key}", sub_val)
+                    count += 1
             elif isinstance(value, list):
                 # 展开数组中的每个 dict 元素
                 for i, item in enumerate(value):
                     if isinstance(item, dict):
                         # 用 test_name/name 等字段作为键
-                        item_key = item.get("test_name") or item.get("name") or item.get("指标") or str(i)
-                        await fm.write_fact(subject_prefix, f"{key}.{item_key}", item, source="vision_analysis")
+                        item_key = (
+                            item.get("test_name")
+                            or item.get("name")
+                            or item.get("指标")
+                            or str(i)
+                        )
+                        await _write(f"{key}.{item_key}", item)
                         count += 1
                     elif isinstance(item, (str, int, float)):
-                        await fm.write_fact(subject_prefix, f"{key}.{i}", item, source="vision_analysis")
+                        await _write(f"{key}.{i}", item)
                         count += 1
                 if not value:
-                    await fm.write_fact(subject_prefix, key, {"items": value}, source="vision_analysis")
+                    await _write(key, {"items": value})
                     count += 1
 
-    await fm.write_fact(subject_prefix, "_source", {"filename": filename, "extracted": count}, source="vision_analysis")
+    await _write(
+        "_source",
+        {"filename": filename, "extracted": count},
+    )
     return max(count, 1)
 
 
@@ -471,7 +513,12 @@ async def upload_file(
     elif ext == "txt":
         text = content.decode("utf-8", errors="replace")
         lines = [l.strip() for l in text.split("\n") if l.strip()]
-        await fm.write_fact("upload_text", "content", {"lines": len(lines), "preview": text[:500]}, source="file_upload")
+        await fm.write_fact(
+            "upload_text",
+            "content",
+            {"lines": len(lines), "preview": text[:500]},
+            source="file_upload",
+        )
         facts_imported = 1
         summary = f"文本文件，{len(lines)} 行"
 
@@ -480,13 +527,18 @@ async def upload_file(
             images_b64 = _pdf_to_images_b64(content)
             ai_result = await _analyze_with_vision(
                 images_b64,
-                "这是一份医学/健康 PDF 报告。请提取其中所有健康相关数据（如血液指标、身高体重、心率、血压、血糖、血脂等），以 JSON 格式返回。只返回 JSON，不要其他文字。",
+                "这是一份医学/健康 PDF 报告。请提取其中所有健康相关数据（如血液指标、身高体重、心率、血压、血糖、血脂等），以 JSON 格式返回。只返回 JSON，不要其他文字。",  # noqa: E501
             )
             facts_imported = await _write_vision_facts(fm, "pdf_report", ai_result, filename)
             summary = f"PDF 多模态分析完成，提取 {facts_imported} 条数据"
         except Exception as e:
             logger.warning("PDF vision analysis failed, fallback: %s", e)
-            await fm.write_fact("upload_file", "pdf_received", {"filename": filename, "size": len(content)}, source="file_upload")
+            await fm.write_fact(
+                "upload_file",
+                "pdf_received",
+                {"filename": filename, "size": len(content)},
+                source="file_upload",
+            )
             facts_imported = 1
             summary = f"PDF 已接收（AI 分析暂不可用: {str(e)[:60]}）"
 
@@ -497,13 +549,18 @@ async def upload_file(
             mime = f"image/{'jpeg' if ext in ('jpg','jpeg') else ext}"
             ai_result = await _analyze_with_vision(
                 [{"b64": img_b64, "mime": mime}],
-                "这是一张健康/医学相关的图片（如化验单、体检报告、体脂秤读数等）。请提取其中所有健康数据，以 JSON 格式返回。只返回 JSON，不要其他文字。",
+                "这是一张健康/医学相关的图片（如化验单、体检报告、体脂秤读数等）。请提取其中所有健康数据，以 JSON 格式返回。只返回 JSON，不要其他文字。",  # noqa: E501
             )
             facts_imported = await _write_vision_facts(fm, "image_report", ai_result, filename)
             summary = f"图像多模态分析完成，提取 {facts_imported} 条数据"
         except Exception as e:
             logger.warning("Image vision analysis failed, fallback: %s", e)
-            await fm.write_fact("upload_file", "image_received", {"filename": filename, "size": len(content), "type": ext}, source="file_upload")
+            await fm.write_fact(
+                "upload_file",
+                "image_received",
+                {"filename": filename, "size": len(content), "type": ext},
+                source="file_upload",
+            )
             facts_imported = 1
             summary = f"图像已接收（AI 分析暂不可用: {str(e)[:60]}）"
 
@@ -568,7 +625,10 @@ async def chat_proxy(
                 "data": {"coach_response": "暂无健康数据，请先通过上传页面导入数据文件，我才能为你提供健康分析。"},
             }
 
-        fact_lines = [f"- [{f.subject}/{f.predicate}]: {json.dumps(f.object_json, ensure_ascii=False)}" for f in facts[:20]]
+        fact_lines = [
+            f"- [{f.subject}/{f.predicate}]: {json.dumps(f.object_json, ensure_ascii=False)}"
+            for f in facts[:20]
+        ]
         return {
             "status": "ok",
             "message": "数据摘要",
