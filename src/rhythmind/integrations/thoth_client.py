@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Any
+from typing import Any, cast
 
 import httpx
 import structlog
@@ -117,7 +117,7 @@ class ThothClient:
         cached = _token_cache.get("token", "")
         expires_at = _token_cache.get("expires_at", 0.0)
         if cached and time.time() < expires_at:
-            return cached
+            return cast(str, cached)
 
         token = await self.login()
         _token_cache["token"] = token
@@ -132,9 +132,9 @@ class ThothClient:
         method: str,
         path: str,
         *,
-        json: dict | None = None,
-        files: dict | None = None,
-        params: dict | None = None,
+        json: dict[str, Any] | None = None,
+        files: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """通用 Thoth API 调用（自动加 Bearer + 错误处理）。"""
         token = await self._get_token()
@@ -172,7 +172,7 @@ class ThothClient:
         if resp.status_code == 204:
             return {}
 
-        return resp.json()
+        return cast(dict[str, Any], resp.json())
 
     # ── 业务方法 ─────────────────────────────────────────────────────────
 
@@ -217,7 +217,7 @@ class ThothClient:
         resp = await self._api_request(
             "GET", "/api/documents", params={"limit": limit, "offset": offset},
         )
-        return resp.get("data", {}).get("items", []) if isinstance(resp, dict) else resp
+        return cast(list[dict[str, Any]], resp.get("data", {}).get("items", []) if isinstance(resp, dict) else resp)
 
     async def get_document(self, doc_id: str) -> dict[str, Any]:
         """读文档详情。"""
@@ -230,8 +230,11 @@ class ThothClient:
         )
         # Thoth 检索响应可能是 {"items": [...]} 或 直接 list
         if isinstance(resp, list):
-            return resp
-        return resp.get("items", resp.get("results", []))
+            return cast(list[dict[str, Any]], resp)
+        return cast(
+            list[dict[str, Any]],
+            resp.get("items", resp.get("results", [])),
+        )
 
     async def health_check(self) -> bool:
         """连通性测试（不需认证）。"""
