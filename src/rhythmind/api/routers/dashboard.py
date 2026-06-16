@@ -463,7 +463,7 @@ async def _write_vision_facts(
 
 @router.post("/upload/file")
 async def upload_file(
-    file: UploadFile = File(...),
+    file: UploadFile = File(...),  # noqa: B008
     user_id: CurrentUserId | None = None,
 ) -> dict[str, Any]:
     """通用文件上传端点 — 自动识别类型并解析入库。
@@ -524,7 +524,7 @@ async def upload_file(
 
     elif ext == "txt":
         text = content.decode("utf-8", errors="replace")
-        lines = [l.strip() for l in text.split("\n") if l.strip()]
+        lines = [line.strip() for line in text.split("\n") if line.strip()]
         await fm.write_fact(
             "upload_text",
             "content",

@@ -77,7 +77,8 @@ class GarminDataSourceAdapter(BaseDataSourceAdapter):
         records = []
         for f in files:
             try:
-                data = json.load(open(f, encoding="utf-8"))
+                with open(f, encoding="utf-8") as fp:
+                    data = json.load(fp)
                 if isinstance(data, list):
                     records.extend(data)
             except Exception:
@@ -91,7 +92,8 @@ class GarminDataSourceAdapter(BaseDataSourceAdapter):
         records = []
         for f in files:
             try:
-                data = json.load(open(f, encoding="utf-8"))
+                with open(f, encoding="utf-8") as fp:
+                    data = json.load(fp)
                 if isinstance(data, list):
                     records.extend(data)
             except Exception:
@@ -219,10 +221,7 @@ class GarminDataSourceAdapter(BaseDataSourceAdapter):
             cal_date = m.get("calendarDate")
             if isinstance(cal_date, (int, float)):
                 date_obj = self._ts_to_date(cal_date)
-                if date_obj is None:
-                    date_str = ""
-                else:
-                    date_str = date_obj.strftime("%Y-%m-%d")
+                date_str = "" if date_obj is None else date_obj.strftime("%Y-%m-%d")
             else:
                 date_str = str(cal_date)[:10]
             metrics.append(BodyMetric(

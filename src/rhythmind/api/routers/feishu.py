@@ -69,7 +69,6 @@ async def feishu_webhook(request: Request, bg: BackgroundTasks) -> dict[str, Any
     # 1. URL 验证挑战（飞书配置事件订阅时发送）
     if payload.get("type") == "url_verification":
         challenge = payload.get("challenge", "")
-        token = payload.get("token", "")
         log.info("feishu.url_verification challenge=%s", challenge[:16])
         return {"challenge": challenge}
 
@@ -112,7 +111,6 @@ async def _handle_message_event(event: dict[str, Any], schema_v2: bool) -> None:
 
         message_id = msg.get("message_id", "")
         msg_type = msg.get("message_type", "")
-        chat_id = msg.get("chat_id", "")
         content_str = msg.get("content", "{}")
 
         content = (
