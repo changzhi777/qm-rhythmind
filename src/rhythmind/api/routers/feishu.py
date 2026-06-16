@@ -75,7 +75,10 @@ async def feishu_webhook(request: Request, bg: BackgroundTasks) -> dict[str, Any
 
     # 2. 验证 Event Token
     event_token = payload.get("token", "")
-    if settings.feishu_verification_token and event_token != settings.feishu_verification_token:
+    if (
+        settings.feishu_verification_token
+        and event_token != settings.feishu_verification_token
+    ):
         log.warning("feishu.invalid_token")
         raise HTTPException(status_code=403, detail="Invalid verification token")
 
@@ -112,7 +115,9 @@ async def _handle_message_event(event: dict, schema_v2: bool) -> None:
         chat_id = msg.get("chat_id", "")
         content_str = msg.get("content", "{}")
 
-        content = json.loads(content_str) if isinstance(content_str, str) else content_str
+        content = (
+            json.loads(content_str) if isinstance(content_str, str) else content_str
+        )
 
         if msg_type == "text":
             text = content.get("text", "").strip()
@@ -187,7 +192,11 @@ async def _route_to_agent(user_id: str, text: str) -> str:
                 parts.append(f"**建议**: {data['advice']}")
             if data.get("message"):
                 parts.append(data["message"])
-            return "\n\n".join(parts) if parts else json.dumps(data, ensure_ascii=False, indent=2)[:2000]
+            return (
+                "\n\n".join(parts)
+                if parts
+                else json.dumps(data, ensure_ascii=False, indent=2)[:2000]
+            )
 
         return str(data)[:2000]
 
@@ -242,7 +251,9 @@ async def poll_feishu_messages(body: PollRequest) -> PollResponse:
         if msg_type != "text":
             continue
 
-        content = json.loads(content_str) if isinstance(content_str, str) else content_str
+        content = (
+            json.loads(content_str) if isinstance(content_str, str) else content_str
+        )
         text = content.get("text", "").strip()
         if not text:
             continue
