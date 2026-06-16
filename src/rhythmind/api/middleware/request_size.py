@@ -43,7 +43,9 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
     def __init__(self, app, max_bytes: int | None = None) -> None:
         super().__init__(app)
         # 允许构造时覆盖，便于单测
-        self._max_bytes = max_bytes if max_bytes is not None else settings.max_request_body_bytes
+        self._max_bytes = (
+            max_bytes if max_bytes is not None else settings.max_request_body_bytes
+        )
 
     async def dispatch(self, request: Request, call_next):  # type: ignore[override]
         if self._max_bytes <= 0:
@@ -63,13 +65,15 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
                 )
                 return JSONResponse(
                     status_code=413,
-                    content={"detail": f"Request body too large (>{self._max_bytes} bytes)"},
+                    content={
+                        "detail": f"Request body too large (>{self._max_bytes} bytes)",  # noqa: E501
+                    },
                 )
 
         # 2) 没带 Content-Length 的（chunked / streaming）—— 流式累计
         # 注意：starlette 的 BaseHTTPMiddleware 会缓存 receive callable，
         # 直接通过 await request.body() 触发完整读取并量度。
-        # 对 chunked 请求做这一步会损失一点流式优势，但对我们这种纯 JSON API 业务可以接受。
+        # 对 chunked 请求会损失一点流式优势，但纯 JSON API 可接受。
         if cl is None and request.method in {"POST", "PUT", "PATCH"}:
             body = await request.body()
             if len(body) > self._max_bytes:
@@ -79,7 +83,9 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
                 )
                 return JSONResponse(
                     status_code=413,
-                    content={"detail": f"Request body too large (>{self._max_bytes} bytes)"},
+                    content={
+                        "detail": f"Request body too large (>{self._max_bytes} bytes)",  # noqa: E501
+                    },
                 )
             # 重要：缓存 body 让后续 handler 仍能读到
             # starlette 的 Request 会自动 cache body 在 request._body，
