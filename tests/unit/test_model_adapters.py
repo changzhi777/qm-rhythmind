@@ -22,8 +22,10 @@ from __future__ import annotations
 
 import asyncio
 import re
+import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 
 # ── 清理全局缓存，保证测试隔离 ────────────────────────────────────────────
@@ -504,6 +506,70 @@ class TestLiteLLMAdapter:
         call_kwargs = mock_client.chat.completions.create.call_args.kwargs
         assert call_kwargs.get("response_format") == {"type": "json_object"}
 
+    @pytest.mark.asyncio
+    async def test_health_check_ok(self):
+        """health_check: /health 返 200 → True。"""
+        from rhythmind.adapters.litellm_adapter import LiteLLMAdapter
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_http = AsyncMock()
+        mock_http.get = AsyncMock(return_value=mock_resp)
+
+        with patch("httpx.AsyncClient") as mock_cls:
+            cli_instance = AsyncMock()
+            cli_instance.__aenter__ = AsyncMock(return_value=mock_http)
+            cli_instance.__aexit__ = AsyncMock(return_value=None)
+            mock_cls.return_value = cli_instance
+
+            adapter = LiteLLMAdapter("primary")
+            adapter._base_url = "http://litellm:4000/v1"
+            ok = await adapter.health_check()
+
+        assert ok is True
+        # /health URL 去掉 /v1 后缀
+        called_url = mock_http.get.call_args[0][0]
+        assert called_url == "http://litellm:4000/health"
+
+    @pytest.mark.asyncio
+    async def test_health_check_fail_on_non_200(self):
+        """health_check: 非 200 → False。"""
+        from rhythmind.adapters.litellm_adapter import LiteLLMAdapter
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 503
+        mock_http = AsyncMock()
+        mock_http.get = AsyncMock(return_value=mock_resp)
+
+        with patch("httpx.AsyncClient") as mock_cls:
+            cli_instance = AsyncMock()
+            cli_instance.__aenter__ = AsyncMock(return_value=mock_http)
+            cli_instance.__aexit__ = AsyncMock(return_value=None)
+            mock_cls.return_value = cli_instance
+
+            adapter = LiteLLMAdapter("primary")
+            adapter._base_url = "http://litellm:4000/v1"
+            ok = await adapter.health_check()
+        assert ok is False
+
+    @pytest.mark.asyncio
+    async def test_health_check_fail_on_connection_error(self):
+        """health_check: 连接异常 → False（不抛）。"""
+        from rhythmind.adapters.litellm_adapter import LiteLLMAdapter
+
+        with patch("httpx.AsyncClient") as mock_cls:
+            cli_instance = AsyncMock()
+            cli_instance.__aenter__ = AsyncMock(
+                side_effect=httpx.ConnectError("refused")
+            )
+            cli_instance.__aexit__ = AsyncMock(return_value=None)
+            mock_cls.return_value = cli_instance
+
+            adapter = LiteLLMAdapter("primary")
+            adapter._base_url = "http://litellm:4000/v1"
+            ok = await adapter.health_check()
+        assert ok is False
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 5. AdapterRouter
@@ -582,6 +648,67 @@ class TestAdapterRouter:
             await router.chat([{"role": "user", "content": "hi"}])
 
         assert captured_spec[0] == "mlx://mlx-community/Qwen3-30B-A3B-4bit"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 5.5 _get_client 客户端缓存
+
+class TestGetClientCache:
+    """_get_client 缓存逻辑：同 (base_url, api_key) 复用实例，不同新建。"""
+
+    def test_creates_new_client_on_first_call(self, monkeypatch):
+        """首次调用：从 openai 导入并新建 AsyncOpenAI 实例并缓存。"""
+        from rhythmind.adapters import litellm_adapter as lla
+
+        mock_client = MagicMock(name="AsyncOpenAI_1")
+        mock_openai_module = MagicMock()
+        mock_openai_module.AsyncOpenAI = MagicMock(return_value=mock_client)
+        monkeypatch.setitem(sys.modules, "openai", mock_openai_module)
+        monkeypatch.setattr(lla, "_CLIENT_CACHE", {})
+
+        result = lla._get_client("http://api:4000/v1", "sk-test")
+        assert result is mock_client
+        mock_openai_module.AsyncOpenAI.assert_called_once_with(
+            base_url="http://api:4000/v1", api_key="sk-test"
+        )
+        # 缓存生效
+        assert lla._CLIENT_CACHE["http://api:4000/v1:sk-test"] is mock_client
+
+    def test_reuses_cached_client_on_same_key(self, monkeypatch):
+        """同 (base_url, api_key) 第二次调用：直接返回缓存，不新建。"""
+        from rhythmind.adapters import litellm_adapter as lla
+
+        mock_client = MagicMock(name="cached_client")
+        cache_key = "http://api:4000/v1:sk-test"
+        monkeypatch.setattr(lla, "_CLIENT_CACHE", {cache_key: mock_client})
+
+        mock_openai_module = MagicMock()
+        monkeypatch.setitem(sys.modules, "openai", mock_openai_module)
+
+        result = lla._get_client("http://api:4000/v1", "sk-test")
+        assert result is mock_client
+        # 缓存命中：AsyncOpenAI 没被调用
+        mock_openai_module.AsyncOpenAI.assert_not_called()
+
+    def test_different_keys_produce_different_clients(self, monkeypatch):
+        """不同 base_url 或 api_key 应产生不同客户端（独立缓存）。"""
+        from rhythmind.adapters import litellm_adapter as lla
+
+        client1 = MagicMock(name="client_1")
+        client2 = MagicMock(name="client_2")
+        mock_openai_module = MagicMock()
+        mock_openai_module.AsyncOpenAI = MagicMock(side_effect=[client1, client2, client2])
+        monkeypatch.setitem(sys.modules, "openai", mock_openai_module)
+        monkeypatch.setattr(lla, "_CLIENT_CACHE", {})
+
+        r1 = lla._get_client("http://a:4000/v1", "sk-1")
+        r2 = lla._get_client("http://b:4000/v1", "sk-1")
+        r3 = lla._get_client("http://a:4000/v1", "sk-2")
+
+        assert r1 is client1
+        assert r2 is client2
+        assert r3 is client2  # 与 r2 同 api_key 也算不同 cache_key
+        assert len(lla._CLIENT_CACHE) == 3
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
