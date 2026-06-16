@@ -46,7 +46,7 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.text("'[]'::jsonb"),
         ),
-        sa.Column("relevance_score", sa.Float(), nullable=False, server_default=sa.text("0.0")),
+        sa.Column("relevance_score", sa.Float(), nullable=False, server_default=sa.text("0.0")),  # noqa: E501
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -68,7 +68,7 @@ def upgrade() -> None:
             sa.ForeignKey("knowledge_article.id", ondelete="CASCADE"),
             nullable=False,
         ),
-        sa.Column("ref_type", sa.String(32), nullable=False, server_default="'citation'"),
+        sa.Column("ref_type", sa.String(32), nullable=False, server_default="'citation'"),  # noqa: E501
         sa.Column("ref_title", sa.String(512), nullable=False),
         sa.Column("ref_url", sa.String(1024), nullable=True),
         sa.Column("ref_authors", sa.String(1024), nullable=True),

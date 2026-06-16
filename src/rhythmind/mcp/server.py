@@ -239,7 +239,7 @@ async def _handle_status(args: dict[str, Any]) -> dict[str, Any]:
             "user_id": user_id,
             "current_facts": facts_summary,
             "fact_count": len(facts_summary),
-            "recent_memory_keys": list(recent_memory.keys()) if recent_memory else [],
+            "recent_memory_keys": list(recent_memory.keys()) if recent_memory else [],  # type: ignore[attr-defined]
             "status": "ok",
         }
     except Exception as e:
@@ -419,7 +419,7 @@ def build_mcp_server() -> Server:
     """
     server = Server("rhythmind-health")
 
-    @server.list_tools()
+    @server.list_tools()  # type: ignore[no-untyped-call]
     async def list_tools() -> list[Tool]:
         return _TOOLS
 

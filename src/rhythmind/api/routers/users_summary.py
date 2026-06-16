@@ -57,7 +57,7 @@ async def get_users_summary() -> dict[str, Any]:
         # 3. 批量获取 running summary
         result = await session.execute(text(
             "SELECT user_id, object_json FROM health_fact "
-            "WHERE valid_until IS NULL AND subject = 'running' AND predicate = 'summary'"
+            "WHERE valid_until IS NULL AND subject = 'running' AND predicate = 'summary'"  # noqa: E501
         ))
         running_map: dict[str, dict] = {}
         for uid, obj in result.all():

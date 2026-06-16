@@ -27,7 +27,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select, update
 
 from rhythmind.api.deps import CurrentUserId
-from rhythmind.audit import AuditEvent, audit_log
+from rhythmind.audit import AuditEvent, audit_log  # type: ignore[attr-defined]
 from rhythmind.config import settings
 from rhythmind.core.memory.models import SkillRecord
 from rhythmind.core.qmd import QMDClient

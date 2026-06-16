@@ -247,7 +247,7 @@ class MemoryManager:
                     AgentMemory.expires_at < datetime.now(tz=UTC)
                 )
             )
-        count: int = result.rowcount  # type: ignore[assignment]
+        count: int = result.rowcount  # type: ignore[attr-defined]
         logger.info("memory.purge_expired deleted=%d", count)
         return count
 

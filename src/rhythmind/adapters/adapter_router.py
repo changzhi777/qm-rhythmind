@@ -118,7 +118,7 @@ class AdapterRouter:
         adapter_kind = spec.split("://", 1)[0] if "://" in spec else "litellm"
 
         # Prometheus 埋点（无 prometheus_client 时为 no-op）
-        from rhythmind.observability import LLM_CALLS, LLM_LATENCY
+        from rhythmind.observability import LLM_CALLS, LLM_LATENCY  # type: ignore[attr-defined]
         with LLM_LATENCY.labels(adapter_kind).time():
             try:
                 result = await adapter.chat(

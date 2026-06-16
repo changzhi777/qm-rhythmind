@@ -99,7 +99,7 @@ INTENT_MAP: dict[str, str] = {
 
 # 意图关键词规则（快速路径，避免 LLM 调用）
 INTENT_RULES: list[tuple[list[str], str]] = [
-    (["上传", "同步", "garmin", "apple", "华为", "小米", "手环", "手表"], "upload_data"),
+    (["上传", "同步", "garmin", "apple", "华为", "小米", "手环", "手表"], "upload_data"),  # noqa: E501
     (["目标", "计划", "跑步", "减脂", "增肌", "马拉松"], "set_goal"),
     (["疼", "痛", "受伤", "扭伤", "拉伤", "损伤"], "pain_report"),
     (["心率", "异常", "心跳", "血压", "预警", "alert"], "vitals_alert"),

@@ -118,7 +118,7 @@ class S3JsonlSink(AuditSink):
         self.max_buffer = max_buffer
 
         try:
-            import boto3
+            import boto3  # type: ignore[import-not-found]
             self._client = boto3.client("s3")
         except ImportError:
             logger.warning(

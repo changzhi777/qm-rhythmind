@@ -276,7 +276,7 @@ class PrivacyService:
         if self._redis is not None:
             return self._redis
         import redis.asyncio as aioredis
-        self._redis = aioredis.from_url(
+        self._redis = aioredis.from_url(  # type: ignore[no-untyped-call]
             settings.redis_url, encoding="utf-8", decode_responses=True,
             socket_connect_timeout=2,
         )

@@ -130,7 +130,7 @@ class InfluxClient:
         """懒初始化：首次调用时建立连接。"""
         if self._client is None:
             try:
-                from influxdb_client.client.influxdb_client_async import (
+                from influxdb_client.client.influxdb_client_async import (  # type: ignore[import-untyped]
                     InfluxDBClientAsync,
                 )
                 self._client = InfluxDBClientAsync(
@@ -168,8 +168,8 @@ class InfluxClient:
                 continue
 
             try:
-                from influxdb_client.client.write.point import Point as InfluxPoint
-                from influxdb_client.domain.write_precision import WritePrecision
+                from influxdb_client.client.write.point import Point as InfluxPoint  # type: ignore[import-untyped]
+                from influxdb_client.domain.write_precision import WritePrecision  # type: ignore[import-untyped]
 
                 influx_pt = (
                     InfluxPoint("health_metrics")

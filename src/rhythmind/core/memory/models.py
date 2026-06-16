@@ -219,7 +219,7 @@ class SkillRecord(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<SkillRecord agent={self.agent} hash={self.skill_hash} status={self.status}>"
+        return f"<SkillRecord agent={self.agent} hash={self.skill_hash} status={self.status}>"  # noqa: E501
 
 
 class HealthFact(Base):
@@ -367,7 +367,7 @@ class UserSession(Base):
         nullable=False,
         index=True,
     )
-    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)  # noqa: E501
     duration_ms: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
     __table_args__ = (

@@ -240,7 +240,7 @@ async def poll_feishu_messages(body: PollRequest) -> PollResponse:
     for msg in messages:
         msg_type = msg.get("msg_type", "")
         body = msg.get("body", {})
-        content_str = body.get("content", "{}")
+        content_str = body.get("content", "{}")  # type: ignore[attr-defined]
         message_id = msg.get("message_id", "")
         sender = msg.get("sender", {})
 

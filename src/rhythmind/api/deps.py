@@ -20,7 +20,7 @@ from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
+from jose import JWTError, jwt  # type: ignore[import-untyped]
 
 from rhythmind.config import settings
 from rhythmind.orchestrator import HealthRouter
@@ -66,7 +66,7 @@ async def get_current_user_id(
             settings.env, token,
         )
         try:
-            from rhythmind.audit import AuditEvent, audit_log
+            from rhythmind.audit import AuditEvent, audit_log  # type: ignore[attr-defined]
             audit_log(AuditEvent.AUTH_BYPASS_USED, user_id=token, env=settings.env)
         except Exception:
             pass

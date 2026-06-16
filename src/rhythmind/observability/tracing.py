@@ -65,7 +65,7 @@ def install_tracing(app: FastAPI, service_name: str = "rhythmind-api") -> None:
             logger.info("tracing.otlp_exporter_enabled endpoint=%s", otlp_endpoint)
         except ImportError:
             logger.warning(
-                "tracing.otlp_exporter_unavailable — install opentelemetry-exporter-otlp-proto-http"
+                "tracing.otlp_exporter_unavailable — install opentelemetry-exporter-otlp-proto-http"  # noqa: E501
             )
 
     trace.set_tracer_provider(provider)
@@ -77,5 +77,5 @@ def install_tracing(app: FastAPI, service_name: str = "rhythmind-api") -> None:
         logger.info("tracing.fastapi_instrumented service=%s", service_name)
     except ImportError:
         logger.warning(
-            "tracing.fastapi_instrumentor_unavailable — install opentelemetry-instrumentation-fastapi"
+            "tracing.fastapi_instrumentor_unavailable — install opentelemetry-instrumentation-fastapi"  # noqa: E501
         )

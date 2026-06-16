@@ -131,7 +131,7 @@ class PromptAuditor:
             f"omlX://{settings.model_compliance}"
         )
 
-    def _get_adapter(self):
+    def _get_adapter(self):  # type: ignore[no-untyped-def]
         """懒获取 Adapter 实例（避免模块级导入触发副作用）。"""
         from rhythmind.adapters.adapter_router import adapter_router
         return adapter_router.get(self._model_spec)
@@ -156,7 +156,7 @@ class PromptAuditor:
         ]
 
         try:
-            adapter = self._get_adapter()
+            adapter = self._get_adapter()  # type: ignore[no-untyped-call]
             raw = await asyncio.wait_for(
                 adapter.chat(
                     audit_messages,

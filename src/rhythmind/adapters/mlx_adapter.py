@@ -40,10 +40,10 @@ logger = logging.getLogger(__name__)
 # ── mlx-lm 模块级导入（便于 unittest.mock.patch 拦截）───────────────────────
 # mlx-lm 仅在 Apple Silicon 上安装；测试环境通过 patch 注入 mock
 try:
-    from mlx_lm import generate, load  # type: ignore[import]
+    from mlx_lm import generate, load
 except ImportError:  # pragma: no cover
-    load = None      # type: ignore[assignment]
-    generate = None  # type: ignore[assignment]
+    load = None
+    generate = None
 
 # ── 模块级模型缓存（进程生命周期内驻留）────────────────────────────────────
 _MODEL_CACHE: dict[str, tuple[Any, Any]] = {}  # model_path → (model, tokenizer)

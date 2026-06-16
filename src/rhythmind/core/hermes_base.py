@@ -336,7 +336,7 @@ class HermesBase(ABC):
 
         if audit.level == AuditLevel.BLOCK:
             raise ComplianceBlockedError(
-                reason=f"prompt 审查拦截：{audit.reason}（score={audit.overall_score:.2f}）",
+                reason=f"prompt 审查拦截：{audit.reason}（score={audit.overall_score:.2f}）",  # noqa: E501
                 audit=audit,
             )
 

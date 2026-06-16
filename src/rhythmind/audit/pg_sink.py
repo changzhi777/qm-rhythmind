@@ -53,7 +53,7 @@ class PGSink(AuditSink):
             loop = asyncio.get_event_loop()
             loop.create_task(self._write_batch(records))
         except Exception as exc:
-            logger.warning("audit.pg_flush_async_failed records=%d %s", len(records), exc)
+            logger.warning("audit.pg_flush_async_failed records=%d %s", len(records), exc)  # noqa: E501
             # sync fallback
             asyncio.run(self._write_batch(records))
 
@@ -80,7 +80,7 @@ class PGSink(AuditSink):
 
         try:
             async with AsyncSessionLocal() as sess, sess.begin():
-                stmt = insert(__import__("rhythmind.db.models", fromlist=["Base"]).Base.metadata.tables["audit_log"])
+                stmt = insert(__import__("rhythmind.db.models", fromlist=["Base"]).Base.metadata.tables["audit_log"])  # noqa: E501
                 await sess.execute(stmt, records)
         except Exception as exc:
-            logger.warning("audit.pg_batch_write_failed records=%d %s", len(records), exc)
+            logger.warning("audit.pg_batch_write_failed records=%d %s", len(records), exc)  # noqa: E501

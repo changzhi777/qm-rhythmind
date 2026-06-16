@@ -197,7 +197,7 @@ class AgentPool:
                 if bundle.idle_seconds <= self.ttl_seconds:
                     # 移到末尾（LRU 更新）
                     self._pool.move_to_end(user_id)
-                    logger.debug("pool.hit user=%s idle=%.1fs", user_id, bundle.idle_seconds)
+                    logger.debug("pool.hit user=%s idle=%.1fs", user_id, bundle.idle_seconds)  # noqa: E501
                     return bundle
                 else:
                     # TTL 到期，删除后重建
@@ -212,7 +212,7 @@ class AgentPool:
             # 创建新 AgentBundle
             bundle = await self._create_bundle(user_id)
             self._pool[user_id] = bundle
-            logger.debug("pool.miss created user=%s pool_size=%d", user_id, len(self._pool))
+            logger.debug("pool.miss created user=%s pool_size=%d", user_id, len(self._pool))  # noqa: E501
             return bundle
 
     @staticmethod

@@ -87,7 +87,7 @@ class ComplianceGate:
             result:               AgentResult 实例
             confidence_override:  可覆盖 result.confidence（测试用）
         """
-        confidence = confidence_override if confidence_override is not None else result.confidence
+        confidence = confidence_override if confidence_override is not None else result.confidence  # noqa: E501
         output_text = self._extract_text(result.output)
 
         # 1. 关键词扫描
@@ -102,7 +102,7 @@ class ComplianceGate:
                 confidence, blocked_kws,
             )
             try:
-                from rhythmind.observability import COMPLIANCE_BLOCKS
+                from rhythmind.observability import COMPLIANCE_BLOCKS  # type: ignore[attr-defined]
                 COMPLIANCE_BLOCKS.labels("output_gate").inc()
             except Exception:
                 pass
@@ -159,7 +159,7 @@ class ComplianceGate:
         if blocked:
             logger.warning("compliance.pre_check BLOCKED kws=%s", blocked)
             try:
-                from rhythmind.observability import COMPLIANCE_BLOCKS
+                from rhythmind.observability import COMPLIANCE_BLOCKS  # type: ignore[attr-defined]
                 COMPLIANCE_BLOCKS.labels("prompt_audit").inc()
             except Exception:
                 pass

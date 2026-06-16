@@ -75,7 +75,7 @@ async def _maybe_authenticated_user(
             request.client.host if request.client else "unknown",
         )
         try:
-            from rhythmind.audit import AuditEvent, audit_log
+            from rhythmind.audit import AuditEvent, audit_log  # type: ignore[attr-defined]
             audit_log(
                 AuditEvent.MCP_UNAUTHENTICATED,
                 path=request.url.path,

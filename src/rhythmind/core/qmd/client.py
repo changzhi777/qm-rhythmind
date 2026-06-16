@@ -271,7 +271,7 @@ class QMDClient:
             logger.debug("qmd._delete_collection ok collection=%s", safe_collection)
             return True
         except (httpx.ConnectError, httpx.HTTPStatusError) as e:
-            logger.error("qmd._delete_collection failed collection=%s: %s", safe_collection, e)
+            logger.error("qmd._delete_collection failed collection=%s: %s", safe_collection, e)  # noqa: E501
             return False
 
     async def close(self) -> None:

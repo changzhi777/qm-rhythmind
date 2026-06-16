@@ -123,7 +123,7 @@ class CoachAgent(HermesBase):
         confidence = 0.90
         if weekly_volume_km > 0 and new_volume > weekly_volume_km * 0.15:
             bound_log.warning(
-                "coach_agent load_spike new=%.1f base=%.1f", new_volume, weekly_volume_km
+                "coach_agent load_spike new=%.1f base=%.1f", new_volume, weekly_volume_km  # noqa: E501
             )
             confidence = 0.65  # 触发 ComplianceGate WARN
 

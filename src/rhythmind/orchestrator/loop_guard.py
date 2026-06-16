@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 # ── Prometheus 指标（可选导入）──────────────────────────────────────────────
 
 try:
-    from prometheus_client import Counter
+    from prometheus_client import Counter  # type: ignore[import-not-found]
     _LOOP_GUARD_CALLS = Counter(
         "rhythmind_loop_guard_calls_total",
         "LoopGuard 调用计数",
@@ -70,7 +70,7 @@ class LoopGuard:
 
     def __init__(self, redis_url: str | None = None) -> None:
         url = redis_url or settings.redis_url
-        self._redis: aioredis.Redis = aioredis.from_url(
+        self._redis: aioredis.Redis = aioredis.from_url(  # type: ignore[no-untyped-call]
             url, encoding="utf-8", decode_responses=True
         )
         self._ttl_sec = settings.loop_guard_ttl_hours * 3600

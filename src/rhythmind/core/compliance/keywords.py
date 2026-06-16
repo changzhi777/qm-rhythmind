@@ -18,7 +18,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import NamedTuple
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 
 class KeywordRules(NamedTuple):
@@ -44,7 +44,7 @@ def load_keyword_rules(
 ) -> KeywordRules:
     if rules_path is None:
         # 相对项目根目录定位
-        base = Path(__file__).resolve().parents[4]  # src/rhythmind/core/compliance/ → root
+        base = Path(__file__).resolve().parents[4]  # src/rhythmind/core/compliance/ → root  # noqa: E501
         rules_path = str(base / "data" / "compliance_rules" / "medical_keywords.yaml")
 
     with open(rules_path, encoding="utf-8") as f:
