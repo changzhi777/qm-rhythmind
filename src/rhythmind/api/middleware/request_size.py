@@ -24,6 +24,7 @@ api/middleware/request_size.py — 请求体大小硬上限
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware

@@ -40,6 +40,7 @@ from collections import OrderedDict
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
+from typing import Any
 
 from rhythmind.adapters.influx_client import InfluxClient
 from rhythmind.agents.coach_agent import CoachAgent
@@ -169,7 +170,7 @@ class AgentPool:
     def size(self) -> int:
         return len(self._pool)
 
-    def stats(self) -> dict:
+    def stats(self) -> dict[str, Any]:
         """诊断用：返回当前池状态摘要。"""
         now = time.monotonic()
         return {

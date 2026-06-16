@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from typing import Any
 
 import redis.asyncio as aioredis
 from fastapi import HTTPException, Request, status
@@ -87,7 +88,7 @@ def rate_limit_user(
     route_key: str,
     limit: int,
     window_sec: int,
-) -> Callable:
+) -> Callable[..., Any]:
     """
     返回一个 FastAPI 依赖：限制同一 user_id 在 window_sec 内对 route_key 的请求数。
 
@@ -115,7 +116,7 @@ def rate_limit_ip(
     route_key: str,
     limit: int,
     window_sec: int,
-) -> Callable:
+) -> Callable[..., Any]:
     async def _dep(request: Request) -> None:
         # X-Forwarded-For 优先（反向代理后），否则用直连 client.host
         xff = request.headers.get("x-forwarded-for", "")

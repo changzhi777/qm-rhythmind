@@ -62,7 +62,7 @@ def get_langfuse() -> Any:  # noqa: ANN401
 def observe_llm(
     model: str = "unknown",
     agent: str = "unknown",
-) -> Callable:
+) -> Callable[..., Any]:
     """装饰器：自动采集 LLM 调用到 Langfuse。
 
     自动记录：
@@ -75,7 +75,7 @@ def observe_llm(
     Langfuse 禁用时直接透传，无开销。
     """
 
-    def decorator(func: Callable[..., Any]) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @functools.wraps(func)
         async def async_wrapper(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
             client = get_langfuse()
@@ -144,7 +144,9 @@ def _estimate_tokens(kwargs: dict[str, Any], result: str | None) -> int:
     return int((input_chars + output_chars) / 2.5)
 
 
-def _estimate_cost(model: str, kwargs: dict[str, Any], result: str | None) -> dict:
+def _estimate_cost(
+    model: str, kwargs: dict[str, Any], result: str | None
+) -> dict[str, Any]:
     """基于模型估算成本（USD）。"""
     total_tokens = _estimate_tokens(kwargs, result)
     cost_per_1k = {

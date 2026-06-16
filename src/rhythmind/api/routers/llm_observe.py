@@ -101,7 +101,9 @@ def _get_pg_engine() -> Any:  # noqa: ANN401
     return _pg_engine
 
 
-async def _query_pg(sql: str, params: dict | None = None) -> list[dict]:
+async def _query_pg(
+    sql: str, params: dict[str, Any] | None = None
+) -> list[dict[str, Any]]:
     from sqlalchemy import text
 
     engine = _get_pg_engine()

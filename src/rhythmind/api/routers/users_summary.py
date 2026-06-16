@@ -59,7 +59,7 @@ async def get_users_summary() -> dict[str, Any]:
             "SELECT user_id, object_json FROM health_fact "
             "WHERE valid_until IS NULL AND subject = 'running' AND predicate = 'summary'"  # noqa: E501
         ))
-        running_map: dict[str, dict] = {}
+        running_map: dict[str, dict[str, Any]] = {}
         for uid, obj in result.all():
             if isinstance(obj, str):
                 try:

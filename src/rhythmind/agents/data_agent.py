@@ -88,7 +88,7 @@ class DataAgent(HermesBase):
         analysis: dict[str, Any] = ctx.input_data.get("metrics_analysis", {})
         metrics: dict[str, Any] = analysis.get("metrics", {})
         trends: dict[str, Any] = analysis.get("trends", {})
-        anomalies: list[dict] = analysis.get("anomalies", [])
+        anomalies: list[dict[str, Any]] = analysis.get("anomalies", [])
         load_level: str = analysis.get("load_level", "unknown")
         sport_type: str = ctx.input_data.get(
             "sport_type", analysis.get("metrics", {}).get("sport_type", "general")
@@ -188,7 +188,7 @@ class DataAgent(HermesBase):
     def _build_prompt(
         metrics: dict[str, Any],
         trends: dict[str, Any],
-        anomalies: list[dict],
+        anomalies: list[dict[str, Any]],
         load_level: str,
         baseline: dict[str, Any],
         sport_type: str,
@@ -269,7 +269,7 @@ class DataAgent(HermesBase):
     @staticmethod
     def _fallback_report(
         metrics: dict[str, Any],
-        anomalies: list[dict],
+        anomalies: list[dict[str, Any]],
     ) -> dict[str, Any]:
         """LLM 调用失败时的降级报告。"""
         return {

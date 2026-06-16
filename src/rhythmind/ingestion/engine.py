@@ -87,7 +87,7 @@ class IngestionEngine:
 
             # 按年统计
             from collections import defaultdict
-            year_stats: dict[int, dict] = defaultdict(
+            year_stats: dict[int, dict[str, Any]] = defaultdict(
                 lambda: {"count": 0, "distance": 0, "duration": 0}
             )
             for a in activities:

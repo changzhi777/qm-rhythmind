@@ -119,7 +119,7 @@ async def _query_patient(user_id: str, session: AsyncSession) -> dict[str, Any]:
 
 async def _query_diagnoses(
     user_id: str, session: AsyncSession, active_only: bool = True,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     from sqlalchemy import select
 
     from rhythmind.db.medical_models import MedDiagnosis
@@ -147,7 +147,7 @@ async def _query_events(
     session: AsyncSession,
     event_type: str | None = None,
     limit: int = 50,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     from sqlalchemy import select
 
     from rhythmind.db.medical_models import MedClinicalEvent
@@ -177,7 +177,7 @@ async def _query_medications(
     user_id: str,
     session: AsyncSession,
     status_filter: str | None = "active",
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     from sqlalchemy import select
 
     from rhythmind.db.medical_models import MedMedication
@@ -208,7 +208,7 @@ async def _query_lab_results(
     session: AsyncSession,
     test_name: str | None = None,
     limit: int = 50,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     from sqlalchemy import select
 
     from rhythmind.db.medical_models import MedLabResult
