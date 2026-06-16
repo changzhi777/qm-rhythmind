@@ -102,10 +102,10 @@ class IngestionEngine:
             total_run_km = sum(r.distance_meters for r in runs) / 1000
             runs_with_pace = [r for r in runs if r.pace_min_per_km]
             avg_pace = sum(
-                r.pace_min_per_km for r in runs_with_pace
+                r.pace_min_per_km for r in runs_with_pace  # type: ignore[misc]
             ) / max(1, len(runs_with_pace))
             runs_with_hr = [r for r in runs if r.avg_hr]
-            avg_hr = sum(r.avg_hr for r in runs_with_hr) / max(1, len(runs_with_hr))
+            avg_hr = sum(r.avg_hr for r in runs_with_hr) / max(1, len(runs_with_hr))  # type: ignore[misc]
             await _write("running", "summary", {
                 "total_runs": len(runs),
                 "total_km": round(total_run_km, 0),

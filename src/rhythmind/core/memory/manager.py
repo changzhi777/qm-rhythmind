@@ -99,7 +99,7 @@ def _build_upsert(is_sqlite: bool) -> Any:
     if is_sqlite:
         from sqlalchemy.dialects.sqlite import insert
     else:
-        from sqlalchemy.dialects.postgresql import insert
+        from sqlalchemy.dialects.postgresql import insert  # type: ignore[assignment]
     return insert
 
 

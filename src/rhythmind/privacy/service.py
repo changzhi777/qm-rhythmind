@@ -219,7 +219,7 @@ class PrivacyService:
                 )
                 await sess.commit()
                 report.successes.append(
-                    ("agent_memory", f"deleted {res.rowcount} rows")
+                    ("agent_memory", f"deleted {res.rowcount} rows")  # type: ignore[union-attr]
                 )
         except Exception as exc:
             report.failures.append(("agent_memory", str(exc)))
@@ -231,7 +231,7 @@ class PrivacyService:
                     delete(HealthFact).where(HealthFact.user_id == user_id)
                 )
                 await sess.commit()
-                report.successes.append(("health_fact", f"deleted {res.rowcount} rows"))
+                report.successes.append(("health_fact", f"deleted {res.rowcount} rows"))  # type: ignore[union-attr]
         except Exception as exc:
             report.failures.append(("health_fact", str(exc)))
 
@@ -358,7 +358,7 @@ def _serialize_fact(row: HealthFact) -> dict[str, Any]:
             row.valid_from.isoformat() if getattr(row, "valid_from", None) else None
         ),
         "valid_until": (
-            row.valid_until.isoformat() if getattr(row, "valid_until", None) else None
+            row.valid_until.isoformat() if getattr(row, "valid_until", None) else None  # type: ignore[union-attr]
         ),
     }
     return out

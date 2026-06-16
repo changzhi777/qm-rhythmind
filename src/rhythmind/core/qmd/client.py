@@ -115,7 +115,7 @@ class QMDClient:
                 "qmd.query collection=%s query=%r hits=%d",
                 safe_collection, query, len(results),
             )
-            return results
+            return results  # type: ignore[no-any-return]
         except httpx.ConnectError as e:
             logger.warning("qmd.query unavailable: %s", e)
             raise QMDUnavailableError(f"QMD not reachable at {self._base_url}") from e

@@ -47,7 +47,7 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
             max_bytes if max_bytes is not None else settings.max_request_body_bytes
         )
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: Any) -> Any:
         if self._max_bytes <= 0:
             return await call_next(request)
 

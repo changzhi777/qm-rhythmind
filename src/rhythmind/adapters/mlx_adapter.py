@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 # ── mlx-lm 模块级导入（便于 unittest.mock.patch 拦截）───────────────────────
 # mlx-lm 仅在 Apple Silicon 上安装；测试环境通过 patch 注入 mock
 try:
-    from mlx_lm import generate, load
+    from mlx_lm import generate, load  # type: ignore[import-not-found]
 except ImportError:  # pragma: no cover
     load = None
     generate = None
@@ -191,7 +191,7 @@ class MLXAdapter(ModelAdapter):
 
         # Qwen3 支持 enable_thinking 参数（控制 CoT 推理模式）
         try:
-            return tokenizer.apply_chat_template(
+            return tokenizer.apply_chat_template(  # type: ignore[no-any-return]
                 messages,
                 enable_thinking=thinking,
                 **base_kwargs,
@@ -202,7 +202,7 @@ class MLXAdapter(ModelAdapter):
             # 如果需要关闭 thinking 且 tokenizer 不支持，在 user 消息前插入 /no_think
             if not thinking:
                 prompt = "/no_think\n" + prompt
-            return prompt
+            return prompt  # type: ignore[no-any-return]
 
     def _generate_sync(
         self,

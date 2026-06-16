@@ -167,7 +167,7 @@ class AgentMemory(Base):
         if isinstance(tags, list):
             return tags
         if isinstance(tags, str):
-            return json.loads(tags)
+            return json.loads(tags)  # type: ignore[no-any-return]
         return []
 
     @tag_list.setter

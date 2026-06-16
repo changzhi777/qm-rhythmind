@@ -59,7 +59,7 @@ def _parse_tiered_limits() -> dict[str, int]:
     if not raw:
         return {}
     try:
-        return json.loads(raw)
+        return json.loads(raw)  # type: ignore[no-any-return]
     except json.JSONDecodeError:
         logger.warning("loop_guard.tiered_limits.parse_error raw=%s", raw[:100])
         return {}

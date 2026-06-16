@@ -423,7 +423,7 @@ def build_mcp_server() -> Server:
     async def list_tools() -> list[Tool]:
         return _TOOLS
 
-    @server.call_tool()
+    @server.call_tool()  # type: ignore[untyped-decorator]
     async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         handler = _HANDLERS.get(name)
         if handler is None:

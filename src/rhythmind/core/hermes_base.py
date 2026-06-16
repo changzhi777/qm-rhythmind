@@ -393,7 +393,7 @@ class HermesBase(ABC):
             model_spec,
             len(content),
         )
-        return content
+        return content  # type: ignore[no-any-return]
 
     # ── 便捷方法 ──────────────────────────────────────────────────────────
 
