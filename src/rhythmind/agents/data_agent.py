@@ -57,7 +57,7 @@ HR_ZONE_LABELS = {
 }
 
 # 置信度计算系数（异常越多置信越低）
-# 公式: confidence = max(MIN, BASE - CRITICAL_PENALTY * n_critical - WARN_PENALTY * n_warn)
+# 公式见 _calculate_confidence 函数
 _BASE_CONFIDENCE: float = 0.92      # 无异常时基准置信度
 _CRITICAL_PENALTY: float = 0.20     # 每条 critical 异常扣分
 _WARN_PENALTY: float = 0.08         # 每条 warn 异常扣分
@@ -90,7 +90,9 @@ class DataAgent(HermesBase):
         trends: dict[str, Any] = analysis.get("trends", {})
         anomalies: list[dict] = analysis.get("anomalies", [])
         load_level: str = analysis.get("load_level", "unknown")
-        sport_type: str = ctx.input_data.get("sport_type", analysis.get("metrics", {}).get("sport_type", "general"))
+        sport_type: str = ctx.input_data.get(
+            "sport_type", analysis.get("metrics", {}).get("sport_type", "general")
+        )
 
         # 无上游分析时降级（独立运行兼容）
         if not metrics:
@@ -152,9 +154,11 @@ class DataAgent(HermesBase):
         # ── 6. 置信度：异常越多置信越低 ──────────────────────────────────
         critical_count = sum(1 for a in anomalies if a.get("severity") == "critical")
         warn_count = sum(1 for a in anomalies if a.get("severity") == "warn")
-        confidence = max(
+        confidence = max(  # noqa: E501
             _MIN_CONFIDENCE,
-            _BASE_CONFIDENCE - _CRITICAL_PENALTY * critical_count - _WARN_PENALTY * warn_count,
+            _BASE_CONFIDENCE
+            - _CRITICAL_PENALTY * critical_count
+            - _WARN_PENALTY * warn_count,
         )
 
         return AgentResult(
@@ -223,7 +227,7 @@ class DataAgent(HermesBase):
         if anomalies:
             anomaly_lines = [
                 f"  {'⛔' if a['severity']=='critical' else '⚠️'} "
-                f"{a['field']} = {a['value']} (正常范围 {a['expected']}, {a['severity']})"
+                f"{a['field']} = {a['value']} (正常范围 {a['expected']}, {a['severity']})"  # noqa: E501
                 for a in anomalies
             ]
             anomaly_str = "\n".join(anomaly_lines)
