@@ -10,7 +10,7 @@ import asyncio
 import json
 import shutil
 import time
-from typing import Any
+from typing import Any, cast
 
 import httpx
 import structlog
@@ -38,7 +38,7 @@ async def _get_tenant_token() -> str:
 
 async def _get_tenant_token_direct() -> str:
     if _token_cache["token"] and time.time() < _token_cache["expires_at"]:
-        return _token_cache["token"]
+        return cast(str, _token_cache["token"])
 
     async with httpx.AsyncClient(timeout=10) as cli:
         resp = await cli.post(
@@ -55,12 +55,12 @@ async def _get_tenant_token_direct() -> str:
 
     _token_cache["token"] = data["tenant_access_token"]
     _token_cache["expires_at"] = time.time() + data.get("expire", 7200) - 300
-    return _token_cache["token"]
+    return cast(str, _token_cache["token"])
 
 
 async def _get_tenant_token_via_cli() -> str:
     if _token_cache["token"] and time.time() < _token_cache["expires_at"]:
-        return _token_cache["token"]
+        return cast(str, _token_cache["token"])
 
     proc = await asyncio.create_subprocess_exec(
         _LARK_CLI, "api", "POST", "/open-apis/auth/v3/tenant_access_token/internal",
@@ -77,15 +77,18 @@ async def _get_tenant_token_via_cli() -> str:
     _token_cache["token"] = data["tenant_access_token"]
     _token_cache["expires_at"] = time.time() + data.get("expire", 7200) - 300
     log.info("feishu.token_refreshed via lark-cli")
-    return _token_cache["token"]
+    return cast(str, _token_cache["token"])
 
 
 async def _api_headers() -> dict[str, str]:
     token = await _get_tenant_token()
-    return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    return cast(
+        dict[str, str],
+        {"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+    )
 
 
-async def _cli_api(method: str, path: str, data: dict | None = None, params: dict | None = None) -> dict:
+async def _cli_api(method: str, path: str, data: dict[str, Any] | None = None, params: dict[str, Any] | None = None) -> dict[str, Any]:
     args = [_LARK_CLI, "api", method, path, "--as", "bot", "--format", "json"]
     if data:
         args.extend(["--data", json.dumps(data)])
@@ -101,7 +104,7 @@ async def _cli_api(method: str, path: str, data: dict | None = None, params: dic
     if proc.returncode != 0 or not stdout.strip():
         log.error("feishu.cli_error rc=%s stderr=%s", proc.returncode, stderr.decode()[:200])
         return {"code": -1, "msg": "CLI call failed"}
-    return json.loads(stdout)
+    return cast(dict[str, Any], json.loads(stdout))
 
 
 async def send_text_message(
@@ -131,7 +134,7 @@ async def reply_text(message_id: str, text: str) -> dict[str, Any]:
                 "content": json.dumps({"text": text}),
             },
         )
-        return resp.json()
+        return cast(dict[str, Any], resp.json())
 
 
 async def reply_markdown(message_id: str, content: str) -> dict[str, Any]:
@@ -152,7 +155,7 @@ async def reply_markdown(message_id: str, content: str) -> dict[str, Any]:
                 }),
             },
         )
-        return resp.json()
+        return cast(dict[str, Any], resp.json())
 
 
 async def list_bot_chats(page_size: int = 20) -> list[dict[str, Any]]:
@@ -169,7 +172,7 @@ async def list_bot_chats(page_size: int = 20) -> list[dict[str, Any]]:
         data2 = await _cli_api("GET", "/open-apis/im/v1/chats?user_id_type=open_id&page_size=50")
         items = data2.get("data", {}).get("items", [])
 
-    return items
+    return cast(list[dict[str, Any]], items)
 
 
 async def get_chat_messages(
@@ -186,9 +189,9 @@ async def get_chat_messages(
         log.error("feishu.get_messages_failed code=%s msg=%s", data.get("code"), data.get("msg"))
         return []
 
-    return data.get("data", {}).get("items", [])
+    return cast(list[dict[str, Any]], data.get("data", {}).get("items", []))
 
 
 async def get_bot_info() -> dict[str, Any]:
     data = await _cli_api("GET", "/open-apis/bot/v3/info")
-    return data.get("bot", {})
+    return cast(dict[str, Any], data.get("bot", {}))
