@@ -205,8 +205,8 @@ class TestHistoryQuery:
     @pytest.mark.asyncio
     async def test_query_history_includes_expired(self, user_id):
         fm = FactManager(user_id=user_id)
-        await fm.write_fact("user_goal", "targets", {"goal": "减脂"})   # 会被 invalidate
-        await fm.write_fact("user_goal", "targets", {"goal": "增肌"})   # 会被 invalidate
+        await fm.write_fact("user_goal", "targets", {"goal": "减脂"})   # 会被 invalidate  # noqa: E501
+        await fm.write_fact("user_goal", "targets", {"goal": "增肌"})   # 会被 invalidate  # noqa: E501
         await fm.write_fact("user_goal", "targets", {"goal": "马拉松"}) # 当前有效
 
         history = await fm.query_history("user_goal")

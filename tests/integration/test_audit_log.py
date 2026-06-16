@@ -99,7 +99,7 @@ async def test_dev_auth_bypass_audited(app_client, patched_redis, memsink):
 # ── 4. MCP unauth path is audited (only when flag flipped) ─────────────────
 
 @pytest.mark.asyncio
-async def test_mcp_unauth_emits_when_flag_off(app_client, patched_redis, memsink, monkeypatch):
+async def test_mcp_unauth_emits_when_flag_off(app_client, patched_redis, memsink, monkeypatch):  # noqa: E501
     from rhythmind.audit import AuditEvent
     from rhythmind.config import settings
 

@@ -123,8 +123,8 @@ class TestGetTenantTokenAutoSelect:
         monkeypatch.setattr(fc.settings, "feishu_app_id", "cli_aa885")
         monkeypatch.setattr(fc.settings, "feishu_app_secret", "secret")
 
-        with patch.object(fc, "_get_tenant_token_direct", new=AsyncMock(return_value="direct-token")) as mock_direct:
-            with patch.object(fc, "_get_tenant_token_via_cli", new=AsyncMock()) as mock_cli:
+        with patch.object(fc, "_get_tenant_token_direct", new=AsyncMock(return_value="direct-token")) as mock_direct:  # noqa: E501
+            with patch.object(fc, "_get_tenant_token_via_cli", new=AsyncMock()) as mock_cli:  # noqa: E501
                 token = await fc._get_tenant_token()
                 assert token == "direct-token"
                 mock_direct.assert_awaited_once()
@@ -136,8 +136,8 @@ class TestGetTenantTokenAutoSelect:
         monkeypatch.setattr(fc.settings, "feishu_app_id", "")
         monkeypatch.setattr(fc.settings, "feishu_app_secret", "")
 
-        with patch.object(fc, "_get_tenant_token_direct", new=AsyncMock()) as mock_direct:
-            with patch.object(fc, "_get_tenant_token_via_cli", new=AsyncMock(return_value="cli-token")) as mock_cli:
+        with patch.object(fc, "_get_tenant_token_direct", new=AsyncMock()) as mock_direct:  # noqa: E501
+            with patch.object(fc, "_get_tenant_token_via_cli", new=AsyncMock(return_value="cli-token")) as mock_cli:  # noqa: E501
                 token = await fc._get_tenant_token()
                 assert token == "cli-token"
                 mock_direct.assert_not_called()
@@ -157,10 +157,10 @@ class TestApiHeaders:
 class TestSendTextMessage:
     @pytest.mark.asyncio
     async def test_delegates_to_cli_api_with_correct_path(self):
-        """send_text_message 调用 _cli_api POST /open-apis/im/v1/messages，payload 正确。"""
+        """send_text_message 调用 _cli_api POST /open-apis/im/v1/messages，payload 正确。"""  # noqa: E501
         expected_response = {"code": 0, "msg": "ok", "data": {"message_id": "om_123"}}
-        with patch.object(fc, "_cli_api", new=AsyncMock(return_value=expected_response)) as mock_cli:
-            result = await fc.send_text_message(receive_id="ou_user1", text="Hello 飞书")
+        with patch.object(fc, "_cli_api", new=AsyncMock(return_value=expected_response)) as mock_cli:  # noqa: E501
+            result = await fc.send_text_message(receive_id="ou_user1", text="Hello 飞书")  # noqa: E501
             assert result == expected_response
             mock_cli.assert_awaited_once()
             call_args = mock_cli.await_args
@@ -191,7 +191,7 @@ class TestReplyText:
     async def test_uses_httpx_post_to_reply_endpoint(self):
         """reply_text 用 httpx 直连 POST /im/v1/messages/{id}/reply。"""
         monkeypatch_response = MagicMock()
-        monkeypatch_response.json.return_value = {"code": 0, "msg": "ok", "data": {"message_id": "om_reply"}}
+        monkeypatch_response.json.return_value = {"code": 0, "msg": "ok", "data": {"message_id": "om_reply"}}  # noqa: E501
 
         with patch.object(fc, "_get_tenant_token", new=AsyncMock(return_value="t-xyz")):
             with patch.object(fc.httpx, "AsyncClient") as mock_client_cls:

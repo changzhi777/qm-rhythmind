@@ -251,7 +251,7 @@ class TestInfluxClientDeleteUserData:
             assert result is False
 
     @pytest.mark.asyncio
-    async def test_delete_user_data_constructs_correct_predicate(self, client: InfluxClient):
+    async def test_delete_user_data_constructs_correct_predicate(self, client: InfluxClient):  # noqa: E501
         """删除使用正确的 user_id predicate。"""
         mock_client = self._make_mock_client()
 

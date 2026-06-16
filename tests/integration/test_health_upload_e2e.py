@@ -96,9 +96,9 @@ async def test_upload_happy_path_returns_full_swarm_output(app_client):
     from rhythmind.api.deps import get_pool
     from rhythmind.api.main import app
 
-    metrics_mock = SimpleNamespace(run=AsyncMock(return_value=_ok_result(METRICS_OUTPUT, "metrics_agent")))
-    data_mock    = SimpleNamespace(run=AsyncMock(return_value=_ok_result(DATA_OUTPUT,    "data_agent")))
-    coach_mock   = SimpleNamespace(run=AsyncMock(return_value=_ok_result(COACH_OUTPUT,   "coach_agent")))
+    metrics_mock = SimpleNamespace(run=AsyncMock(return_value=_ok_result(METRICS_OUTPUT, "metrics_agent")))  # noqa: E501
+    data_mock    = SimpleNamespace(run=AsyncMock(return_value=_ok_result(DATA_OUTPUT,    "data_agent")))  # noqa: E501
+    coach_mock   = SimpleNamespace(run=AsyncMock(return_value=_ok_result(COACH_OUTPUT,   "coach_agent")))  # noqa: E501
 
     bundle = SimpleNamespace(metrics=metrics_mock, data=data_mock, coach=coach_mock)
 

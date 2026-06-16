@@ -265,7 +265,7 @@ class TestFeishuPoll:
 
     @pytest.mark.asyncio
     async def test_poll_with_chat_id_returns_empty_messages(self, app_client):
-        """⑧ 显式提供 chat_id + get_chat_messages 返回空 → processed=0 status="success"。"""
+        """⑧ 显式提供 chat_id + get_chat_messages 返回空 → processed=0 status="success"。"""  # noqa: E501
         # 重写 get_chat_messages mock 让它返回空
         # 通过 app_client 的 monkeypatch 上下文已注入；额外再覆盖一次
         from unittest.mock import AsyncMock

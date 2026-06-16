@@ -174,7 +174,7 @@ class TestLogin:
     async def test_missing_credentials_raises_before_http(self, monkeypatch):
         """未配置凭据时直接抛 ThothAuthError（不发请求）。
 
-        注意：需 monkeypatch settings 为空，因为 ThothClient 用 `username or settings.username`，
+        注意：需 monkeypatch settings 为空，详见 ThothClient 实现。
         空字符串会回退到 settings。
         """
         from rhythmind.config import settings as s

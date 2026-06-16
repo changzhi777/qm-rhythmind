@@ -112,7 +112,7 @@ async def test_user_a_cannot_export_or_delete_user_b_data(app_client, patched_re
 # ── 2. Request body size limit ──────────────────────────────────────────────
 
 @pytest.mark.asyncio
-async def test_oversized_post_is_rejected_with_413(app_client, patched_redis, monkeypatch):
+async def test_oversized_post_is_rejected_with_413(app_client, patched_redis, monkeypatch):  # noqa: E501
     """Set the limit very low and confirm 413 is returned before the handler runs."""
     # Lower the limit just for this test by reaching into the middleware instance.
     from rhythmind.api.main import app
@@ -172,14 +172,14 @@ async def test_normal_sized_post_is_accepted(app_client, patched_redis):
 
     def _ok(out, agent):
         return HermesRunResult(
-            compliance=ComplianceResult(level=ComplianceLevel.PASS, output=out, confidence=0.9),
+            compliance=ComplianceResult(level=ComplianceLevel.PASS, output=out, confidence=0.9),  # noqa: E501
             agent=agent, user_id="alice", task_type="t", latency_ms=1.0,
         )
 
     bundle = SimpleNamespace(
-        metrics=SimpleNamespace(run=AsyncMock(return_value=_ok({"load_level": "low", "anomalies": []}, "metrics_agent"))),
-        data   =SimpleNamespace(run=AsyncMock(return_value=_ok({"summary": "ok"}, "data_agent"))),
-        coach  =SimpleNamespace(run=AsyncMock(return_value=_ok({"today_plan": {"name": "rest"}}, "coach_agent"))),
+        metrics=SimpleNamespace(run=AsyncMock(return_value=_ok({"load_level": "low", "anomalies": []}, "metrics_agent"))),  # noqa: E501
+        data   =SimpleNamespace(run=AsyncMock(return_value=_ok({"summary": "ok"}, "data_agent"))),  # noqa: E501
+        coach  =SimpleNamespace(run=AsyncMock(return_value=_ok({"today_plan": {"name": "rest"}}, "coach_agent"))),  # noqa: E501
     )
 
     class _Pool:
@@ -211,7 +211,7 @@ async def test_mcp_messages_requires_bearer_by_default(app_client, patched_redis
     # Sanity: our test settings should have the flag on by default
     from rhythmind.config import settings
     if not settings.mcp_require_auth:
-        pytest.skip("mcp_require_auth was disabled by env; this test asserts the default-on behavior")
+        pytest.skip("mcp_require_auth was disabled by env; this test asserts the default-on behavior")  # noqa: E501
 
     resp = await app_client.post("/mcp/messages/", json={})
     assert resp.status_code == 401

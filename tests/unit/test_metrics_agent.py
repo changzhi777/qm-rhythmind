@@ -151,7 +151,7 @@ class TestInfluxUnavailableDegradation:
         self: Any, mock_influx: Any, agent_ctx: Any, user_id: Any
     ) -> None:
         """InfluxUnavailableError 写入失败 → 不中断链路，output 仍返回。"""
-        mock_influx.write_metrics = AsyncMock(side_effect=InfluxUnavailableError("down"))
+        mock_influx.write_metrics = AsyncMock(side_effect=InfluxUnavailableError("down"))  # noqa: E501
         mock_influx.query_range = AsyncMock(side_effect=InfluxUnavailableError("down"))
 
         agent = MetricsProcessor(user_id=user_id, influx=mock_influx)
@@ -168,7 +168,7 @@ class TestInfluxUnavailableDegradation:
     ) -> None:
         """写入成功但查询不可用 → write_ok=True，trends 为空。"""
         mock_influx.write_metrics = AsyncMock(return_value=True)
-        mock_influx.query_range = AsyncMock(side_effect=InfluxUnavailableError("query down"))
+        mock_influx.query_range = AsyncMock(side_effect=InfluxUnavailableError("query down"))  # noqa: E501
 
         agent = MetricsProcessor(user_id=user_id, influx=mock_influx)
         result = await agent.run(agent_ctx)
@@ -341,7 +341,7 @@ class TestStaticMethods:
 
 
 class TestMetricsProcessorMemoryPersistence:
-    """P1 修复回归测试：MetricsProcessor.run() 末尾必须把 memory_updates 写入 AgentMemory 表。
+    """P1 修复回归：MetricsProcessor.run() 末尾必须把 memory_updates 写入 AgentMemory。
 
     背景：MetricsProcessor 不继承 HermesBase，compliance.memory_updates 字段永不被
     HermesBase.run() 自动消费（见 core/hermes_base.py:267-268 唯一消费点）。
@@ -352,7 +352,7 @@ class TestMetricsProcessorMemoryPersistence:
     async def test_memory_updates_persisted_to_agent_memory_table(
         self: Any, mock_influx: Any, agent_ctx: Any,
     ) -> None:
-        """调用 run() 后，AgentMemory 表中应存在 last_metrics_ts/last_load_level/latest_anomalies_count 三行。"""
+        """调用 run() 后，AgentMemory 表中应存在 last_metrics_ts/last_load_level/latest_anomalies_count 三行。"""  # noqa: E501
         from sqlalchemy import select
 
         import rhythmind.core.memory.manager as mem_manager
@@ -402,7 +402,7 @@ class TestMetricsProcessorMemoryPersistence:
     async def test_empty_memory_updates_skips_persistence(
         self: Any, mock_influx: Any, agent_ctx: Any, monkeypatch: Any
     ) -> None:
-        """compliance.memory_updates 为空时，不调用 MemoryManager（避免无意义 DB 写入）。"""
+        """compliance.memory_updates 为空时，不调用 MemoryManager（避免无意义 DB 写入）。"""  # noqa: E501
         processor = MetricsProcessor(user_id="test_user_001", influx=mock_influx)
 
         from rhythmind.core import memory as mem_mod

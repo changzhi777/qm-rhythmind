@@ -78,7 +78,7 @@ def _make_ctx(
     )
 
 
-def _make_memory(weekly_volume_km: float = 0.0, current_plan: dict | None = None) -> MemoryRecallResult:
+def _make_memory(weekly_volume_km: float = 0.0, current_plan: dict | None = None) -> MemoryRecallResult:  # noqa: E501
     entries = []
     if weekly_volume_km:
         entries.append(MemoryEntry(
@@ -104,7 +104,7 @@ async def test_coach_agent_normal_flow():
     """正常流程：call_llm 返回合法计划 JSON，置信度应为 0.90。"""
     agent = CoachAgent(user_id=USER_ID)
 
-    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(VALID_PLAN))):
+    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(VALID_PLAN))):  # noqa: E501
         result = await agent.execute(
             ctx=_make_ctx(),
             memory_ctx=_make_memory(),
@@ -122,7 +122,7 @@ async def test_coach_agent_memory_updates_accumulate_volume():
     agent = CoachAgent(user_id=USER_ID)
     existing_volume = 20.0  # 历史已有 20 km
 
-    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(VALID_PLAN))):
+    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(VALID_PLAN))):  # noqa: E501
         result = await agent.execute(
             ctx=_make_ctx(),
             memory_ctx=_make_memory(weekly_volume_km=existing_volume),
@@ -147,7 +147,7 @@ async def test_coach_agent_load_spike_reduces_confidence():
         "today_plan": {**VALID_PLAN["today_plan"], "distance_km": 8.0},
     }
 
-    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(spike_plan))):
+    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(spike_plan))):  # noqa: E501
         result = await agent.execute(
             ctx=_make_ctx(),
             memory_ctx=_make_memory(weekly_volume_km=existing_volume),
@@ -161,7 +161,7 @@ async def test_coach_agent_no_spike_when_no_history():
     """历史跑量为 0 时，不触发突增检查，置信度保持 0.90。"""
     agent = CoachAgent(user_id=USER_ID)
 
-    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(VALID_PLAN))):
+    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(VALID_PLAN))):  # noqa: E501
         result = await agent.execute(
             ctx=_make_ctx(),
             memory_ctx=_make_memory(weekly_volume_km=0.0),
@@ -193,7 +193,7 @@ async def test_coach_agent_llm_exception_uses_fallback():
     """call_llm 抛通用异常时，返回 fallback_plan，不崩溃。"""
     agent = CoachAgent(user_id=USER_ID)
 
-    with patch.object(agent, "call_llm", new=AsyncMock(side_effect=ConnectionError("model down"))):
+    with patch.object(agent, "call_llm", new=AsyncMock(side_effect=ConnectionError("model down"))):  # noqa: E501
         result = await agent.execute(
             ctx=_make_ctx(),
             memory_ctx=_make_memory(),
@@ -243,7 +243,7 @@ async def test_coach_agent_skill_candidates_sport_and_goal():
     """skill_candidates 应包含 sport_type 和 user_goal 组合标识。"""
     agent = CoachAgent(user_id=USER_ID)
 
-    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(VALID_PLAN))):
+    with patch.object(agent, "call_llm", new=AsyncMock(return_value=json.dumps(VALID_PLAN))):  # noqa: E501
         result = await agent.execute(
             ctx=_make_ctx(user_goal="马拉松", sport_type="trail"),
             memory_ctx=_make_memory(),

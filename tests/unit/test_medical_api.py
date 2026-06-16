@@ -369,7 +369,7 @@ class TestLabsEndpoint:
         ) as MockAdvisor:
             mock_instance = MagicMock()
             mock_instance.run = AsyncMock(return_value=_make_run_result(
-                output={"summary": "", "insights": [], "concerns": [], "recommendations": []},
+                output={"summary": "", "insights": [], "concerns": [], "recommendations": []},  # noqa: E501
             ))
             MockAdvisor.return_value = mock_instance
 

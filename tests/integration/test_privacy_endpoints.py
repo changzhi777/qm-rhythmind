@@ -138,8 +138,8 @@ async def test_delete_purges_pg_and_redis_and_returns_report(app_client, patched
     from rhythmind.core.memory.manager import AsyncSessionLocal
     from rhythmind.core.memory.models import AgentMemory, HealthFact
     async with AsyncSessionLocal() as sess:
-        rem_mem = (await sess.execute(select(AgentMemory).where(AgentMemory.user_id == USER))).scalars().all()
-        rem_fact = (await sess.execute(select(HealthFact).where(HealthFact.user_id == USER))).scalars().all()
+        rem_mem = (await sess.execute(select(AgentMemory).where(AgentMemory.user_id == USER))).scalars().all()  # noqa: E501
+        rem_fact = (await sess.execute(select(HealthFact).where(HealthFact.user_id == USER))).scalars().all()  # noqa: E501
     assert rem_mem == [] and rem_fact == []
 
 
@@ -198,7 +198,7 @@ async def test_delete_influx_not_implemented_returns_failure(app_client, patched
     # influxdb 可能成功（如果方法已实现）或失败（NotImplementedError 降级）
     # 关键是不应阻断其他删除操作
     if "influxdb" in failures:
-        assert "NotImplementedError" in failures["influxdb"] or "not implemented" in failures["influxdb"].lower()
+        assert "NotImplementedError" in failures["influxdb"] or "not implemented" in failures["influxdb"].lower()  # noqa: E501
         assert "redis" in outcomes  # 其他操作仍应成功
 
 
@@ -219,11 +219,11 @@ async def test_delete_qmd_not_implemented_returns_failure(app_client, patched_re
 
     # qmd 可能失败（如果 purge_user 未实现）
     if "qmd" in failures:
-        assert "NotImplementedError" in failures["qmd"] or "not implemented" in failures["qmd"].lower()
+        assert "NotImplementedError" in failures["qmd"] or "not implemented" in failures["qmd"].lower()  # noqa: E501
 
 
 @pytest.mark.asyncio
-async def test_delete_all_stores_succeed_is_clean(app_client, patched_redis, monkeypatch):
+async def test_delete_all_stores_succeed_is_clean(app_client, patched_redis, monkeypatch):  # noqa: E501
     """当所有存储删除都成功时，is_clean 应为 True。"""
     await _seed_user_data(USER)
 

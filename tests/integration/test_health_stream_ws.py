@@ -28,7 +28,7 @@ def test_ws_missing_token_closes(ws_test_client):
 def test_ws_invalid_token_closes(ws_test_client):
     """无效 JWT 时 WebSocket 连接被关闭（4001）。"""
     with pytest.raises(Exception):
-        with ws_test_client.websocket_connect("/api/v1/health/upload/stream/ws?token=invalid"):
+        with ws_test_client.websocket_connect("/api/v1/health/upload/stream/ws?token=invalid"):  # noqa: E501
             pass
 
 
@@ -46,7 +46,7 @@ def test_ws_connected_message_structure(ws_test_client, patched_redis, monkeypat
     payload = {"sub": "alice", "exp": int(time.time()) + 3600}
     token = jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
-    with ws_test_client.websocket_connect(f"/api/v1/health/upload/stream/ws?token={token}") as ws:
+    with ws_test_client.websocket_connect(f"/api/v1/health/upload/stream/ws?token={token}") as ws:  # noqa: E501
         # 协议要求：客户端先发送 input_data，服务端才发送 connected
         ws.send_json({
             "input_data": {
@@ -76,7 +76,7 @@ def test_ws_stream_events_in_order(ws_test_client, patched_redis, monkeypatch):
     payload = {"sub": "alice", "exp": int(time.time()) + 3600}
     token = jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
-    with ws_test_client.websocket_connect(f"/api/v1/health/upload/stream/ws?token={token}") as ws:
+    with ws_test_client.websocket_connect(f"/api/v1/health/upload/stream/ws?token={token}") as ws:  # noqa: E501
         # 发送 input_data
         test_data = {
             "input_data": {
@@ -131,7 +131,7 @@ def test_ws_rate_limit_check(ws_test_client, patched_redis, monkeypatch):
 
     monkeypatch.setattr(rate_limit_mod, "_check_and_incr", mock_check)
 
-    with ws_test_client.websocket_connect(f"/api/v1/health/upload/stream/ws?token={token}") as ws:
+    with ws_test_client.websocket_connect(f"/api/v1/health/upload/stream/ws?token={token}") as ws:  # noqa: E501
         ws.send_json({
             "input_data": {
                 "sport_type": "running",
@@ -151,7 +151,7 @@ def test_ws_rate_limit_check(ws_test_client, patched_redis, monkeypatch):
                 break
 
         # 限流检查在 connected 之前，所以第一条可能是 error
-        assert all_msgs[0]["type"] == "error", f"Expected error first, got {all_msgs[0]['type']}"
+        assert all_msgs[0]["type"] == "error", f"Expected error first, got {all_msgs[0]['type']}"  # noqa: E501
         assert "Rate limit" in all_msgs[0]["data"].get("message", "")
 
 
@@ -168,7 +168,7 @@ def test_ws_sends_close_on_completion(ws_test_client, patched_redis, monkeypatch
     payload = {"sub": "alice", "exp": int(time.time()) + 3600}
     token = jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
-    with ws_test_client.websocket_connect(f"/api/v1/health/upload/stream/ws?token={token}") as ws:
+    with ws_test_client.websocket_connect(f"/api/v1/health/upload/stream/ws?token={token}") as ws:  # noqa: E501
         ws.send_json({
             "input_data": {
                 "sport_type": "running",
@@ -206,7 +206,7 @@ def test_ws_missing_input_data(ws_test_client, patched_redis, monkeypatch):
     payload = {"sub": "alice", "exp": int(time.time()) + 3600}
     token = jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
-    with ws_test_client.websocket_connect(f"/api/v1/health/upload/stream/ws?token={token}") as ws:
+    with ws_test_client.websocket_connect(f"/api/v1/health/upload/stream/ws?token={token}") as ws:  # noqa: E501
         # 协议要求：客户端先发送 input_data，服务端才发送 connected
         # 所以发送空消息（没有 input_data）
         ws.send_json({})

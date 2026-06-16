@@ -101,7 +101,7 @@ async def test_report_detail_not_found(app_client, auth_headers):
 @pytest.mark.asyncio
 async def test_report_detail_success(app_client, auth_headers, report_with_data):
     """报告详情成功返回。"""
-    resp = await app_client.get(f"/qm/api/reports/{report_with_data}", headers=auth_headers)
+    resp = await app_client.get(f"/qm/api/reports/{report_with_data}", headers=auth_headers)  # noqa: E501
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "ok"
@@ -120,9 +120,9 @@ async def test_report_download_not_found(app_client, auth_headers):
 
 
 @pytest.mark.asyncio
-async def test_report_download_success_pdf_format(app_client, auth_headers, report_with_data):
+async def test_report_download_success_pdf_format(app_client, auth_headers, report_with_data):  # noqa: E501
     """下载报告成功返回 PDF 格式。"""
-    resp = await app_client.get(f"/qm/api/reports/{report_with_data}/download", headers=auth_headers)
+    resp = await app_client.get(f"/qm/api/reports/{report_with_data}/download", headers=auth_headers)  # noqa: E501
     assert resp.status_code == 200
     assert resp.headers["content-type"] == "application/pdf"
     assert "attachment" in resp.headers["content-disposition"]
@@ -130,9 +130,9 @@ async def test_report_download_success_pdf_format(app_client, auth_headers, repo
 
 
 @pytest.mark.asyncio
-async def test_report_download_filename_format(app_client, auth_headers, report_with_data):
+async def test_report_download_filename_format(app_client, auth_headers, report_with_data):  # noqa: E501
     """下载文件名格式为：用户ID_年月日时分秒.pdf"""
-    resp = await app_client.get(f"/qm/api/reports/{report_with_data}/download", headers=auth_headers)
+    resp = await app_client.get(f"/qm/api/reports/{report_with_data}/download", headers=auth_headers)  # noqa: E501
     assert resp.status_code == 200
     content_disp = resp.headers["content-disposition"]
     # 文件名格式：test_user_001_20260515xxxxxx.pdf

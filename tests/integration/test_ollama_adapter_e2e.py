@@ -84,7 +84,7 @@ async def test_omlX_path_through_adapter_router(httpx_mock):
     from rhythmind.observability import metrics as obs_metrics
     if obs_metrics._PROMETHEUS_AVAILABLE:
         after = _counter_value(LLM_CALLS, ("omlX", "success"))
-        assert after - before == 1, "LLM success counter should have incremented exactly once"
+        assert after - before == 1, "LLM success counter should have incremented exactly once"  # noqa: E501
 
 
 @pytest.mark.asyncio

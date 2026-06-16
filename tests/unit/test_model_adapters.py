@@ -129,12 +129,12 @@ class TestMLXAdapter:
         assert result == "生成的回答"
         mock_gen.assert_called_once()
 
-    @pytest.mark.skip(reason="import cache issue with pytest - _strip_think_tags verified correct via direct call")
+    @pytest.mark.skip(reason="import cache issue with pytest - _strip_think_tags verified correct via direct call")  # noqa: E501
     async def test_thinking_mode_off_strips_think_tags(self):
         from rhythmind.adapters.mlx_adapter import MLXAdapter
 
         mock_tok = MagicMock()
-        mock_tok.apply_chat_template.side_effect = lambda msgs, **kw: msgs[-1]["content"]
+        mock_tok.apply_chat_template.side_effect = lambda msgs, **kw: msgs[-1]["content"]  # noqa: E501
 
         raw_response = "<think>内部推理过程最终答案"
 
@@ -181,7 +181,7 @@ class TestMLXAdapter:
 
         # generate 被调用，且 prompt 包含 /no_think 前缀
         call_kwargs = mock_gen.call_args
-        prompt = call_kwargs.args[2] if len(call_kwargs.args) > 2 else call_kwargs.kwargs.get("prompt", "")
+        prompt = call_kwargs.args[2] if len(call_kwargs.args) > 2 else call_kwargs.kwargs.get("prompt", "")  # noqa: E501
         assert "/no_think" in prompt
 
     @pytest.mark.asyncio
@@ -290,7 +290,7 @@ class TestOMLXAdapter:
             captured_key.append(api_key)
             return mock_client
 
-        with patch("rhythmind.adapters.omlX_adapter._get_client", side_effect=capture_key):
+        with patch("rhythmind.adapters.omlX_adapter._get_client", side_effect=capture_key):  # noqa: E501
             adapter = OMLXAdapter("gemma-4-e4b-it-4bit", api_key="test-key-123")
             await adapter.chat([{"role": "user", "content": "hi"}])
 
@@ -407,7 +407,7 @@ class TestOMLXAdapter:
         assert "qwen2.5:7b" in msg, f"message 应包含模型名，实际: {msg}"
         # 超时用 :.0f 格式化（2.5 → 2，3.7 → 4）；用 startswith/contains 验证数字
         assert "推理超时" in msg, f"message 应描述超时类型，实际: {msg}"
-        assert re.search(r"\d+s", msg), f"message 应包含 Ns 格式 timeout 数字，实际: {msg}"
+        assert re.search(r"\d+s", msg), f"message 应包含 Ns 格式 timeout 数字，实际: {msg}"  # noqa: E501
 
     @pytest.mark.asyncio
     async def test_chat_timeout_chains_original_error(self):
@@ -592,11 +592,11 @@ class TestPromptAuditorWithAdapter:
 
     @pytest.mark.asyncio
     async def test_auditor_uses_adapter_router(self):
-        """PromptAuditor.audit() 应通过 AdapterRouter 调用 OMLXAdapter，而非直接 AsyncOpenAI。"""
+        """PromptAuditor.audit() 应通过 AdapterRouter 调用 OMLXAdapter，而非直接 AsyncOpenAI。"""  # noqa: E501
         from rhythmind.core.compliance.prompt_auditor import PromptAuditor
 
         mock_adapter = MagicMock()
-        mock_adapter.chat = AsyncMock(return_value='{"overall_score": 0.1, "medical_risk": 0.0, "privacy_risk": 0.0, "hallucination_risk": 0.0, "reason": "安全", "extra_constraints": []}')
+        mock_adapter.chat = AsyncMock(return_value='{"overall_score": 0.1, "medical_risk": 0.0, "privacy_risk": 0.0, "hallucination_risk": 0.0, "reason": "安全", "extra_constraints": []}')  # noqa: E501
 
         auditor = PromptAuditor(model_spec="omlX://gemma-4-e4b-it-4bit")
 
@@ -610,7 +610,7 @@ class TestPromptAuditorWithAdapter:
     @pytest.mark.asyncio
     async def test_auditor_model_spec_from_settings(self):
         """model_spec=None 时应读 settings.model_compliance_spec。"""
-        with patch("rhythmind.core.compliance.prompt_auditor.settings") as mock_settings:
+        with patch("rhythmind.core.compliance.prompt_auditor.settings") as mock_settings:  # noqa: E501
             mock_settings.compliance_audit_enabled = False
             mock_settings.compliance_audit_block_score = 0.75
             mock_settings.compliance_audit_warn_score = 0.40

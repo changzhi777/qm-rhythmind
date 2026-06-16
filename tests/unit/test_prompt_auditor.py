@@ -66,7 +66,7 @@ class TestAuditorDisabled:
     @pytest.mark.asyncio
     async def test_disabled_returns_pass_without_calling_llm(self):
         """compliance_audit_enabled=False 时直接返回 PASS，不调用任何 LLM。"""
-        with patch("rhythmind.core.compliance.prompt_auditor.settings") as mock_settings:
+        with patch("rhythmind.core.compliance.prompt_auditor.settings") as mock_settings:  # noqa: E501
             mock_settings.compliance_audit_enabled = False
             mock_settings.compliance_audit_block_score = 0.75
             mock_settings.compliance_audit_warn_score = 0.40
@@ -105,7 +105,7 @@ class TestScoringLevels:
         """overall_score=0.20 → PASS"""
         payload = {
             "medical_risk": 0.1, "privacy_risk": 0.1, "hallucination_risk": 0.1,
-            "overall_score": 0.20, "reason": "正常运动数据查询", "extra_constraints": [],
+            "overall_score": 0.20, "reason": "正常运动数据查询", "extra_constraints": [],  # noqa: E501
         }
         auditor = PromptAuditor()
         with _adapter_ctx(auditor, json.dumps(payload)):
@@ -141,7 +141,7 @@ class TestScoringLevels:
         """overall_score=0.85 → BLOCK"""
         payload = {
             "medical_risk": 0.9, "privacy_risk": 0.5, "hallucination_risk": 0.8,
-            "overall_score": 0.85, "reason": "要求开具处方建议", "extra_constraints": [],
+            "overall_score": 0.85, "reason": "要求开具处方建议", "extra_constraints": [],  # noqa: E501
         }
         auditor = PromptAuditor()
         with _adapter_ctx(auditor, json.dumps(payload)):
@@ -157,7 +157,7 @@ class TestScoringLevels:
         """overall_score=0.40（等于 warn_score）→ WARN（含边界）"""
         payload = {
             "medical_risk": 0.4, "privacy_risk": 0.2, "hallucination_risk": 0.2,
-            "overall_score": 0.40, "reason": "边界值", "extra_constraints": ["注意措辞"],
+            "overall_score": 0.40, "reason": "边界值", "extra_constraints": ["注意措辞"],  # noqa: E501
         }
         auditor = PromptAuditor()
         with _adapter_ctx(auditor, json.dumps(payload)):
@@ -186,7 +186,7 @@ class TestFallbackOnUnavailability:
         """asyncio.TimeoutError → 降级 PASS，auditor_available=False，不中断主流程"""
         auditor = PromptAuditor()
         with patch.object(auditor, "_get_adapter", return_value=_make_adapter_mock("")), \
-             patch("rhythmind.core.compliance.prompt_auditor.asyncio.wait_for",
+             patch("rhythmind.core.compliance.prompt_auditor.asyncio.wait_for",  # noqa: E501
                    side_effect=asyncio.TimeoutError):
             result = await auditor.audit(_SIMPLE_MESSAGES)
 
@@ -234,7 +234,7 @@ class TestJsonParseFailure:
 
     @pytest.mark.asyncio
     async def test_malformed_json_falls_back_to_pass(self):
-        """gemma 输出非法 JSON → 解析失败，降级 PASS，auditor_available=True（连接正常）"""
+        """gemma 输出非法 JSON → 解析失败，降级 PASS，auditor_available=True（连接正常）"""  # noqa: E501
         auditor = PromptAuditor()
         with _adapter_ctx(auditor, "这不是 JSON，gemma 输出了自由文本"):
             result = await auditor.audit(_SIMPLE_MESSAGES)
@@ -266,13 +266,13 @@ class TestMultimodalContent:
                 "role": "user",
                 "content": [
                     {"type": "text", "text": "帮我分析这张心率图"},
-                    {"type": "image_url", "image_url": {"url": "data:image/png;base64,abc"}},
+                    {"type": "image_url", "image_url": {"url": "data:image/png;base64,abc"}},  # noqa: E501
                 ],
             }
         ]
         payload = {
             "medical_risk": 0.1, "privacy_risk": 0.05, "hallucination_risk": 0.05,
-            "overall_score": 0.10, "reason": "正常图片分析请求", "extra_constraints": [],
+            "overall_score": 0.10, "reason": "正常图片分析请求", "extra_constraints": [],  # noqa: E501
         }
         auditor = PromptAuditor()
         with _adapter_ctx(auditor, json.dumps(payload)):

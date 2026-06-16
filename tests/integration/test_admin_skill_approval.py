@@ -190,7 +190,7 @@ async def test_reject_unknown_hash_404(app_client, patched_redis, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_approve_already_approved_is_idempotent(app_client, patched_redis, monkeypatch):
+async def test_approve_already_approved_is_idempotent(app_client, patched_redis, monkeypatch):  # noqa: E501
     """已 approved 的 skill 再次 approve 应幂等成功（不报错）。"""
     from rhythmind.config import settings
     monkeypatch.setattr(settings, "admin_user_ids", "alice")

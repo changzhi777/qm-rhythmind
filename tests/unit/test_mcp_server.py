@@ -3,7 +3,7 @@ tests/unit/test_mcp_server.py — RHYTHMIND MCP Server 单元测试
 
 策略：
   - 直接调用 server.py 中的 _handle_* 函数，不启动真正的 HTTP/SSE 服务器
-  - 用 unittest.mock.AsyncMock / patch 替换所有外部依赖（FactManager / InfluxClient / QMDClient）
+  - 用 unittest.mock.AsyncMock / patch 替换所有外部依赖
   - 覆盖：工具清单、正常调用、参数缺失、异常降级、build_mcp_server 工厂
 """
 from __future__ import annotations
@@ -80,7 +80,7 @@ class TestHandleStatus:
             patch("rhythmind.mcp.server.MemoryManager") as MockMM,
         ):
             MockFM.return_value.get_all_current = AsyncMock(return_value=[mock_fact])
-            MockMM.return_value.recall = AsyncMock(return_value={"health_status": "normal"})
+            MockMM.return_value.recall = AsyncMock(return_value={"health_status": "normal"})  # noqa: E501
 
             result = await _handle_status({"user_id": "u001"})
 
@@ -148,7 +148,7 @@ class TestHandleSearch:
     @pytest.mark.asyncio
     async def test_search_exception_returns_error(self):
         with patch("rhythmind.mcp.server.QMDClient") as MockQMD:
-            MockQMD.return_value.query = AsyncMock(side_effect=ConnectionError("QMD offline"))
+            MockQMD.return_value.query = AsyncMock(side_effect=ConnectionError("QMD offline"))  # noqa: E501
             result = await _handle_search({"user_id": "u001", "query": "跑步"})
 
         assert "error" in result
@@ -215,7 +215,7 @@ class TestHandleFactQuery:
     @pytest.mark.asyncio
     async def test_query_exception_returns_error(self):
         with patch("rhythmind.mcp.server.FactManager") as MockFM:
-            MockFM.return_value.query_current = AsyncMock(side_effect=Exception("PG error"))
+            MockFM.return_value.query_current = AsyncMock(side_effect=Exception("PG error"))  # noqa: E501
             result = await _handle_fact_query({
                 "user_id": "u001",
                 "subject": "injury",
@@ -298,7 +298,7 @@ class TestHandleFactUpdate:
     @pytest.mark.asyncio
     async def test_write_exception_returns_error(self):
         with patch("rhythmind.mcp.server.FactManager") as MockFM:
-            MockFM.return_value.write_fact = AsyncMock(side_effect=Exception("DB error"))
+            MockFM.return_value.write_fact = AsyncMock(side_effect=Exception("DB error"))  # noqa: E501
             result = await _handle_fact_update({
                 "user_id": "u001",
                 "action": "write",
@@ -399,7 +399,7 @@ class TestBuildMcpServer:
 
     @pytest.mark.asyncio
     async def test_list_tools_registered_in_server(self):
-        """list_tools 注册成功后，Server 内部 request_handlers 包含 ListToolsRequest。"""
+        """list_tools 注册成功后，Server 内部 request_handlers 包含 ListToolsRequest。"""  # noqa: E501
         import mcp.types as mcp_types
         server = build_mcp_server()
         assert mcp_types.ListToolsRequest in server.request_handlers
@@ -413,7 +413,7 @@ class TestBuildMcpServer:
 
     @pytest.mark.asyncio
     async def test_call_tool_unknown_returns_error_json(self):
-        """未知工具名 → _HANDLERS 缺失 → 返回 error: unknown_tool 的 JSON TextContent。"""
+        """未知工具名 → _HANDLERS 缺失 → 返回 error: unknown_tool 的 JSON TextContent。"""  # noqa: E501
         from mcp.types import TextContent
 
         from rhythmind.mcp.server import _HANDLERS
@@ -424,7 +424,7 @@ class TestBuildMcpServer:
 
         # 模拟 server.call_tool 回调的内部分支
         result_dict = {"error": "unknown_tool", "name": "no_such_tool"}
-        text_content = TextContent(type="text", text=json.dumps(result_dict, ensure_ascii=False))
+        text_content = TextContent(type="text", text=json.dumps(result_dict, ensure_ascii=False))  # noqa: E501
         payload = json.loads(text_content.text)
         assert payload["error"] == "unknown_tool"
 
