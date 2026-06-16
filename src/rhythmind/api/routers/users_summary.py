@@ -6,6 +6,7 @@ api/routers/users_summary.py — 多用户首页选择卡片 API
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 from typing import Any
@@ -48,10 +49,8 @@ async def get_users_summary() -> dict[str, Any]:
         for uid, pred, obj in result.all():
             profiles.setdefault(uid, {})
             if isinstance(obj, str):
-                try:
+                with contextlib.suppress(Exception):
                     obj = json.loads(obj)
-                except Exception:
-                    pass
             profiles[uid][pred] = obj
 
         # 3. 批量获取 running summary
@@ -62,10 +61,8 @@ async def get_users_summary() -> dict[str, Any]:
         running_map: dict[str, dict[str, Any]] = {}
         for uid, obj in result.all():
             if isinstance(obj, str):
-                try:
+                with contextlib.suppress(Exception):
                     obj = json.loads(obj)
-                except Exception:
-                    pass
             if isinstance(obj, dict):
                 running_map[uid] = obj
 

@@ -15,13 +15,17 @@ api/routers/dashboard.py — 仪表盘 + 多模态上传 + Chat 代理 API 端�
 """
 from __future__ import annotations
 
+import base64
+import contextlib
+import csv
+import io as _io
 import json
 import logging
 from datetime import datetime
 from typing import Any, cast
 
 import redis.asyncio as aioredis
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from rhythmind.api.deps import CurrentUserId
 from rhythmind.api.routers._common import _fm
@@ -180,12 +184,10 @@ async def get_dashboard(user_id: CurrentUserId) -> dict[str, Any]:
     result = {"status": "ok", "data": data}
 
     if cache:
-        try:
+        with contextlib.suppress(Exception):
             await cache.setex(
                 f"dashboard:{user_id}", 30, json.dumps(result, ensure_ascii=False)
             )
-        except Exception:
-            pass
 
     return result
 
@@ -335,13 +337,6 @@ async def import_facts(
 
 
 # ── 文件上传 + Chat 代理 ───────────────────────────────────
-
-import base64
-import contextlib
-import csv
-import io as _io
-
-from fastapi import File, UploadFile
 
 
 def _pdf_to_images_b64(pdf_bytes: bytes, dpi: int = 150) -> list[dict[str, str]]:

@@ -14,6 +14,7 @@ api/routers/feishu.py — 飞书事件回调 Webhook + 消息轮询
 from __future__ import annotations
 
 import json
+import shutil
 import uuid
 from typing import Any
 
@@ -24,8 +25,6 @@ from pydantic import BaseModel
 from rhythmind.config import settings
 
 log = structlog.get_logger(__name__)
-
-import shutil
 
 _LARK_CLI_PATH = shutil.which("lark-cli") or "/Users/mac/.npm-global/bin/lark-cli"
 _LARK_CLI_EXISTS = bool(_LARK_CLI_PATH)
