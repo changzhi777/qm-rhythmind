@@ -88,7 +88,12 @@ async def _api_headers() -> dict[str, str]:
     )
 
 
-async def _cli_api(method: str, path: str, data: dict[str, Any] | None = None, params: dict[str, Any] | None = None) -> dict[str, Any]:
+async def _cli_api(
+    method: str,
+    path: str,
+    data: dict[str, Any] | None = None,
+    params: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     args = [_LARK_CLI, "api", method, path, "--as", "bot", "--format", "json"]
     if data:
         args.extend(["--data", json.dumps(data)])
@@ -102,7 +107,10 @@ async def _cli_api(method: str, path: str, data: dict[str, Any] | None = None, p
     )
     stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=15)
     if proc.returncode != 0 or not stdout.strip():
-        log.error("feishu.cli_error rc=%s stderr=%s", proc.returncode, stderr.decode()[:200])
+        log.error(
+            "feishu.cli_error rc=%s stderr=%s",
+            proc.returncode, stderr.decode()[:200],
+        )
         return {"code": -1, "msg": "CLI call failed"}
     return cast(dict[str, Any], json.loads(stdout))
 
@@ -163,13 +171,18 @@ async def list_bot_chats(page_size: int = 20) -> list[dict[str, Any]]:
         "GET", "/open-apis/im/v1/chats",
     )
     if data.get("code") != 0:
-        log.error("feishu.list_chats_failed code=%s msg=%s", data.get("code"), data.get("msg"))
+        log.error(
+            "feishu.list_chats_failed code=%s msg=%s",
+            data.get("code"), data.get("msg"),
+        )
         return []
 
     items = data.get("data", {}).get("items", [])
 
     if data["data"].get("has_more") and not items:
-        data2 = await _cli_api("GET", "/open-apis/im/v1/chats?user_id_type=open_id&page_size=50")
+        data2 = await _cli_api(
+            "GET", "/open-apis/im/v1/chats?user_id_type=open_id&page_size=50"
+        )
         items = data2.get("data", {}).get("items", [])
 
     return cast(list[dict[str, Any]], items)
@@ -180,13 +193,20 @@ async def get_chat_messages(
     page_size: int = 20,
     start_time: str | None = None,
 ) -> list[dict[str, Any]]:
-    params = {"container_id_type": "chat", "container_id": chat_id, "page_size": str(page_size)}
+    params = {
+        "container_id_type": "chat",
+        "container_id": chat_id,
+        "page_size": str(page_size),
+    }
     if start_time:
         params["start_time"] = start_time
 
     data = await _cli_api("GET", "/open-apis/im/v1/messages", params=params)
     if data.get("code") != 0:
-        log.error("feishu.get_messages_failed code=%s msg=%s", data.get("code"), data.get("msg"))
+        log.error(
+            "feishu.get_messages_failed code=%s msg=%s",
+            data.get("code"), data.get("msg"),
+        )
         return []
 
     return cast(list[dict[str, Any]], data.get("data", {}).get("items", []))
