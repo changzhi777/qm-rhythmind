@@ -30,7 +30,9 @@ router = APIRouter(prefix="/qm/api", tags=["reports"])
 
 # ── E2E 测试报告目录常量 ──────────────────────────────────────────
 
-_TEST_REPORT_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "..", "test_reports")
+_TEST_REPORT_DIR = os.path.join(
+    os.path.dirname(__file__), "..", "..", "..", "test_reports"
+)
 _TEST_REPORT_DIR = os.path.normpath(_TEST_REPORT_DIR)
 
 
@@ -54,7 +56,11 @@ async def list_reports(
                 "timestamp": obj.get("timestamp", ""),
                 "model": obj.get("model", ""),
                 "is_current": f.is_current,
-                "preview": obj["content"][:200] + "..." if len(obj["content"]) > 200 else obj["content"],
+                "preview": (
+                    obj["content"][:200] + "..."
+                    if len(obj["content"]) > 200
+                    else obj["content"]
+                ),
             })
     return {"status": "ok", "reports": reports}
 
@@ -184,7 +190,9 @@ async def download_report_pdf(
         # 右上角位置
         qr_x = page_width - right_margin - 25 * mm
         qr_y = page_height - top_margin - 25 * mm
-        canvas.drawImage(img, qr_x, qr_y, width=25 * mm, height=25 * mm, preserveAspectRatio=True)
+        canvas.drawImage(
+            img, qr_x, qr_y, width=25 * mm, height=25 * mm, preserveAspectRatio=True
+        )
         canvas.restoreState()
 
     page_template = PageTemplate(id="main", frames=[frame], onPage=on_page)
@@ -286,7 +294,7 @@ async def download_report_pdf(
     story.append(Spacer(1, 6 * mm))  # type: ignore[arg-type]
     story.append(Paragraph("━" * 28, meta_style))
     story.append(Paragraph(
-        "💡 需要更专业指导和深度分析，请使用拍照上传的形式提供进阶数据或者订阅 Pro 套餐。",
+        "💡 需要更专业指导和深度分析，请使用拍照上传的形式提供进阶数据或者订阅 Pro 套餐。",  # noqa: E501
         tip_style,
     ))
     story.append(Paragraph(
@@ -357,14 +365,21 @@ async def list_test_reports(user_id: CurrentUserId) -> dict[str, Any]:
             "pass_rate": meta.get("pass_rate", 0.0),
             "page_avg_ms": meta.get("page_avg_ms", 0),
             "api_avg_ms": meta.get("api_avg_ms", 0),
-            "files": sorted(files, key=lambda x: {"pdf": 0, "html": 1, "md": 2, "svg": 3}.get(x["type"], 9)),
+            "files": sorted(
+                files,
+                key=lambda x: (
+                    {"pdf": 0, "html": 1, "md": 2, "svg": 3}.get(x["type"], 9)
+                ),
+            ),
         })
 
     return {"status": "ok", "reports": reports}
 
 
 @router.get("/test-reports/{report_id}/{filename}")
-async def download_test_report(report_id: str, filename: str, user_id: CurrentUserId) -> Response:
+async def download_test_report(
+    report_id: str, filename: str, user_id: CurrentUserId
+) -> Response:
     """下载测试报告文件。"""
     safe_report = report_id.replace("..", "").replace("/", "")
     safe_filename = filename.replace("..", "").replace("/", "")
