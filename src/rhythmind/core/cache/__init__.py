@@ -26,7 +26,7 @@ import json as _json
 import logging
 from collections.abc import Awaitable, Callable
 from functools import wraps
-from typing import Any, ParamSpec, TypeVar
+from typing import Any, ParamSpec, TypeVar, cast
 
 import redis.asyncio as aioredis
 
@@ -45,7 +45,7 @@ _redis: aioredis.Redis | None = None
 def _get_redis() -> aioredis.Redis:
     global _redis
     if _redis is None:
-        _redis = aioredis.from_url(
+        _redis = aioredis.from_url(  # type: ignore[no-untyped-call]
             settings.redis_url,
             encoding="utf-8",
             decode_responses=True,
@@ -138,7 +138,7 @@ def cache_async[**P](
             cached = await _get(key)
             if cached is not None:
                 logger.debug("cache.hit key=%s", key)
-                return cached  # type: ignore[return-value]
+                return cast(T | None, cached)
 
             # 执行原函数
             logger.debug("cache.miss key=%s", key)
@@ -168,12 +168,12 @@ class SessionCache:
     SESSION_TTL = 30 * 60  # 30 分钟
 
     @staticmethod
-    async def get(user_id: str, session_id: str) -> dict | None:
+    async def get(user_id: str, session_id: str) -> dict[str, Any] | None:
         key = f"session:{user_id}:{session_id}"
-        return await _get(key)  # type: ignore[return-value]
+        return cast(dict[str, Any] | None, await _get(key))
 
     @staticmethod
-    async def set(user_id: str, session_id: str, data: dict) -> None:
+    async def set(user_id: str, session_id: str, data: dict[str, Any]) -> None:
         key = f"session:{user_id}:{session_id}"
         await _set(key, data, SessionCache.SESSION_TTL)
 
@@ -215,12 +215,12 @@ class FactCache:
     FACT_TTL = 5 * 60  # 5 分钟
 
     @staticmethod
-    async def get(user_id: str, subject: str, predicate: str) -> dict | None:
+    async def get(user_id: str, subject: str, predicate: str) -> dict[str, Any] | None:
         key = f"fact:{user_id}:{subject}:{predicate}"
-        return await _get(key)  # type: ignore[return-value]
+        return cast(dict[str, Any] | None, await _get(key))
 
     @staticmethod
-    async def set(user_id: str, subject: str, predicate: str, data: dict) -> None:
+    async def set(user_id: str, subject: str, predicate: str, data: dict[str, Any]) -> None:
         key = f"fact:{user_id}:{subject}:{predicate}"
         await _set(key, data, FactCache.FACT_TTL)
 
@@ -243,7 +243,7 @@ class FactCache:
                 if cursor == 0:
                     break
         except Exception as exc:
-            logger.warning("cache.fact_invalidate_user_error user_id=%s %s", user_id, exc)
+            logger.warning("cache.fact_invalidate_user_error user_id=%s %s", user_id, exc)  # noqa: E501
 
 
 # ── 意图分类结果缓存 ─────────────────────────────────────────────────────────
@@ -264,7 +264,7 @@ class IntentCache:
     @staticmethod
     async def get(user_id: str, text_hash: str) -> str | None:
         key = f"intent:{user_id}:{text_hash}"
-        return await _get(key)  # type: ignore[return-value]
+        return cast(str | None, await _get(key))
 
     @staticmethod
     async def set(user_id: str, text_hash: str, intent: str) -> None:
