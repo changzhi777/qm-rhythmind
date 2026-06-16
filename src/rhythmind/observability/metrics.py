@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any
+from typing import Any, cast
 
 from fastapi import FastAPI, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -60,12 +60,12 @@ try:
     _PROMETHEUS_AVAILABLE = True
 except ImportError:  # pragma: no cover
     _PROMETHEUS_AVAILABLE = False
-    logger.warning("observability.prometheus_client_unavailable — metrics will be no-op")
-    Counter = Histogram = Gauge = lambda *a, **kw: _NoopMetric()  # type: ignore[assignment,misc]
-    REGISTRY = None  # type: ignore[assignment]
+    logger.warning("observability.prometheus_client_unavailable — metrics will be no-op")  # noqa: E501
+    Counter = Histogram = Gauge = lambda *a, **kw: _NoopMetric()
+    REGISTRY = None
     CONTENT_TYPE_LATEST = "text/plain"
 
-    def generate_latest(*a: Any, **kw: Any) -> bytes:  # type: ignore[no-redef]
+    def generate_latest(*a: Any, **kw: Any) -> bytes:
         return b"# prometheus_client not installed\n"
 
 
@@ -130,7 +130,7 @@ def record_pool_miss() -> None:
 # ── HTTP 中间件：自动记录请求计数与时长 ─────────────────────────────────────
 
 class PrometheusMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):  # type: ignore[override]
+    async def dispatch(self, request: Request, call_next: Any) -> Any:
         start = time.perf_counter()
         method = request.method
         # 优先取 route.path 模板（避免 /users/123 / /users/456 各算一行）
@@ -157,8 +157,8 @@ def _resolve_route_template(request: Request) -> str:
     """尝试解析为 FastAPI route 模板路径；失败回退 raw path。"""
     route = request.scope.get("route")
     if route is not None and hasattr(route, "path"):
-        return route.path
-    return request.scope.get("path", "unknown")
+        return cast(str, route.path)
+    return cast(str, request.scope.get("path", "unknown"))
 
 
 # ── 安装入口 ────────────────────────────────────────────────────────────────
@@ -169,7 +169,7 @@ def install_metrics(app: FastAPI) -> None:
 
     async def metrics_endpoint() -> Response:
         return Response(
-            content=generate_latest(REGISTRY) if _PROMETHEUS_AVAILABLE else generate_latest(),
+            content=generate_latest(REGISTRY) if _PROMETHEUS_AVAILABLE else generate_latest(),  # noqa: E501
             media_type=CONTENT_TYPE_LATEST,
         )
 
