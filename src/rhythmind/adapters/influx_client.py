@@ -164,7 +164,7 @@ class InfluxClient:
         all_ok = True
         for p in points:
             if not p.fields:
-                logger.debug("influx.write skip: no valid fields for user=%s", p.user_id)
+                logger.debug("influx.write skip: no valid fields for user=%s", p.user_id)  # noqa: E501
                 continue
 
             try:
@@ -257,7 +257,7 @@ from(bucket: "{self._bucket}")
 
             logger.debug(
                 "influx.query_range user=%s fields=%s start=%s rows=%d",
-                user_id, safe_fields, start, sum(len(s.values) for s in result.values()),
+                user_id, safe_fields, start, sum(len(s.values) for s in result.values()),  # noqa: E501
             )
             return result
 
@@ -313,7 +313,7 @@ from(bucket: "{self._bucket}")
         删除指定用户的所有时序数据（GDPR/PIPL 删除权实现）。
 
         使用 InfluxDB DeletePredicate API，按 user_id tag 过滤删除。
-        注意：InfluxDB 删除是软删除（mark-and-sweep），实际删除发生在 TSM compaction 阶段。
+        注意：InfluxDB 删除是软删除，实际删除发生在 TSM compaction 阶段。
 
         Args:
             user_id: 用户 ID

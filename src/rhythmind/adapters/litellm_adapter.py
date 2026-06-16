@@ -46,7 +46,7 @@ class LiteLLMAdapter(ModelAdapter):
     LiteLLM proxy 适配器。
 
     使用 OpenAI 兼容协议连接 LiteLLM proxy，
-    model_spec 直接作为 model 参数传递给 proxy（如 "primary"、"fast"、"openai/gpt-4o"）。
+    model_spec 直接作为 model 参数传递给 proxy。
     """
 
     def __init__(

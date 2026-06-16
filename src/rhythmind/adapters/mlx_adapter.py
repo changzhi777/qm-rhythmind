@@ -95,7 +95,7 @@ class MLXAdapter(ModelAdapter):
             model_path:      HuggingFace repo 或本地路径，如
                              "mlx-community/Qwen3-30B-A3B-4bit"
                              "~/.cache/rhythmind/mlx/qwen3-30b"
-            thinking:        Qwen3 thinking 模式开关。None = 读 settings.mlx_thinking_mode
+            thinking:        Qwen3 thinking 模式开关。None = 读 settings
             max_tokens:      最大输出 token。None = 读 settings.mlx_max_tokens
             semaphore_limit: 并发推理上限。None = 读 settings.mlx_semaphore_limit
         """

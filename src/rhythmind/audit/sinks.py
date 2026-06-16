@@ -8,7 +8,7 @@ audit/sinks.py — 审计事件 sink 抽象 + 三种实现
   - S3JsonlSink 写 append-only S3 对象（按天分桶；用 Object Lock 实现"不可篡改"）
 
 非阻塞契约:
-  生产 sink 实现耗时 I/O 时**必须**通过 asyncio.create_task 排队，emit() 永不阻塞主请求。
+  生产 sink 耗时 I/O 时必须通过 asyncio.create_task 排队，emit() 不阻塞主请求。
 """
 from __future__ import annotations
 
@@ -71,7 +71,7 @@ class StructlogSink(AuditSink):
             payload = record.to_dict()
             self._log.info("audit", **payload)
         except Exception as exc:  # 永不抛
-            logger.warning("audit.structlog_sink_failed event=%s error=%s", record.event, exc)
+            logger.warning("audit.structlog_sink_failed event=%s error=%s", record.event, exc)  # noqa: E501
 
 
 # ── 2. InMemory sink（测试用）──────────────────────────────────────────────

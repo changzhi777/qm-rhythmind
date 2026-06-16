@@ -11,7 +11,7 @@ api/rate_limit.py — Redis 固定窗口限流器（per-user / per-IP / per-rout
 为什么不用 slowapi:
   - slowapi 接口上是同步装饰器，配合 async FastAPI 与 dependency 体系不顺
   - 我们已经依赖 redis.asyncio，复用即可，不引入新组件
-  - 固定窗口 + INCR + EXPIRE 是原子操作，对生产 QPS 已经足够（如需更精确再换 token bucket）
+  - 固定窗口 + INCR + EXPIRE 是原子操作，对生产 QPS 足够
 
 降级策略:
   - Redis 不可达时：放行 + 打 WARN 日志（与 LoopGuard 一致，避免单点故障让业务停摆）
@@ -56,7 +56,7 @@ def _get_redis() -> aioredis.Redis:
     return _redis_client
 
 
-async def _check_and_incr(key: str, limit: int, window_sec: int) -> tuple[bool, int, int]:
+async def _check_and_incr(key: str, limit: int, window_sec: int) -> tuple[bool, int, int]:  # noqa: E501
     """
     INCR + EXPIRE 原子计数。
 
@@ -119,7 +119,7 @@ def rate_limit_ip(
     async def _dep(request: Request) -> None:
         # X-Forwarded-For 优先（反向代理后），否则用直连 client.host
         xff = request.headers.get("x-forwarded-for", "")
-        ip = xff.split(",")[0].strip() if xff else (request.client.host if request.client else "unknown")
+        ip = xff.split(",")[0].strip() if xff else (request.client.host if request.client else "unknown")  # noqa: E501
         key = f"rl:ip:{route_key}:{ip}"
         allowed, count, retry_after = await _check_and_incr(key, limit, window_sec)
         if not allowed:
