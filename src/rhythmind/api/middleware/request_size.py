@@ -41,7 +41,7 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
     超限返回 413（RFC 7231）+ structlog 记录。
     """
 
-    def __init__(self, app, max_bytes: int | None = None) -> None:  # type: ignore[no-untyped-def]
+    def __init__(self, app: Any, max_bytes: int | None = None) -> None:
         super().__init__(app)
         # 允许构造时覆盖，便于单测
         self._max_bytes = (

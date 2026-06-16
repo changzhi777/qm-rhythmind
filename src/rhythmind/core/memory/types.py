@@ -48,9 +48,9 @@ class MemoryEntry(BaseModel):
     ) -> str:
         """生成标准化命名空间，防止跨用户泄漏。"""
         # 清理特殊字符，只允许 [a-z0-9_-]
-        def safe(s):  # type: ignore[no-untyped-def]
+        def safe(s: str) -> str:
             return "".join(c if c.isalnum() or c in "-_" else "_" for c in s.lower())
-        return f"user.{safe(user_id)}.{safe(agent)}.{safe(key)}"  # type: ignore[no-untyped-call]
+        return f"user.{safe(user_id)}.{safe(agent)}.{safe(key)}"
 
 
 class MemoryRecallResult(BaseModel):

@@ -491,8 +491,8 @@ async def run_ag2_swarm(
         # （工具函数闭包持有 HermesBase 实例）
         from rhythmind.core.compliance.gate import ComplianceLevel, ComplianceResult
 
-        def _make_result(  # type: ignore[no-untyped-def]
-            hermes_agent, output_json: str, agent_name: str
+        def _make_result(
+            hermes_agent: Any, output_json: str, agent_name: str
         ) -> HermesRunResult:
             try:
                 output = _json.loads(output_json)

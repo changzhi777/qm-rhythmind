@@ -217,7 +217,12 @@ class ThothClient:
         resp = await self._api_request(
             "GET", "/api/documents", params={"limit": limit, "offset": offset},
         )
-        return cast(list[dict[str, Any]], resp.get("data", {}).get("items", []) if isinstance(resp, dict) else resp)
+        items = (
+            resp.get("data", {}).get("items", [])
+            if isinstance(resp, dict)
+            else resp
+        )
+        return cast(list[dict[str, Any]], items)
 
     async def get_document(self, doc_id: str) -> dict[str, Any]:
         """读文档详情。"""

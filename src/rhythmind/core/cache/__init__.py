@@ -220,7 +220,9 @@ class FactCache:
         return cast(dict[str, Any] | None, await _get(key))
 
     @staticmethod
-    async def set(user_id: str, subject: str, predicate: str, data: dict[str, Any]) -> None:
+    async def set(
+        user_id: str, subject: str, predicate: str, data: dict[str, Any]
+    ) -> None:
         key = f"fact:{user_id}:{subject}:{predicate}"
         await _set(key, data, FactCache.FACT_TTL)
 
