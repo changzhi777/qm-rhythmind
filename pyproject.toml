@@ -84,6 +84,10 @@ ignore = ["ANN101", "ANN102"]
 "tests/unit/test_thoth_client.py" = ["ANN201", "ANN001", "ANN202"]  # pytest 风格豁免
 # pytest 测试文件豁免：fixtures 参数与 return Any 注解在测试中是合理简化
 "tests/**/*.py" = ["ANN001", "ANN002", "ANN003", "ANN201", "ANN202", "ANN204", "ANN401"]
+# 源码豁免 ANN401：JSON/ORM/LLM 适配层用 Any 是合理选择，且与 mypy strict 的 type-arg 规则冲突
+# （mypy 要求 list[dict[str, Any]] 而非裸 dict，ANN401 却禁 Any；mypy strict 已提供类型安全网）
+# 其他 ANN 规则（ANN001/201 等强制注解存在）保留生效
+"src/**/*.py" = ["ANN401"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["rhythmind"]
