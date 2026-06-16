@@ -18,7 +18,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 import redis.asyncio as aioredis
 from fastapi import APIRouter, HTTPException
@@ -40,7 +40,7 @@ def _get_dashboard_redis() -> aioredis.Redis | None:
     try:
         global _dashboard_redis
         if _dashboard_redis is None:
-            _dashboard_redis = aioredis.from_url(
+            _dashboard_redis = aioredis.from_url(  # type: ignore[no-untyped-call]
                 settings.redis_url, encoding="utf-8", decode_responses=True
             )
         return _dashboard_redis
@@ -168,7 +168,7 @@ async def get_dashboard(user_id: CurrentUserId) -> dict[str, Any]:
             cached = await cache.get(f"dashboard:{user_id}")
             if cached:
                 import json as _json
-                return _json.loads(cached)
+                return cast(dict[str, Any], _json.loads(cached))
         except Exception:
             pass
 
@@ -347,7 +347,7 @@ from fastapi import File, UploadFile
 def _pdf_to_images_b64(pdf_bytes: bytes, dpi: int = 150) -> list[dict[str, str]]:
     """将 PDF 每页转为 base64 编码的 PNG 图片。"""
     try:
-        from pdf2image import convert_from_bytes
+        from pdf2image import convert_from_bytes  # type: ignore[import-not-found]
     except ImportError:
         raise RuntimeError(
             "pdf2image 未安装，请执行: pip install pdf2image && brew install poppler"
@@ -391,11 +391,14 @@ async def _analyze_with_vision(
 
     if model_spec.startswith("omlX://"):
         from rhythmind.adapters.omlX_adapter import OMLXAdapter
-        adapter = OMLXAdapter(model_spec[len("omlX://"):], timeout=120.0)
+        adapter: Any = OMLXAdapter(model_spec[len("omlX://"):], timeout=120.0)
     else:
-        adapter = adapter_router.route(model_spec)
+        adapter = adapter_router.get(model_spec)
 
-    raw = await adapter.chat(messages, temperature=0.1, max_tokens=4096)
+    raw = await adapter.chat(
+        cast(list[dict[str, Any]], messages),
+        temperature=0.1, max_tokens=4096,
+    )
 
     # 清理 markdown 包裹的 JSON
     raw = raw.strip()
@@ -406,13 +409,13 @@ async def _analyze_with_vision(
     raw = raw.strip()
 
     try:
-        return json.loads(raw)
+        return cast(dict[str, Any], json.loads(raw))
     except json.JSONDecodeError:
         return {"raw_text": raw}
 
 
 async def _write_vision_facts(
-    fm: FactManager, subject_prefix: str, data: dict, filename: str,
+    fm: FactManager, subject_prefix: str, data: dict[str, Any], filename: str,
 ) -> int:
     """将 AI 提取的结构化数据写入 FactManager，展开嵌套结构。"""
     _SOURCE = "vision_analysis"  # noqa: N806 — 模块内常量
@@ -461,7 +464,7 @@ async def _write_vision_facts(
 @router.post("/upload/file")
 async def upload_file(
     file: UploadFile = File(...),
-    user_id: CurrentUserId = None,
+    user_id: CurrentUserId | None = None,
 ) -> dict[str, Any]:
     """通用文件上传端点 — 自动识别类型并解析入库。
 
@@ -599,7 +602,7 @@ async def upload_file(
 @router.post("/chat")
 async def chat_proxy(
     body: dict[str, Any],
-    user_id: CurrentUserId = None,
+    user_id: CurrentUserId | None = None,
 ) -> dict[str, Any]:
     """Chat 代理端点 — 将前端请求转发到后端 HealthRouter。
 
