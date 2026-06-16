@@ -419,7 +419,7 @@ def build_mcp_server() -> Server:
     """
     server = Server("rhythmind-health")
 
-    @server.list_tools()  # type: ignore[no-untyped-call]
+    @server.list_tools()  # type: ignore[no-untyped-call,untyped-decorator]
     async def list_tools() -> list[Tool]:
         return _TOOLS
 
