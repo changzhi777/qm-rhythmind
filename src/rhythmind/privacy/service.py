@@ -181,7 +181,8 @@ class PrivacyService:
             ]
 
         log.info(
-            "privacy.export user_id=%s memory_rows=%d facts_rows=%d redis_keys=%d influx_points=%d",
+            "privacy.export user_id=%s memory_rows=%d facts_rows=%d "
+            "redis_keys=%d influx_points=%d",
             user_id, len(bundle.agent_memory), len(bundle.health_facts),
             len(bundle.redis_keys), bundle.influx_points,
         )
@@ -217,7 +218,9 @@ class PrivacyService:
                     delete(AgentMemory).where(AgentMemory.user_id == user_id)
                 )
                 await sess.commit()
-                report.successes.append(("agent_memory", f"deleted {res.rowcount} rows"))
+                report.successes.append(
+                    ("agent_memory", f"deleted {res.rowcount} rows")
+                )
         except Exception as exc:
             report.failures.append(("agent_memory", str(exc)))
 
@@ -351,8 +354,12 @@ def _serialize_fact(row: HealthFact) -> dict[str, Any]:
         "object": row.object_json,
         "source": row.source,
         "confidence": row.confidence,
-        "valid_from": row.valid_from.isoformat() if getattr(row, "valid_from", None) else None,
-        "valid_until": row.valid_until.isoformat() if getattr(row, "valid_until", None) else None,
+        "valid_from": (
+            row.valid_from.isoformat() if getattr(row, "valid_from", None) else None
+        ),
+        "valid_until": (
+            row.valid_until.isoformat() if getattr(row, "valid_until", None) else None
+        ),
     }
     return out
 
@@ -360,7 +367,7 @@ def _serialize_fact(row: HealthFact) -> dict[str, Any]:
 async def _scan_user_keys(redis_client: Any, user_id: str) -> list[str]:
     """
     用 SCAN 抓取与 user_id 相关的所有 key。
-    覆盖：LoopGuard `loop:{user_id}:*` + rate-limit `rl:user:*:{user_id}` + 任意自定义前缀。
+    覆盖 LoopGuard / rate-limit / 任意自定义前缀。
     """
     patterns = [
         f"loop:{user_id}:*",
