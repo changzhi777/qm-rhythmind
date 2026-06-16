@@ -74,8 +74,8 @@ class CoachAgent(HermesBase):
         user_goal: str = ctx.input_data.get("user_goal", "健康维护")
 
         # ── 从记忆中取训练历史 ────────────────────────────────────────────
-        training_history: dict = memory_ctx.get("training_history", {}) or {}
-        current_plan: dict = memory_ctx.get("current_plan", {}) or {}
+        training_history: dict[str, Any] = memory_ctx.get("training_history", {}) or {}
+        current_plan: dict[str, Any] = memory_ctx.get("current_plan", {}) or {}
         weekly_volume_km: float = float(training_history.get("weekly_volume_km", 0))
 
         goal_focus = GOAL_FOCUS_MAP.get(user_goal, GOAL_FOCUS_MAP["健康维护"])
@@ -149,11 +149,11 @@ class CoachAgent(HermesBase):
 
     @staticmethod
     def _build_prompt(
-        data_report: dict,
+        data_report: dict[str, Any],
         sport_type: str,
         user_goal: str,
         goal_focus: str,
-        current_plan: dict,
+        current_plan: dict[str, Any],
         weekly_volume_km: float,
     ) -> str:
         return f"""
@@ -186,7 +186,7 @@ class CoachAgent(HermesBase):
 """
 
     @staticmethod
-    def _fallback_plan(sport_type: str, user_goal: str) -> dict:
+    def _fallback_plan(sport_type: str, user_goal: str) -> dict[str, Any]:
         return {
             "today_plan": {
                 "name": f"{sport_type} 基础训练",
