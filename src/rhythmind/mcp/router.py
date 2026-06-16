@@ -70,7 +70,7 @@ async def _maybe_authenticated_user(
     if not settings.mcp_require_auth:
         # 仍然在结构化日志里留痕迹，便于审计
         logger.warning(
-            "mcp.unauthenticated_access path=%s remote=%s — only safe in local trusted env",
+            "mcp.unauthenticated_access path=%s remote=%s — only safe in local trusted env",  # noqa: E501
             request.url.path,
             request.client.host if request.client else "unknown",
         )
@@ -95,7 +95,9 @@ async def _maybe_authenticated_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     from fastapi.security import HTTPAuthorizationCredentials
-    creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=auth.split(" ", 1)[1])
+    creds = HTTPAuthorizationCredentials(
+        scheme="Bearer", credentials=auth.split(" ", 1)[1]
+    )
     return await get_current_user_id(creds)
 
 
@@ -132,7 +134,7 @@ async def sse_endpoint(
         init_options = mcp_server.create_initialization_options()
         await mcp_server.run(read_stream, write_stream, init_options)
 
-    # connect_sse 内部已向客户端发送完整响应，此处返回空 Response 仅满足 FastAPI 类型检查
+    # connect_sse 内部已发送完整响应，此处返回空 Response 仅满足 FastAPI 类型检查
     return Response()  # type: ignore[return-value]
 
 
