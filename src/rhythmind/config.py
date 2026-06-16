@@ -124,7 +124,9 @@ class Settings(BaseSettings):
     loop_guard_max_calls: int = 3  # 默认上限，同 user+intent 24h 内最多触发次数
     # 分级限流：按意图类型设置不同上限（JSON 字符串，运行时解析）
     # 例：{"greeting": 10, "query": 30, "default": 3}
-    loop_guard_tiered_limits: str = '{"greeting": 10, "query": 30, "upload_data": 20, "__default__": 5}'
+    loop_guard_tiered_limits: str = (
+        '{"greeting": 10, "query": 30, "upload_data": 20, "__default__": 5}'
+    )
 
     # ── JWT ──────────────────────────────────────────────────────────────
     jwt_secret: str = Field(default="change-me-in-prod", repr=False)
@@ -260,7 +262,10 @@ class Settings(BaseSettings):
                 "(MCP endpoints would be unauthenticated)"
             )
 
-        if self.jwt_secret in self._SECRET_DEFAULTS_BLOCKLIST or len(self.jwt_secret) < 32:
+        if (
+            self.jwt_secret in self._SECRET_DEFAULTS_BLOCKLIST
+            or len(self.jwt_secret) < 32
+        ):
             problems.append(
                 "jwt_secret must be a strong random string (>=32 chars), "
                 "not a known default"
@@ -269,7 +274,10 @@ class Settings(BaseSettings):
         if self.litellm_master_key in self._SECRET_DEFAULTS_BLOCKLIST:
             problems.append("litellm_master_key uses a known default value")
 
-        if not self.influxdb_token or self.influxdb_token in self._SECRET_DEFAULTS_BLOCKLIST:
+        if (
+            not self.influxdb_token
+            or self.influxdb_token in self._SECRET_DEFAULTS_BLOCKLIST
+        ):
             problems.append("influxdb_token is empty or uses a known default")
 
         if "rhythmind:rhythmind@" in self.database_url:
@@ -283,9 +291,9 @@ class Settings(BaseSettings):
             sysname = platform.system().lower()
             if not (sysname == "darwin" and mach in {"arm64", "aarch64"}):
                 problems.append(
-                    f"model_primary_spec='{self.model_primary_spec}' requires Apple Silicon "
+                    f"model_primary_spec='{self.model_primary_spec}' requires Apple Silicon "  # noqa: E501
                     f"(macOS arm64), but running on {sysname}/{mach}. "
-                    "Override with OMLX_SPEC=omlX://... or a LiteLLM alias."
+                    "Override with OMLX_SPEC=omlX://... or a LiteLLM alias."  # noqa: E501
                 )
 
         if problems:
