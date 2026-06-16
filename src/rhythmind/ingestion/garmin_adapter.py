@@ -19,6 +19,7 @@ import json
 import logging
 import os
 from datetime import datetime
+from typing import Any
 
 from rhythmind.ingestion.base import (
     Activity,
@@ -60,14 +61,14 @@ class GarminDataSourceAdapter(BaseDataSourceAdapter):
 
     # ── 内部工具 ──────────────────────────────────────────────────────────
 
-    def _load_json(self, *parts: str) -> list | dict | None:
+    def _load_json(self, *parts: str) -> Any:
         path = os.path.join(self._dir, *parts)
         if not os.path.exists(path):
             return None
         with open(path, encoding="utf-8") as f:
             return json.load(f)
 
-    def _load_all_metrics(self, prefix: str) -> list[dict]:
+    def _load_all_metrics(self, prefix: str) -> list[dict[str, Any]]:
         files = sorted(glob.glob(
             os.path.join(
                 self._dir, "DI_CONNECT", "DI-Connect-Metrics", f"{prefix}_*.json"
@@ -83,7 +84,7 @@ class GarminDataSourceAdapter(BaseDataSourceAdapter):
                 pass
         return records
 
-    def _load_all_wellness(self, pattern: str) -> list[dict]:
+    def _load_all_wellness(self, pattern: str) -> list[dict[str, Any]]:
         files = sorted(glob.glob(
             os.path.join(self._dir, "DI_CONNECT", "DI-Connect-Wellness", pattern)
         ))
@@ -97,7 +98,7 @@ class GarminDataSourceAdapter(BaseDataSourceAdapter):
                 pass
         return records
 
-    def _ts_to_date(self, ts) -> datetime | None:
+    def _ts_to_date(self, ts: Any) -> datetime | None:
         if isinstance(ts, (int, float)):
             return datetime.fromtimestamp(ts / 1000)
         return None
@@ -217,7 +218,11 @@ class GarminDataSourceAdapter(BaseDataSourceAdapter):
         for m in self._load_all_metrics("MetricsMaxMetData"):
             cal_date = m.get("calendarDate")
             if isinstance(cal_date, (int, float)):
-                date_str = self._ts_to_date(cal_date).strftime("%Y-%m-%d")
+                date_obj = self._ts_to_date(cal_date)
+                if date_obj is None:
+                    date_str = ""
+                else:
+                    date_str = date_obj.strftime("%Y-%m-%d")
             else:
                 date_str = str(cal_date)[:10]
             metrics.append(BodyMetric(
@@ -274,7 +279,9 @@ class GarminDataSourceAdapter(BaseDataSourceAdapter):
 
         return TrainingMetrics(
             endurance_score=latest_e.get("overallScore"),
-            endurance_classification=class_map.get(latest_e.get("classification")),
+            endurance_classification=class_map.get(
+                latest_e.get("classification")  # type: ignore[arg-type]
+            ),
             hill_score=latest_hill.get("overallScore"),
             acute_load=latest_atl.get("dailyTrainingLoadAcute"),
             chronic_load=latest_atl.get("dailyTrainingLoadChronic"),
