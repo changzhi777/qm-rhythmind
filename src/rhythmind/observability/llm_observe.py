@@ -75,7 +75,7 @@ def observe_llm(
     Langfuse 禁用时直接透传，无开销。
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable:
         @functools.wraps(func)
         async def async_wrapper(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
             client = get_langfuse()
@@ -133,7 +133,7 @@ def observe_llm(
     return decorator
 
 
-def _estimate_tokens(kwargs: dict, result: str | None) -> int:
+def _estimate_tokens(kwargs: dict[str, Any], result: str | None) -> int:
     """粗估 token 数（中文 ~1.5 char/token，英文 ~4 char/token）。"""
     messages = kwargs.get("messages", [])
     input_chars = sum(
@@ -144,7 +144,7 @@ def _estimate_tokens(kwargs: dict, result: str | None) -> int:
     return int((input_chars + output_chars) / 2.5)
 
 
-def _estimate_cost(model: str, kwargs: dict, result: str | None) -> dict:
+def _estimate_cost(model: str, kwargs: dict[str, Any], result: str | None) -> dict:
     """基于模型估算成本（USD）。"""
     total_tokens = _estimate_tokens(kwargs, result)
     cost_per_1k = {

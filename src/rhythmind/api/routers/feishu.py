@@ -100,7 +100,7 @@ async def feishu_webhook(request: Request, bg: BackgroundTasks) -> dict[str, Any
     return {"code": 0, "msg": "ok"}
 
 
-async def _handle_message_event(event: dict, schema_v2: bool) -> None:
+async def _handle_message_event(event: dict[str, Any], schema_v2: bool) -> None:
     try:
         if schema_v2:
             sender = event.get("sender", {})
