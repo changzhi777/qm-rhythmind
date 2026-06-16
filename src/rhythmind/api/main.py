@@ -30,7 +30,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 
-from rhythmind import __version__ as RHYTHMIND_VERSION
+from rhythmind import __version__ as RHYTHMIND_VERSION  # type: ignore[attr-defined]
 
 # 路由
 from rhythmind.api.routers.admin import router as admin_router
@@ -91,7 +91,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         settings.assert_production_safe()
     except RuntimeError as exc:
         try:
-            from rhythmind.audit import AuditEvent, audit_log
+            from rhythmind.audit import AuditEvent, audit_log  # type: ignore[attr-defined]
             audit_log(
                 AuditEvent.CONFIG_UNSAFE_STARTUP,
                 env=settings.env,
@@ -217,7 +217,7 @@ else:
 
 
 # ── 请求体大小硬上限（早于业务路由）──────────────────────────────────────
-from rhythmind.api.middleware import RequestSizeLimitMiddleware  # noqa: E402
+from rhythmind.api.middleware import RequestSizeLimitMiddleware  # type: ignore[attr-defined]  # noqa: E402
 
 app.add_middleware(RequestSizeLimitMiddleware)
 app.add_middleware(GZipMiddleware, minimum_size=500)
@@ -226,7 +226,7 @@ app.add_middleware(GZipMiddleware, minimum_size=500)
 # ── 可观测性：Prometheus + OTel ─────────────────────────────────────────────
 # 调用顺序很关键：metrics 中间件应早于其他可能 swallow 异常的中间件，
 # 这样无论后续 handler 如何，HTTP_REQUESTS 都能记录到。
-from rhythmind.observability import install_metrics, install_tracing  # noqa: E402
+from rhythmind.observability import install_metrics, install_tracing  # type: ignore[attr-defined]  # noqa: E402
 
 install_metrics(app)
 install_tracing(app, service_name="rhythmind-api")
@@ -313,7 +313,9 @@ async def readyz() -> JSONResponse:
     # Redis（LoopGuard 依赖）
     try:
         import redis.asyncio as aioredis
-        r = aioredis.from_url(settings.redis_url, socket_connect_timeout=2)
+        r = aioredis.from_url(  # type: ignore[no-untyped-call]
+            settings.redis_url, socket_connect_timeout=2,
+        )
         await r.ping()
         # aclose 在 redis>=5.0.1 取代 close；保留 fallback 兼容更老版本
         if hasattr(r, "aclose"):
