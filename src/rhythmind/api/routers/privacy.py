@@ -29,7 +29,7 @@ from pydantic import BaseModel
 
 from rhythmind.api.deps import CurrentUserId
 from rhythmind.api.rate_limit import rate_limit_user
-from rhythmind.privacy import PrivacyService
+from rhythmind.privacy import PrivacyService  # type: ignore[attr-defined]
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +78,7 @@ async def export_my_data(user_id: CurrentUserId) -> Response:
 
     logger.info("privacy.export.completed user_id=%s bytes=%d", user_id, len(payload))
     try:
-        from rhythmind.audit import AuditEvent, audit_log
+        from rhythmind.audit import AuditEvent, audit_log  # type: ignore[attr-defined]
         audit_log(
             AuditEvent.PRIVACY_EXPORT,
             user_id=user_id,
@@ -93,7 +93,7 @@ async def export_my_data(user_id: CurrentUserId) -> Response:
         content=payload,
         media_type="application/json",
         headers={
-            "Content-Disposition": f'attachment; filename="rhythmind_export_{user_id}.json"',
+            "Content-Disposition": f'attachment; filename="rhythmind_export_{user_id}.json"',  # noqa: E501
             "Cache-Control": "no-store",
         },
     )
@@ -127,9 +127,9 @@ async def delete_my_data(
         user_id, report.is_clean,
     )
     try:
-        from rhythmind.audit import AuditEvent, audit_log
+        from rhythmind.audit import AuditEvent, audit_log  # type: ignore[attr-defined]
         audit_log(
-            AuditEvent.PRIVACY_DELETE if report.is_clean else AuditEvent.PRIVACY_DELETE_FAILURE,
+            AuditEvent.PRIVACY_DELETE if report.is_clean else AuditEvent.PRIVACY_DELETE_FAILURE,  # noqa: E501
             user_id=user_id,
             successes=len(report.successes),
             failures=len(report.failures),
