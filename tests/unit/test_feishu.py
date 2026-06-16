@@ -49,12 +49,7 @@ async def app_client(monkeypatch):
     # ── Mock rhythmind.integrations.feishu_client（按需 import）────────
     from rhythmind.integrations import feishu_client as fc
 
-    fc.list_bot_chats = pytest.MonkeyPatch().setattr(  # type: ignore[attr-defined]
-        fc, "list_bot_chats",
-        _make_async_mock(return_value=[]),
-    ) if False else _AsyncMagic(return_value=[])
-
-    # 用类级别 patcher 注入
+    # 用 monkeypatch.setattr 注入（pytest 测试结束时自动 undo，避免污染其他测试）
     monkeypatch.setattr(
         fc, "list_bot_chats", _AsyncMagic(return_value=[]), raising=True,
     )
