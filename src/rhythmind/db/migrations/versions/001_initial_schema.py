@@ -36,9 +36,9 @@ def upgrade() -> None:
         sa.Column("user_id", sa.String(64), nullable=False),
         sa.Column("agent", sa.String(64), nullable=False),
         sa.Column("key", sa.String(128), nullable=False),
-        sa.Column("value_json", JSONB(none_as_null=True), nullable=False, server_default=sa.text("'{}'::jsonb")),
-        sa.Column("tags", JSONB(none_as_null=True), nullable=False, server_default=sa.text("'[]'::jsonb")),
-        sa.Column("mem_type", sa.String(32), nullable=False, server_default="'project'"),
+        sa.Column("value_json", JSONB(none_as_null=True), nullable=False, server_default=sa.text("'{}'::jsonb")),  # noqa: E501
+        sa.Column("tags", JSONB(none_as_null=True), nullable=False, server_default=sa.text("'[]'::jsonb")),  # noqa: E501
+        sa.Column("mem_type", sa.String(32), nullable=False, server_default="'project'"),  # noqa: E501
         sa.Column("confidence", sa.Float(), nullable=False, server_default="1.0"),
         sa.Column(
             "created_at",
@@ -88,7 +88,7 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
-        sa.Column("synced_to_qmd", sa.Boolean(), nullable=False, server_default="false"),
+        sa.Column("synced_to_qmd", sa.Boolean(), nullable=False, server_default="false"),  # noqa: E501
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
