@@ -69,7 +69,9 @@ class GarminDataSourceAdapter(BaseDataSourceAdapter):
 
     def _load_all_metrics(self, prefix: str) -> list[dict]:
         files = sorted(glob.glob(
-            os.path.join(self._dir, "DI_CONNECT", "DI-Connect-Metrics", f"{prefix}_*.json")
+            os.path.join(
+                self._dir, "DI_CONNECT", "DI-Connect-Metrics", f"{prefix}_*.json"
+            )
         ))
         records = []
         for f in files:
@@ -111,9 +113,12 @@ class GarminDataSourceAdapter(BaseDataSourceAdapter):
     # ── 接口实现 ──────────────────────────────────────────────────────────
 
     def load_profile(self) -> UserProfile:
-        profile = self._load_json("DI_CONNECT", "DI-Connect-User", "user_profile.json") or {}
+        profile = (
+            self._load_json("DI_CONNECT", "DI-Connect-User", "user_profile.json") or {}
+        )
         bio_data = self._load_json(
-            "DI_CONNECT", "DI-Connect-Wellness", "11032831_userBioMetricProfileData.json"
+            "DI_CONNECT", "DI-Connect-Wellness",
+            "11032831_userBioMetricProfileData.json",
         ) or [{}]
         bio = bio_data[0] if bio_data else {}
         hr_zones = self._load_json(
@@ -294,6 +299,9 @@ class GarminDataSourceAdapter(BaseDataSourceAdapter):
                 event_type="abnormal_hr",
                 value=e.get("abnormalHrValue", 0),
                 threshold=e.get("abnormalHrThresholdValue", 0),
-                description=f"心率 {e.get('abnormalHrValue')} bpm (阈值 {e.get('abnormalHrThresholdValue')} bpm)",
+                description=(
+                    f"心率 {e.get('abnormalHrValue')} bpm "
+                    f"(阈值 {e.get('abnormalHrThresholdValue')} bpm)"
+                ),
             ))
         return results
