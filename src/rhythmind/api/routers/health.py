@@ -22,6 +22,7 @@ from __future__ import annotations
 import contextlib
 import uuid
 from datetime import UTC
+from typing import Any
 
 from fastapi import (
     APIRouter,
@@ -168,7 +169,7 @@ async def upload_health_data_stream(
     session_id = str(uuid.uuid4())
     raw_input = body.model_dump(exclude_none=True)
 
-    async def event_generator():
+    async def event_generator() -> Any:
         async with pool.acquire(user_id) as agents:
             async for event in _swarm.run_stream(
                 user_id=user_id,
@@ -224,7 +225,7 @@ async def upload_health_data_stream_ws(websocket: WebSocket) -> None:
         return
 
     try:
-        from jose import jwt as _jwt
+        from jose import jwt as _jwt  # type: ignore[import-untyped]
 
         from rhythmind.config import settings
         payload = _jwt.decode(
@@ -360,7 +361,7 @@ async def health_chat(
 )
 async def get_memory_summary(
     user_id: CurrentUserId,
-) -> dict:
+) -> dict[str, Any]:
     """返回当前用户所有 Agent 的最近记忆条目（仅 debug 模式）。"""
     from rhythmind.config import settings
     if not settings.debug:
@@ -384,7 +385,7 @@ async def get_memory_summary(
 async def pool_stats(
     user_id: CurrentUserId,
     pool: PoolDep,
-) -> dict:
+) -> dict[str, Any]:
     """返回 AgentPool 当前状态，含池大小和各用户闲置时间。仅 debug 模式。"""
     from rhythmind.config import settings
     if not settings.debug:
@@ -411,7 +412,7 @@ async def ingest_wearable_data(
         default="manual",
         description="数据来源：apple_health / google_health / fitbit / manual",
     ),
-) -> dict:
+) -> dict[str, Any]:
     """
     接收可穿戴设备（Apple Health / Google Health / Fitbit）导出的 CSV，
     解析后写入 InfluxDB，作为 MetricsAgent 的数据源之一。
@@ -428,7 +429,7 @@ async def ingest_wearable_data(
     from datetime import datetime
 
     # ── 1. 读取并解析 CSV ────────────────────────────────────────────
-    if not file.filename.endswith(".csv"):
+    if not (file.filename or "").endswith(".csv"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Only .csv files are supported",
