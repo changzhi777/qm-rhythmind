@@ -28,6 +28,8 @@ from rhythmind.core.hermes_base import AgentContext, HermesRunResult
 from rhythmind.orchestrator.workflows.swarm_data_coach import (
     SwarmDataCoach,
     SwarmResult,
+    _empty_run_result,
+    run_ag2_swarm,
 )
 
 # ── 工厂：构造 HermesRunResult ────────────────────────────────────────────────
@@ -402,3 +404,179 @@ def test_swarm_result_final_output_structure():
     assert "data" in fo["confidence"]
     assert "coach" in fo["confidence"]
     assert "total" in fo["latency_ms"]
+
+
+# ── 测试：_empty_run_result 辅助函数 ─────────────────────────────────────────
+
+def test_empty_run_result_returns_block():
+    """_empty_run_result 应返回 BLOCK 级别 + compliance_block=True 的失败结果。"""
+    result = _empty_run_result("u1", "s1", "coach_agent")
+
+    assert result.compliance.level == ComplianceLevel.BLOCK
+    assert result.compliance.compliance_block is True
+    assert result.compliance.output is None
+    assert result.compliance.confidence == 0.0
+    assert result.agent == "coach_agent"
+    assert result.user_id == "u1"
+    assert result.task_type == "skipped"
+    assert result.latency_ms == 0.0
+
+
+# ── 测试：run_stream() 异常路径 ─────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_swarm_run_stream_metrics_raises_yields_error():
+    """MetricsAgent 抛异常时，run_stream 应产出 start + error，无后续事件。"""
+    metrics_mock = AsyncMock()
+    metrics_mock.run.side_effect = RuntimeError("influx 不可达")
+
+    swarm = SwarmDataCoach()
+    events = []
+    async for e in swarm.run_stream(
+        user_id=USER_ID, session_id=SESSION_ID, input_data=INPUT_DATA,
+        metrics_agent=metrics_mock, data_agent=AsyncMock(), coach_agent=AsyncMock(),
+    ):
+        events.append(e)
+
+    event_names = [ev["event"] for ev in events]
+    assert event_names == ["start", "error"]
+    payload = json.loads(events[-1]["data"])
+    assert payload["step"] == "metrics"
+    assert "influx 不可达" in payload["message"]
+
+
+@pytest.mark.asyncio
+async def test_swarm_run_stream_data_raises_yields_error():
+    """DataAgent 抛异常时，应产出 start + metrics_done + error。"""
+    metrics_mock = AsyncMock()
+    metrics_mock.run.return_value = _make_metrics_result()
+
+    data_mock = AsyncMock()
+    data_mock.run.side_effect = ValueError("JSON parse fail")
+
+    swarm = SwarmDataCoach()
+    events = []
+    async for e in swarm.run_stream(
+        user_id=USER_ID, session_id=SESSION_ID, input_data=INPUT_DATA,
+        metrics_agent=metrics_mock, data_agent=data_mock, coach_agent=AsyncMock(),
+    ):
+        events.append(e)
+
+    event_names = [ev["event"] for ev in events]
+    assert event_names == ["start", "metrics_done", "error"]
+    payload = json.loads(events[-1]["data"])
+    assert payload["step"] == "data"
+
+
+@pytest.mark.asyncio
+async def test_swarm_run_stream_coach_raises_yields_error():
+    """CoachAgent 抛异常时，应产出 start + metrics_done + data_done + error。"""
+    metrics_mock = AsyncMock()
+    metrics_mock.run.return_value = _make_metrics_result()
+    data_mock = AsyncMock()
+    data_mock.run.return_value = _make_run_result(DATA_OUTPUT, agent="data_agent")
+    coach_mock = AsyncMock()
+    coach_mock.run.side_effect = TimeoutError("LLM 超时")
+
+    swarm = SwarmDataCoach()
+    events = []
+    async for e in swarm.run_stream(
+        user_id=USER_ID, session_id=SESSION_ID, input_data=INPUT_DATA,
+        metrics_agent=metrics_mock, data_agent=data_mock, coach_agent=coach_mock,
+    ):
+        events.append(e)
+
+    event_names = [ev["event"] for ev in events]
+    assert event_names == ["start", "metrics_done", "data_done", "error"]
+    payload = json.loads(events[-1]["data"])
+    assert payload["step"] == "coach"
+    assert "LLM 超时" in payload["message"]
+
+
+@pytest.mark.asyncio
+async def test_swarm_run_stream_data_not_success_yields_compliance_error():
+    """DataAgent success=False（合规 BLOCK）时，应产出 error 事件（step=data）。"""
+    metrics_mock = AsyncMock()
+    metrics_mock.run.return_value = _make_metrics_result()
+    data_mock = AsyncMock()
+    data_mock.run.return_value = _make_run_result({}, success=False, agent="data_agent")
+
+    swarm = SwarmDataCoach()
+    events = []
+    async for e in swarm.run_stream(
+        user_id=USER_ID, session_id=SESSION_ID, input_data=INPUT_DATA,
+        metrics_agent=metrics_mock, data_agent=data_mock, coach_agent=AsyncMock(),
+    ):
+        events.append(e)
+
+    event_names = [ev["event"] for ev in events]
+    assert event_names == ["start", "metrics_done", "error"]
+    payload = json.loads(events[-1]["data"])
+    assert payload["step"] == "data"
+    assert "合规" in payload["message"]
+
+
+# ── 测试：run_ag2_swarm() 降级路径 ──────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_run_ag2_swarm_falls_back_on_import_error(monkeypatch):
+    """autogen 未安装（ImportError）时，应降级到 SwarmDataCoach.run()。"""
+    import builtins
+
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name.startswith("autogen"):
+            raise ImportError("No module named 'autogen'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    fallback_result = SwarmResult(
+        metrics_result=_make_metrics_result(),
+        data_result=_make_run_result(DATA_OUTPUT, agent="data_agent"),
+        coach_result=_make_run_result(COACH_OUTPUT, agent="coach_agent"),
+        success=True,
+        user_id=USER_ID,
+        session_id=SESSION_ID,
+    )
+    monkeypatch.setattr(
+        "rhythmind.orchestrator.workflows.swarm_data_coach.SwarmDataCoach.run",
+        AsyncMock(return_value=fallback_result),
+    )
+
+    result = await run_ag2_swarm(USER_ID, SESSION_ID, INPUT_DATA)
+    assert result.success is True
+    assert result is fallback_result
+
+
+@pytest.mark.asyncio
+async def test_run_ag2_swarm_falls_back_on_runtime_error(monkeypatch):
+    """autogen 运行时异常（非 ImportError）时，应降级到 SwarmDataCoach.run()。"""
+    import builtins
+
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name.startswith("autogen"):
+            raise RuntimeError("autogen runtime 异常")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    fallback_result = SwarmResult(
+        metrics_result=_make_metrics_result(),
+        data_result=_make_run_result({}, success=False, agent="data_agent"),
+        coach_result=_empty_run_result(USER_ID, SESSION_ID, "coach_agent"),
+        success=False,
+        user_id=USER_ID,
+        session_id=SESSION_ID,
+    )
+    monkeypatch.setattr(
+        "rhythmind.orchestrator.workflows.swarm_data_coach.SwarmDataCoach.run",
+        AsyncMock(return_value=fallback_result),
+    )
+
+    result = await run_ag2_swarm(USER_ID, SESSION_ID, INPUT_DATA)
+    assert result.success is False
+    assert result is fallback_result
