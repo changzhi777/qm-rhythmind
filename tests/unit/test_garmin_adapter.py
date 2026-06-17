@@ -231,3 +231,75 @@ class TestGarminAdapterHealthEvents:
         adapter = GarminDataSourceAdapter(str(tmp_path))
         events = adapter.load_health_events()
         assert events == []
+
+
+# ── 内部工具函数 + 边界 case（无文件依赖） ────────────────────────────────
+
+class TestHelperFunctions:
+    """_ts_to_date / _extract_location 等纯函数 + load_activities ts 缺失跳过。"""
+
+    def _adapter(self, tmp_path) -> GarminDataSourceAdapter:
+        return GarminDataSourceAdapter(str(tmp_path))
+
+    def test_ts_to_date_converts_milliseconds_to_datetime(self, tmp_path):
+        """_ts_to_date: int/float 时间戳（毫秒）转 datetime。"""
+        adapter = self._adapter(tmp_path)
+        result = adapter._ts_to_date(1700000000000)
+        assert result is not None
+        assert result.year == 2023
+
+    def test_ts_to_date_returns_none_for_non_numeric(self, tmp_path):
+        """_ts_to_date: 非 int/float 返回 None（不抛异常）。"""
+        adapter = self._adapter(tmp_path)
+        assert adapter._ts_to_date("not-a-number") is None
+        assert adapter._ts_to_date(None) is None
+        assert adapter._ts_to_date([]) is None
+        assert adapter._ts_to_date({}) is None
+
+    def test_extract_location_returns_none_for_empty(self, tmp_path):
+        """_extract_location: 空字符串/None → None。"""
+        adapter = self._adapter(tmp_path)
+        assert adapter._extract_location(None) is None
+        assert adapter._extract_location("") is None
+
+    def test_extract_location_returns_none_for_single_part(self, tmp_path):
+        """_extract_location: 单词 → None（无法取城市）。"""
+        adapter = self._adapter(tmp_path)
+        assert adapter._extract_location("Beijing") is None
+        assert adapter._extract_location("上海") is None
+
+    def test_extract_location_returns_first_part_for_multi_word(self, tmp_path):
+        """_extract_location: 多词 → 取第一段（城市名）。"""
+        adapter = self._adapter(tmp_path)
+        assert adapter._extract_location("Beijing 北京") == "Beijing"
+        assert adapter._extract_location("Shenzhen 广东") == "Shenzhen"
+        # 多个空格分隔
+        assert adapter._extract_location("Shanghai  上海  浦东") == "Shanghai"
+
+    def test_load_activities_skips_entries_without_valid_timestamp(self, tmp_path):
+        """load_activities: _ts_to_date 返回 None 的 activity 应被跳过。"""
+        _make_garmin_dir(str(tmp_path))
+        adapter = GarminDataSourceAdapter(str(tmp_path))
+
+        # load_activities 读 DI-Connect-Fitness/8616680518888_0_summarizedActivities.json
+        # 结构: [{ "summarizedActivitiesExport": [ {...activity...} ] }]
+        fitness_file = (
+            tmp_path / "DI_CONNECT" / "DI-Connect-Fitness" /
+            "8616680518888_0_summarizedActivities.json"
+        )
+        payload = [{
+            "summarizedActivitiesExport": [
+                {"startTimeLocal": 1700000000000, "name": "good_run", "activityType": "RUNNING"},
+                {"name": "no_timestamp"},  # 缺 startTimeLocal → _ts_to_date None
+                {"startTimeLocal": "bad_string", "name": "bad_run"},
+                {"startTimeLocal": 1700001000000, "name": "good_run_2", "activityType": "RUNNING"},
+            ],
+        }]
+        _write_json(str(fitness_file), payload)
+
+        result = adapter.load_activities()
+        # 3 个保留：good_run + good_run_2 + no_timestamp（beginTimestamp=0 → 1970-01-01）
+        # bad_string 被跳过（_ts_to_date 非数字 → None）
+        assert len(result) == 3
+        names = {a.name for a in result}
+        assert {"good_run", "good_run_2", "no_timestamp"} == names
