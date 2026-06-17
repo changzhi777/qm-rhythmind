@@ -140,6 +140,96 @@ class TestFlushNow:
         assert sink._buffer == []
         assert len(records) == 2
 
+    def test_flush_now_creates_async_task_when_event_loop_running(self, monkeypatch):
+        """line 50-54: 存在 event loop 时，_flush_now 切片 buffer 并 create_task(_write_batch)。"""
+        import asyncio
+
+        sink = PGSink()
+        sink._buffer = [{"event": "a"}, {"event": "b"}]
+        sink._write_batch = AsyncMock()  # type: ignore[method-assign]
+
+        # 当前 pytest 已有 running event loop — 直接 patch loop.create_task
+        # 不需要 mock get_event_loop（line 52 内的 import asyncio 会找到真实模块）
+        loop = asyncio.get_event_loop()
+        original_create_task = loop.create_task
+        task_call_args: list = []
+
+        def fake_create_task(coro):
+            task_call_args.append(coro)
+            return MagicMock()  # 返回假 task handle
+
+        loop.create_task = fake_create_task
+        try:
+            sink._flush_now()
+        finally:
+            loop.create_task = original_create_task
+
+        # 1) buffer 已清空（line 50 切片）
+        assert sink._buffer == []
+        # 2) create_task 被调用一次，参数是 _write_batch(records) 的 coroutine
+        assert len(task_call_args) == 1
+        # 3) _write_batch 被调用了（buffer 已被切片传入 create_task 前）
+        # 实际验证：buffer 已空 + create_task 被调用 + 传入的是 coroutine
+        assert task_call_args[0] is not None
+
+    def test_flush_now_falls_back_to_sync_when_no_event_loop(self, monkeypatch):
+        """line 55-58: 没有 event loop 时（get_event_loop 抛 RuntimeError）→ asyncio.run 同步 fallback。"""
+        sink = PGSink()
+        sink._buffer = [{"event": "x"}]
+        sink._write_batch = AsyncMock()  # type: ignore[method-assign]
+
+        # mock get_event_loop 抛 RuntimeError — 模拟 "no running event loop"
+        # 由于 asyncio 在 pg_sink 函数内 import，patch sys.modules["asyncio"].get_event_loop
+        monkeypatch.setattr(
+            "asyncio.get_event_loop",
+            lambda: (_ for _ in ()).throw(RuntimeError("no running event loop")),
+        )
+
+        run_called: list = []
+        real_asyncio_run = __import__("asyncio").run
+
+        def fake_run(coro):
+            run_called.append(coro)
+            # 同步关闭 coroutine（必须）— 用 asyncio 创建新 loop 跑
+            return real_asyncio_run(coro)
+
+        monkeypatch.setattr("asyncio.run", fake_run)
+
+        sink._flush_now()
+
+        # 1) buffer 已清空
+        assert sink._buffer == []
+        # 2) 走 sync fallback：asyncio.run 被调用
+        assert len(run_called) == 1
+
+    def test_flush_now_async_run_error_propagates(self, monkeypatch):
+        """line 58 asyncio.run 抛错时**向上传播**（不吞掉）—— 这是源码现状。
+
+        注意：line 55-58 的 except 块只捕获 get_event_loop 抛错，asyncio.run
+        自己抛错时（line 58 在 except 块内）会传播给 _flush_now 调用方。
+        这是已知的源码 bug（asyncio.run 应在另一个 try 块内），记录此行为。
+        """
+        sink = PGSink()
+        sink._buffer = [{"event": "x"}]
+        sink._write_batch = AsyncMock()  # type: ignore[method-assign]
+
+        # get_event_loop 抛 → 走 except → asyncio.run 也抛
+        monkeypatch.setattr(
+            "asyncio.get_event_loop",
+            lambda: (_ for _ in ()).throw(RuntimeError("no running event loop")),
+        )
+
+        def fake_run(_coro):
+            raise Exception("write totally failed")
+
+        monkeypatch.setattr("asyncio.run", fake_run)
+
+        # 验证：asyncio.run 抛错向上传播（已知行为）
+        with pytest.raises(Exception, match="write totally failed"):
+            sink._flush_now()
+        # buffer 仍被清空（line 50 切片在 try 之前）
+        assert sink._buffer == []
+
 
 # ── _write_batch：表存在性检查 + INSERT + 失败降级 ──────────────────────────
 
