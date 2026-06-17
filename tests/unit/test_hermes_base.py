@@ -6,6 +6,7 @@ tests/unit/test_hermes_base.py — HermesBase 闭环流程测试
 from __future__ import annotations
 
 import pytest
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from rhythmind.core.compliance.gate import ComplianceLevel
 from rhythmind.core.hermes_base import (
@@ -220,3 +221,158 @@ class TestRemember:
         agent.memory.write.assert_awaited_once_with(
             "k1", {"v": 1}, MemoryType.PROJECT
         )
+
+
+# ── _extract_json_object 两条 try/except pass 路径（line 97-98/107-108）────
+
+class TestExtractJsonObjectExceptionPaths:
+    """覆盖"看似 JSON 但解析失败"的两条 pass-through 路径。"""
+
+    def test_brace_only_content_falls_through_to_bracket_pair(self):
+        """前后大括号但内容非法（line 97-98）→ pass 落到括号配对。"""
+        # "hello world" 被前后大括号包围，json.loads 失败
+        # 括号配对会找到 {hello world}（line 110-143），最终返回原 content（line 141 边界找到但非法）
+        result = _extract_json_object("{hello world}")
+        assert result == "{hello world}"
+
+    def test_fence_with_invalid_json_falls_through(self):
+        """markdown fence 内 JSON 非法（line 107-108）→ pass 落到括号配对。"""
+        content = '```json\n{invalid: json}\n```'
+        # fence 匹配到 {invalid: json} 但 json.loads 失败
+        # 落到括号配对：找到 {invalid: json}，边界但非法 → 返回原 content
+        result = _extract_json_object(content)
+        assert result == content
+
+
+# ── run() 错误/边界 + call_llm 错误路径 ─────────────────────────────────
+
+class TestRunAndCallLlmBoundaries:
+    """覆盖 run() 的 ComplianceBlockedError/advisor_review + call_llm BLOCK/WARN 路径。"""
+
+    @pytest.mark.asyncio
+    async def test_run_returns_blocked_result_when_execute_raises_compliance_blocked(self):
+        """execute() 抛 ComplianceBlockedError（line 229-234）→ 返 blocked HermesRunResult。"""
+        from rhythmind.core.hermes_base import ComplianceBlockedError
+        from rhythmind.core.compliance.gate import ComplianceResult
+
+        class _BlockAgent(EchoAgent):
+            async def execute(self, ctx, memory_ctx):
+                audit = ComplianceResult(
+                    level=ComplianceLevel.BLOCK, output=None, confidence=0.0,
+                    compliance_block=True, triggered_keywords=["敏感词命中"],
+                )
+                raise ComplianceBlockedError(reason="敏感词命中", audit=audit)
+
+        agent = _BlockAgent(user_id="u1", confidence=0.95)
+        ctx = AgentContext(
+            user_id="u1", session_id="s1",
+            task_type="test", input_data={"q": "敏感词"},
+        )
+        result = await agent.run(ctx)
+
+        # ComplianceBlockedError 路径：success 隐式 False（BLOCK），output=None
+        assert result.compliance.level == ComplianceLevel.BLOCK
+        assert result.compliance.compliance_block is True
+        assert result.compliance.output is None
+        # _make_blocked_compliance(str(e)) 把 e.reason 整串塞进 triggered_keywords
+        assert "敏感词命中" in result.compliance.triggered_keywords
+
+    @pytest.mark.asyncio
+    async def test_run_advisor_review_path_sets_flag_and_early_returns(self):
+        """AgentResult.requires_human_review=True + compliance non-BLOCK（line 256-259）→ advisor_review=True + 早 return。"""
+        class _AdvisorAgent(EchoAgent):
+            async def execute(self, ctx, memory_ctx):
+                # requires_human_review=True 的 AgentResult
+                return AgentResult(
+                    output={"recommendation": "see doctor"},
+                    confidence=0.85,
+                    requires_human_review=True,
+                )
+
+        agent = _AdvisorAgent(user_id="u1", confidence=0.95)
+        ctx = AgentContext(
+            user_id="u1", session_id="s1",
+            task_type="test", input_data={},
+        )
+        result = await agent.run(ctx)
+
+        # advisor_review 应被设上（来自 requires_human_review 信号）
+        assert result.compliance.advisor_review is True
+        # early return：output 仍来自 compliance（非 None，因为 advisor_review 不 BLOCK）
+        assert result.compliance.output == {"recommendation": "see doctor"}
+
+    @pytest.mark.asyncio
+    async def test_call_llm_raises_compliance_blocked_when_auditor_blocks(self):
+        """call_llm 调 auditor 后 audit.level=BLOCK（line 338）→ 抛 ComplianceBlockedError。"""
+        from rhythmind.core.hermes_base import ComplianceBlockedError
+        from rhythmind.core.compliance.prompt_auditor import AuditLevel, AuditResult
+
+        mock_auditor = MagicMock()
+        mock_auditor.audit = AsyncMock(return_value=AuditResult(
+            level=AuditLevel.BLOCK,
+            overall_score=0.95,
+            medical_risk=0.9,
+            privacy_risk=0.0,
+            hallucination_risk=0.0,
+            reason="block_keyword_hit",
+            extra_constraints=[],
+            auditor_available=True,
+        ))
+
+        agent = EchoAgent(user_id="u1", confidence=0.95)
+        agent.auditor = mock_auditor  # 直接替换实例属性（__init__ 已 self.auditor = PromptAuditor()）
+
+        with pytest.raises(ComplianceBlockedError, match="prompt 审查拦截"):
+            await agent.call_llm([{"role": "user", "content": "敏感 prompt"}])
+
+    @pytest.mark.asyncio
+    async def test_call_llm_warn_injects_constraints_into_existing_system_message(self):
+        """call_llm 调 auditor 后 audit.level=WARN（line 354-359）→ extra_constraints 追加到 system 消息。
+
+        验证方式：mock 底层 adapter 为 AsyncMock 接收最终 messages 参数，
+        检查传入的 messages 中 system content 含 "[安全约束]" + 约束列表。
+        """
+        from rhythmind.core.compliance.prompt_auditor import AuditLevel, AuditResult
+
+        mock_auditor = MagicMock()
+        mock_auditor.audit = AsyncMock(return_value=AuditResult(
+            level=AuditLevel.WARN,
+            overall_score=0.6,
+            medical_risk=0.5,
+            privacy_risk=0.0,
+            hallucination_risk=0.0,
+            reason="mild_concern",
+            extra_constraints=["不要给出医疗诊断", "建议用户咨询医生"],
+            auditor_available=True,
+        ))
+
+        # mock 底层 adapter 的 chat()，捕获最终 messages
+        agent = EchoAgent(user_id="u1", confidence=0.95)
+        agent.auditor = mock_auditor
+
+        captured_messages: list[list[dict]] = []
+
+        async def fake_chat(messages, **kwargs):
+            captured_messages.append(messages)
+            return "mocked response"
+
+        with patch("rhythmind.adapters.adapter_router.adapter_router.get") as mock_router_get:
+            mock_adapter = MagicMock()
+            mock_adapter.chat = fake_chat  # 直接赋值（不 wrap）— fake_chat 是 async
+            mock_router_get.return_value = mock_adapter
+
+            await agent.call_llm([
+                {"role": "system", "content": "你是健康助手。"},
+                {"role": "user", "content": "我最近胸闷"},
+            ])
+
+        # 验证：mock_auditor.audit 被调用（说明 WARN 路径走到）
+        mock_auditor.audit.assert_awaited_once()
+        # 验证：注入的 messages（captured_messages[0]）中 system content 含约束
+        assert len(captured_messages) == 1
+        sys_msg = next(m for m in captured_messages[0] if m.get("role") == "system")
+        assert "[安全约束]" in sys_msg["content"]
+        assert "不要给出医疗诊断" in sys_msg["content"]
+        assert "建议用户咨询医生" in sys_msg["content"]
+        # 原始 system content 应保留
+        assert "你是健康助手" in sys_msg["content"]
