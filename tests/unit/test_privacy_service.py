@@ -184,3 +184,174 @@ class TestScanUserKeys:
         redis_client.scan.return_value = (0, [])
         keys = await _scan_user_keys(redis_client, "nobody")
         assert keys == []
+
+
+# ── Influx + QMD 子系统辅助方法（line 172-174/245-265/289-326）────────
+
+class TestPrivacyServiceInfluxQmd:
+    """覆盖 _count_influx_points / _delete_influx_points / _purge_qmd_namespaces
+    + export/delete 主流程对这些子系统的成功失败处理。"""
+
+    @pytest.mark.asyncio
+    async def test_count_influx_points_returns_zero_when_token_unset(self, monkeypatch):
+        """influxdb_token 未配置时 _count_influx_points 直接返 0（line 289-291）。"""
+        from rhythmind.privacy import service as svc_mod
+
+        monkeypatch.setattr(svc_mod.settings, "influxdb_token", "")
+
+        svc = svc_mod.PrivacyService(session_factory=lambda: AsyncMock())
+        count = await svc._count_influx_points("alice")
+        assert count == 0
+
+    @pytest.mark.asyncio
+    async def test_count_influx_points_sums_query_range_values(self, monkeypatch):
+        """_count_influx_points 累加 query_range 各 series 的 values 数（line 292-303）。"""
+        from rhythmind.privacy import service as svc_mod
+
+        monkeypatch.setattr(svc_mod.settings, "influxdb_token", "test-token")
+
+        # mock influx client（line 297 延迟创建）
+        mock_series = MagicMock()
+        mock_series.values = [1, 2, 3]  # 3 points
+        mock_series2 = MagicMock()
+        mock_series2.values = [10, 20]  # 2 points
+        mock_influx = MagicMock()
+        mock_influx.query_range = AsyncMock(return_value={
+            "heart_rate_avg": mock_series,
+            "steps": mock_series2,
+        })
+
+        svc = svc_mod.PrivacyService(session_factory=lambda: AsyncMock())
+        svc._influx = mock_influx
+
+        count = await svc._count_influx_points("alice")
+        assert count == 5  # 3 + 2
+
+    @pytest.mark.asyncio
+    async def test_count_influx_points_returns_zero_on_query_error(self, monkeypatch):
+        """query_range 抛错时 _count_influx_points 兜底返 0（line 304-305）。"""
+        from rhythmind.privacy import service as svc_mod
+
+        monkeypatch.setattr(svc_mod.settings, "influxdb_token", "test-token")
+
+        mock_influx = MagicMock()
+        mock_influx.query_range = AsyncMock(side_effect=Exception("connection refused"))
+
+        svc = svc_mod.PrivacyService(session_factory=lambda: AsyncMock())
+        svc._influx = mock_influx
+
+        count = await svc._count_influx_points("alice")
+        assert count == 0
+
+    @pytest.mark.asyncio
+    async def test_delete_influx_points_returns_false_when_token_unset(self, monkeypatch):
+        """influxdb_token 未配置时 _delete_influx_points 返 False（line 311-313）。"""
+        from rhythmind.privacy import service as svc_mod
+
+        monkeypatch.setattr(svc_mod.settings, "influxdb_token", "")
+
+        svc = svc_mod.PrivacyService(session_factory=lambda: AsyncMock())
+        ok = await svc._delete_influx_points("alice")
+        assert ok is False
+
+    @pytest.mark.asyncio
+    async def test_delete_influx_points_returns_false_on_not_implemented(self, monkeypatch):
+        """delete_user_data 抛 NotImplementedError 时返 False（line 316-319）。"""
+        from rhythmind.privacy import service as svc_mod
+
+        monkeypatch.setattr(svc_mod.settings, "influxdb_token", "test-token")
+
+        mock_influx = MagicMock()
+        mock_influx.delete_user_data = AsyncMock(
+            side_effect=NotImplementedError("not supported")
+        )
+
+        svc = svc_mod.PrivacyService(session_factory=lambda: AsyncMock())
+        svc._influx = mock_influx
+
+        ok = await svc._delete_influx_points("alice")
+        assert ok is False
+
+    @pytest.mark.asyncio
+    async def test_purge_qmd_namespaces_raises_when_purge_user_missing(self, monkeypatch):
+        """QMDClient 无 purge_user 方法时抛 NotImplementedError（line 326）。"""
+        from rhythmind.privacy import service as svc_mod
+
+        mock_qmd = MagicMock(spec=[])  # spec=[] 表示无任何属性
+        # QMDClient 实例
+
+        svc = svc_mod.PrivacyService(session_factory=lambda: AsyncMock())
+        svc._qmd = mock_qmd
+
+        with pytest.raises(NotImplementedError, match="QMDClient.purge_user"):
+            await svc._purge_qmd_namespaces("alice")
+
+    @pytest.mark.asyncio
+    async def test_purge_qmd_namespaces_calls_purge_user(self):
+        """_purge_qmd_namespaces 正常路径：调用 qmd.purge_user(user_id)。"""
+        from rhythmind.privacy import service as svc_mod
+
+        mock_qmd = MagicMock()
+        mock_qmd.purge_user = AsyncMock()
+
+        svc = svc_mod.PrivacyService(session_factory=lambda: AsyncMock())
+        svc._qmd = mock_qmd
+
+        await svc._purge_qmd_namespaces("alice")
+        mock_qmd.purge_user.assert_awaited_once_with("alice")
+
+    @pytest.mark.asyncio
+    async def test_export_influx_failure_records_note(self, monkeypatch):
+        """export_user_data: _count_influx_points 抛错时记 notes（line 172-174），不阻断。"""
+        from rhythmind.privacy import service as svc_mod
+
+        # 让 _count_influx_points 走抛错路径
+        async def raise_error(uid):
+            raise Exception("simulated influx failure")
+
+        monkeypatch.setattr(svc_mod.settings, "influxdb_token", "test-token")
+
+        mock_sess = AsyncMock()
+        mock_sess.__aenter__ = AsyncMock(return_value=mock_sess)
+        mock_sess.__aexit__ = AsyncMock(return_value=False)
+        mock_sess.execute = AsyncMock(return_value=MagicMock(
+            scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[])))
+        ))
+
+        svc = svc_mod.PrivacyService(
+            session_factory=lambda: mock_sess,
+            redis_client=AsyncMock(),
+        )
+        svc._count_influx_points = raise_error  # type: ignore[method-assign]
+
+        bundle = await svc.export_user_data("alice")
+        # influxdb 失败应被记到 notes，不抛
+        assert any("influxdb" in n and "skipped" in n for n in bundle.notes)
+
+    @pytest.mark.asyncio
+    async def test_delete_influx_success_records_success(self, monkeypatch):
+        """delete_user_data: influx 成功时记 successes（line 255-256）。"""
+        from rhythmind.privacy import service as svc_mod
+
+        monkeypatch.setattr(svc_mod.settings, "influxdb_token", "test-token")
+
+        mock_sess = AsyncMock()
+        mock_sess.__aenter__ = AsyncMock(return_value=mock_sess)
+        mock_sess.__aexit__ = AsyncMock(return_value=False)
+        mock_sess.execute = AsyncMock(return_value=MagicMock(
+            scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[])))
+        ))
+
+        mock_redis = AsyncMock()
+        mock_redis.scan.return_value = (0, [])
+
+        svc = svc_mod.PrivacyService(
+            session_factory=lambda: mock_sess,
+            redis_client=mock_redis,
+        )
+        # mock _delete_influx_points 直接返 True（line 255-256 路径）
+        svc._delete_influx_points = AsyncMock(return_value=True)  # type: ignore[method-assign]
+
+        report = await svc.delete_user_data("alice", confirm_token="alice")
+        # influxdb 应在 successes 中
+        assert any(name == "influxdb" for name, _ in report.successes)
