@@ -220,6 +220,39 @@ class TestPurgeUser:
         # （具体行为取决于实现：any-fail 或 all-fail；这里只验证不抛异常且返 bool）
         assert isinstance(result, bool)
 
+    @pytest.mark.asyncio
+    async def test_exception_in_one_collection_does_not_block_others(self):
+        """_delete_collection 抛错时（line 241-246）：记录错误 + 继续处理其他 collection。
+
+        模拟 _delete_collection 第一次抛 RuntimeError（被 _cli_api catch 漏出的真正异常），
+        验证 purge_user 仍继续处理第二个 collection，返 bool。
+        """
+        client = QMDClient(base_url="http://qmd:8000")
+        # 第一次：_delete_collection 抛 RuntimeError（模拟真异常）
+        # 第二次：成功
+        client._delete_collection = AsyncMock(  # type: ignore[method-assign]
+            side_effect=[RuntimeError("qmd sub-call crashed"), True]
+        )
+
+        result = await client.purge_user("alice")
+        # 第一个失败但被吞掉 + 继续 → 第二个成功 → 整体 False（任一失败）
+        assert result is False
+        # _delete_collection 两次都被调用
+        assert client._delete_collection.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_all_collections_exception_returns_false(self):
+        """两个 collection 都抛错时返 False（all_success=False）。"""
+        client = QMDClient(base_url="http://qmd:8000")
+        client._delete_collection = AsyncMock(  # type: ignore[method-assign]
+            side_effect=[RuntimeError("err1"), RuntimeError("err2")]
+        )
+
+        result = await client.purge_user("alice")
+        assert result is False
+        # 两个 collection 都被处理（异常吞掉后继续循环）
+        assert client._delete_collection.await_count == 2
+
 
 class TestDeleteCollection:
     @pytest.mark.asyncio
