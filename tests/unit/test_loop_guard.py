@@ -204,3 +204,100 @@ class TestLoopGuardTTL:
 
         # 验证 expire 不被调用（TTL 已存在）
         mock_redis.expire.assert_not_called()
+
+
+# ── 辅助函数 + 边界（line 60/63-65/82/53）────────────────────────────────
+
+class TestParseTieredLimits:
+    """_parse_tiered_limits: 解析 settings.loop_guard_tiered_limits JSON。"""
+
+    def test_empty_raw_returns_empty_dict(self, monkeypatch):
+        """raw 为空时（line 60）返 {}。"""
+        from rhythmind.orchestrator import loop_guard
+
+        monkeypatch.setattr(loop_guard.settings, "loop_guard_tiered_limits", "")
+        assert loop_guard._parse_tiered_limits() == {}
+
+    def test_valid_json_returns_dict(self, monkeypatch):
+        """合法 JSON 字符串正确解析为 dict。"""
+        from rhythmind.orchestrator import loop_guard
+
+        monkeypatch.setattr(
+            loop_guard.settings, "loop_guard_tiered_limits",
+            '{"greeting": 10, "query": 30, "__default__": 5}',
+        )
+        result = loop_guard._parse_tiered_limits()
+        assert result == {"greeting": 10, "query": 30, "__default__": 5}
+
+    def test_invalid_json_returns_empty_and_logs_warning(self, monkeypatch, caplog):
+        """非法 JSON（line 63-65）→ logger.warning + 返 {}。"""
+        from rhythmind.orchestrator import loop_guard
+
+        monkeypatch.setattr(
+            loop_guard.settings, "loop_guard_tiered_limits",
+            "{greeting: 10, invalid}",
+        )
+        with caplog.at_level("WARNING"):
+            result = loop_guard._parse_tiered_limits()
+        assert result == {}
+        assert any("parse_error" in r.message for r in caplog.records)
+
+
+class TestGetLimit:
+    """LoopGuard._get_limit: tiered_limits 命中或 fallback。"""
+
+    def test_returns_tiered_limit_when_intent_matched(self, monkeypatch):
+        """intent 在 tiered_limits 中时返其值（line 81-82）。"""
+        from rhythmind.orchestrator import loop_guard
+
+        monkeypatch.setattr(
+            loop_guard.settings, "loop_guard_tiered_limits",
+            '{"greeting": 10, "query": 30, "__default__": 5}',
+        )
+        guard = LoopGuard(redis_url="redis://localhost:6379/0")
+        assert guard._get_limit("greeting") == 10
+        assert guard._get_limit("query") == 30
+
+    def test_falls_back_to_default_when_intent_unknown(self, monkeypatch):
+        """intent 不在 tiered 中时 fallback 到 __default__（line 83）。"""
+        from rhythmind.orchestrator import loop_guard
+
+        monkeypatch.setattr(
+            loop_guard.settings, "loop_guard_tiered_limits",
+            '{"greeting": 10, "__default__": 5}',
+        )
+        guard = LoopGuard(redis_url="redis://localhost:6379/0")
+        assert guard._get_limit("unknown_intent") == 5
+
+    def test_falls_back_to_max_calls_when_no_default_key(self, monkeypatch):
+        """tiered_limits 空时 fallback 到 settings.loop_guard_max_calls。"""
+        from rhythmind.orchestrator import loop_guard
+
+        monkeypatch.setattr(loop_guard.settings, "loop_guard_tiered_limits", "")
+        monkeypatch.setattr(loop_guard.settings, "loop_guard_max_calls", 7)
+        guard = LoopGuard(redis_url="redis://localhost:6379/0")
+        assert guard._get_limit("any") == 7
+
+
+class TestRecordCall:
+    """_record_call: Prometheus Counter 指标记录（line 51-53）。"""
+
+    def test_record_call_with_prometheus(self, monkeypatch):
+        """prometheus_client 已装时（_LOOP_GUARD_CALLS != None）正确 inc。"""
+        from rhythmind.orchestrator import loop_guard
+
+        mock_counter = MagicMock()
+        monkeypatch.setattr(loop_guard, "_LOOP_GUARD_CALLS", mock_counter)
+
+        loop_guard._record_call("greeting", "allowed")
+
+        mock_counter.labels.assert_called_once_with(intent="greeting", result="allowed")
+        mock_counter.labels.return_value.inc.assert_called_once()
+
+    def test_record_call_no_op_when_prometheus_unavailable(self, monkeypatch):
+        """prometheus_client 未装时（_LOOP_GUARD_CALLS=None）no-op，不抛异常。"""
+        from rhythmind.orchestrator import loop_guard
+
+        monkeypatch.setattr(loop_guard, "_LOOP_GUARD_CALLS", None)
+        # 不应抛异常
+        loop_guard._record_call("greeting", "throttled")
