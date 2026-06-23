@@ -9,6 +9,7 @@ tests/unit/test_llm_observe.py — LLM 观测模块单元测试
 """
 from __future__ import annotations
 
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -148,6 +149,62 @@ class TestInitLangfuse:
             mock_s.langfuse_public_key = ""
             mock_s.langfuse_secret_key = ""
             assert init_langfuse() is False
+
+    def test_success_initializes_client(self, monkeypatch):
+        """line 39-50: 配置完整 + langfuse 导入成功 → 创建 Langfuse 客户端 + 返 True。"""
+        from rhythmind.observability import llm_observe
+
+        # 重置 _langfuse_client（避免其他测试残留）
+        monkeypatch.setattr(llm_observe, "_langfuse_client", None)
+
+        # mock settings + langfuse.Langfuse
+        mock_settings = MagicMock()
+        mock_settings.langfuse_enabled = True
+        mock_settings.langfuse_public_key = "pk-test"
+        mock_settings.langfuse_secret_key = "sk-test"
+        mock_settings.langfuse_host = "https://langfuse.test"
+        monkeypatch.setattr("rhythmind.config.settings", mock_settings)
+
+        mock_langfuse_module = MagicMock()
+        mock_langfuse_instance = MagicMock()
+        mock_langfuse_module.Langfuse = MagicMock(return_value=mock_langfuse_instance)
+        monkeypatch.setitem(sys.modules, "langfuse", mock_langfuse_module)
+
+        result = llm_observe.init_langfuse()
+
+        assert result is True
+        mock_langfuse_module.Langfuse.assert_called_once_with(
+            public_key="pk-test",
+            secret_key="sk-test",
+            host="https://langfuse.test",
+        )
+        # 全局 _langfuse_client 被设置
+        assert llm_observe._langfuse_client is mock_langfuse_instance
+
+    def test_exception_during_init_returns_false(self, monkeypatch):
+        """line 51-54: Langfuse 构造抛异常 → logger.error + 清空 _langfuse_client + 返 False。"""
+        from rhythmind.observability import llm_observe
+
+        # 预置一个伪 client（验证异常路径会清空）
+        monkeypatch.setattr(llm_observe, "_langfuse_client", "stale_client")
+
+        mock_settings = MagicMock()
+        mock_settings.langfuse_enabled = True
+        mock_settings.langfuse_public_key = "pk-test"
+        mock_settings.langfuse_secret_key = "sk-test"
+        mock_settings.langfuse_host = "https://langfuse.test"
+        monkeypatch.setattr("rhythmind.config.settings", mock_settings)
+
+        # mock langfuse 抛出 RuntimeError
+        mock_langfuse_module = MagicMock()
+        mock_langfuse_module.Langfuse = MagicMock(side_effect=RuntimeError("network unreachable"))
+        monkeypatch.setitem(sys.modules, "langfuse", mock_langfuse_module)
+
+        result = llm_observe.init_langfuse()
+
+        assert result is False
+        # _langfuse_client 被清空（不是 stale_client）
+        assert llm_observe._langfuse_client is None
 
 
 # ── SuggestionEngine ───────────────────────────────────────────────────
