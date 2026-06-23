@@ -5,6 +5,8 @@ tests/unit/test_memory_manager.py — MemoryManager 增删改查测试
 """
 from __future__ import annotations
 
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 
 from rhythmind.core.memory import MemoryManager
@@ -89,3 +91,114 @@ class TestMemoryManager:
         await mgr.write("key", "value")
         result = await mgr.recall("key")
         assert result.get("key") == "value"
+
+
+# ── init_db 启动逻辑（line 78-92）────────────────────────────────────
+
+class TestInitDb:
+    """init_db: dev/test 建表 + prod 跳过。"""
+
+    @pytest.mark.asyncio
+    async def test_init_db_skips_in_prod_env(self, monkeypatch, caplog):
+        """line 85-89: env=prod 时 logger.warning + return（不建表）。"""
+        from rhythmind.core.memory import manager as mgr_mod
+
+        monkeypatch.setattr(mgr_mod.settings, "env", "prod")
+
+        with caplog.at_level("WARNING"):
+            await mgr_mod.init_db()
+
+        # 验证日志含 prod 跳过提示
+        assert any("init_db() called in prod" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_init_db_creates_tables_in_dev_env(self, monkeypatch):
+        """line 90-92: env=dev 时调 Base.metadata.create_all（mock engine）。"""
+        from contextlib import asynccontextmanager
+        from rhythmind.core.memory import manager as mgr_mod
+
+        monkeypatch.setattr(mgr_mod.settings, "env", "dev")
+
+        # mock 全局 _engine.begin() 上下文管理器
+        mock_conn = AsyncMock()
+        mock_conn.run_sync = AsyncMock()
+
+        @asynccontextmanager
+        async def fake_begin():
+            yield mock_conn
+
+        # mock _engine（不调真的 _engine fixture）
+        fake_engine = MagicMock()
+        fake_engine.begin = fake_begin
+        monkeypatch.setattr(mgr_mod, "_engine", fake_engine)
+
+        await mgr_mod.init_db()
+
+        # 验证 run_sync 被调（create_all）
+        mock_conn.run_sync.assert_awaited_once()
+
+
+# ── purge_expired 完整实现（line 235-252）────────────────────────────────
+
+class TestPurgeExpired:
+    """MemoryManager.purge_expired: 删除 expires_at < now 的所有 memory。"""
+
+    @pytest.mark.asyncio
+    async def test_purge_expired_returns_count_of_deleted_rows(self, monkeypatch):
+        """line 244-252: 完整执行 — delete + result.rowcount + logger + return count。"""
+        from contextlib import asynccontextmanager
+        from rhythmind.core.memory import manager as mgr_mod
+
+        # mock AsyncSessionLocal + session.begin()（line 244 `session.begin()` async CM）
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.rowcount = 5
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        @asynccontextmanager
+        async def fake_session_cm():
+            yield mock_session
+
+        @asynccontextmanager
+        async def fake_begin():
+            yield None  # session.begin() 进入事务
+
+        mock_session.begin = fake_begin
+
+        # AsyncSessionLocal() 返 async CM
+        monkeypatch.setattr(mgr_mod, "AsyncSessionLocal", lambda: fake_session_cm())
+
+        # purge_expired 是 MemoryManager class 方法（line 237）
+        mgr = MemoryManager(user_id="u1", agent="a1")
+        count = await mgr.purge_expired()
+
+        # 验证 rowcount 透传
+        assert count == 5
+        mock_session.execute.assert_awaited_once()
+        # 验证调用了 delete（call_args 包含 delete statement）
+        call_str = str(mock_session.execute.call_args).upper()
+        assert "DELETE" in call_str or "AGENTMEMORY" in call_str
+
+
+# ── _build_upsert 方言选择（line 99-102）────────────────────────────────
+
+class TestBuildUpsert:
+    """_build_upsert: SQLite vs PostgreSQL 方言选择。"""
+
+    def test_build_upsert_sqlite_uses_sqlite_dialect(self):
+        """line 100: is_sqlite=True 时返 sqlite.insert 函数。"""
+        from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+        from rhythmind.core.memory import manager as mgr_mod
+
+        result = mgr_mod._build_upsert(is_sqlite=True)
+        assert callable(result)
+        assert result is sqlite_insert
+
+    def test_build_upsert_postgres_uses_postgres_dialect(self):
+        """line 102: is_sqlite=False 时返 postgresql.insert 函数。"""
+        from sqlalchemy.dialects.postgresql import insert as pg_insert
+        from rhythmind.core.memory import manager as mgr_mod
+
+        result = mgr_mod._build_upsert(is_sqlite=False)
+        assert callable(result)
+        assert result is pg_insert
