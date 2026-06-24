@@ -191,6 +191,29 @@ body {
   animation: personaExpand 0.6s var(--ease-out-soft) 0.3s both;
 }
 
+/* ── v5 页面切换 fade-in ──────────────────────────── */
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+main {
+  animation: pageEnter 0.4s var(--ease-out-soft) both;
+}
+
+/* KPI 数字容器:为 CountUp 留位置 */
+.kpi-number {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+  min-width: 1ch;
+}
+
 /* 边框扫描效果 */
 @keyframes borderScan {
   0% {

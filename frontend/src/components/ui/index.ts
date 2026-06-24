@@ -3,6 +3,8 @@
 
 export { Button, type ButtonVariant, type ButtonSize } from './button';
 export { Card } from './card';
+export { CountUp } from './count-up';
+export { Accordion } from './accordion';
 export { EmptyState } from './empty-state';
 export { ErrorState } from './error-state';
 export { Modal } from './modal';

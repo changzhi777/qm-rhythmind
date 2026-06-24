@@ -12,6 +12,8 @@ import {
   ErrorState,
   SkeletonGroup,
   Sparkline,
+  CountUp,
+  Accordion,
   useToast,
 } from '@/components/ui';
 
@@ -412,13 +414,17 @@ function UserCard({
       <div className="flex items-center gap-3 text-xs text-[var(--text-muted)] flex-wrap relative z-10">
         <span className="flex items-center gap-1">
           <span className="text-[var(--text-secondary)]">跑步</span>
-          <span className="text-white font-medium">{totalRuns}</span>
+          <span className="text-white font-medium kpi-number">
+            <CountUp value={totalRuns} />
+          </span>
           <span>次</span>
         </span>
         <span>·</span>
         <span className="flex items-center gap-1">
           <span className="text-[var(--text-secondary)]">总跑量</span>
-          <span className="text-white font-medium">{totalKm > 0 ? totalKm.toFixed(0) : '-'}</span>
+          <span className="text-white font-medium kpi-number">
+            <CountUp value={totalKm} decimals={1} />
+          </span>
           <span>km</span>
         </span>
         <span>·</span>
@@ -431,12 +437,41 @@ function UserCard({
         <span>·</span>
         <span className="flex items-center gap-1">
           <span className="text-[var(--text-secondary)]">VO2 Max</span>
-          <span className="text-white font-medium">{user.profile.vo2_max ?? '-'}</span>
+          <span className="text-white font-medium kpi-number">
+            <CountUp value={(user.profile.vo2_max as number) || 0} />
+          </span>
         </span>
         <span className="ml-auto text-[var(--primary)] group-hover:translate-x-1 transition-transform">
           点击进入数据大屏 →
         </span>
       </div>
+
+      {/* v5: 手风琴 - 训练目标 */}
+      {persona?.goals && persona.goals.length > 0 && (
+        <div className="mt-3 relative z-10">
+          <Accordion
+            title={`🎯 训练目标 (${persona.goals.length})`}
+            defaultOpen={false}
+          >
+            <ul className="space-y-1.5">
+              {persona.goals.map((g, i) => (
+                <li key={i} className="flex items-center gap-2">
+                  <span className="text-[var(--primary)]">•</span>
+                  <span className="flex-1">
+                    {g.metric}
+                    {g.unit && <span className="text-[var(--text-muted)]"> ({g.unit})</span>}
+                    {g.deadline && <span className="text-xs text-[var(--text-muted)]"> · 截止 {g.deadline}</span>}
+                  </span>
+                  <span className="font-semibold text-white">
+                    {g.target}
+                    {g.unit && <span className="text-xs text-[var(--text-muted)]"> {g.unit}</span>}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Accordion>
+        </div>
+      )}
     </button>
   );
 }
