@@ -38,8 +38,8 @@ from rhythmind.core.memory.manager import AsyncSessionLocal  # noqa: E402
 
 # ── 脱敏后的账户配置 ────────────────────────────────────────────────
 TEST_USER_ID = "athlete_demo_001"
-TEST_DISPLAY_NAME = "林远舟"
-TEST_AVATAR = "L"
+TEST_DISPLAY_NAME = "张远舟"
+TEST_AVATAR = "Z"
 TEST_EMAIL = "demo@redacted.local"
 
 # 原型(张晨)→ 脱敏(林远舟)
@@ -90,7 +90,7 @@ YEARLY_ACTIVITY = {
 
 # 人物画像(写入 description 字段,前端可展示)
 PERSONA = {
-    "title": "精英跑者 · 林远舟",
+    "title": "精英跑者 · 张远舟",
     "summary": "35 岁男性,VO2 Max 57, 耐力评分 6900, 严肃跑者",
     "background": "日常通勤以跑步为主, 周训练量 60-80km, 目标 2026 年完成半马 sub-95",
     "strengths": ["心肺能力突出", "训练负荷科学(ACWR 优秀)", "跑量稳定递增"],

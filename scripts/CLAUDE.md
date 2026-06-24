@@ -39,6 +39,7 @@
 | `init_qmd_collections.sh` | Shell | 74 | QMD 语义搜索初始化 | — |
 | `docker-entrypoint.sh` | Shell | 34 | Docker 容器入口 | — |
 | `bootstrap_lock.sh` | Shell | 27 | 生成 poetry.lock | Poetry |
+| `seed_test_account.py` | Python | 220 | 部署脱敏测试账户(张晨 → 张远舟) | rhythmind, sqlalchemy |
 
 ---
 
