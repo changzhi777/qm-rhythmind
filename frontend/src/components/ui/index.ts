@@ -7,6 +7,7 @@ export { EmptyState } from './empty-state';
 export { ErrorState } from './error-state';
 export { Modal } from './modal';
 export { Skeleton, SkeletonGroup } from './skeleton';
+export { Sparkline } from './sparkline';
 export { Tabs, type TabItem } from './tabs';
 export { Toast } from './toast'; // legacy 单 toast(已存在)
 export { ToastHost } from './toast-host'; // 新版多 toast 队列
