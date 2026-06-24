@@ -1,11 +1,11 @@
 'use client';
 
-// / — 用户选择首页(Stage 3:接入 8 组件 + 错误处理)
-// 2026-06-24 frontend-polish Stage 3
+// / — 用户选择首页(Stage 3 + Persona 展示)
+// 2026-06-24 frontend-polish Stage 3 + 27
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, setAuthToken, type UserSummary } from '@/lib/api';
+import { api, setAuthToken, type UserSummary, type Persona } from '@/lib/api';
 import {
   Card,
   EmptyState,
@@ -14,8 +14,12 @@ import {
   useToast,
 } from '@/components/ui';
 
+interface UserWithPersona extends UserSummary {
+  persona?: Persona | null;
+}
+
 export default function HomePage() {
-  const [users, setUsers] = useState<UserSummary[]>([]);
+  const [users, setUsers] = useState<UserWithPersona[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -32,7 +36,19 @@ export default function HomePage() {
     setError(null);
     try {
       const res = await api.getUsersSummary();
-      setUsers(res.users || []);
+      const list = res.users || [];
+      // 并发拉取每个用户的人物画像
+      const withPersona = await Promise.all(
+        list.map(async (u) => {
+          try {
+            const p = await api.getUserPersona(u.user_id);
+            return { ...u, persona: p.persona } as UserWithPersona;
+          } catch {
+            return { ...u, persona: null } as UserWithPersona;
+          }
+        }),
+      );
+      setUsers(withPersona);
     } catch (e) {
       const msg = e instanceof Error ? e.message : '加载失败';
       setError(msg);
@@ -65,9 +81,7 @@ export default function HomePage() {
       {/* Header */}
       <header className="border-b border-[var(--border)] px-6 py-4">
         <div className="max-w-[900px] mx-auto flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-lg flex items-center justify-center bg-[var(--primary)]"
-          >
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-[var(--primary)]">
             <span className="text-white font-bold text-lg">R</span>
           </div>
           <div>
@@ -119,10 +133,17 @@ export default function HomePage() {
   );
 }
 
-function UserCard({ user, onSelect }: { user: UserSummary; onSelect: () => void }) {
+function UserCard({
+  user,
+  onSelect,
+}: {
+  user: UserWithPersona;
+  onSelect: () => void;
+}) {
   const totalRuns = user.running?.total_runs || 0;
   const totalKm = user.running?.total_km || 0;
   const avgPace = user.running?.avg_pace_min_per_km;
+  const persona = user.persona;
 
   return (
     <button
@@ -131,9 +152,7 @@ function UserCard({ user, onSelect }: { user: UserSummary; onSelect: () => void 
     >
       {/* 用户信息 */}
       <div className="flex items-center gap-4 mb-4">
-        <div
-          className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold bg-[var(--primary)] text-[#111]"
-        >
+        <div className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold bg-[var(--primary)] text-[#111]">
           {user.avatar}
         </div>
         <div className="flex-1">
@@ -153,6 +172,43 @@ function UserCard({ user, onSelect }: { user: UserSummary; onSelect: () => void 
           )}
         </div>
       </div>
+
+      {/* 人物画像(2026-06-24 新增) */}
+      {persona ? (
+        <div className="mb-4 p-3 rounded-lg bg-[var(--background)] border border-[var(--primary)]/20">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-sm font-semibold text-[var(--primary)]">
+              {persona.title}
+            </span>
+          </div>
+          <p className="text-xs text-gray-300 leading-relaxed mb-2">{persona.summary}</p>
+          {persona.background ? (
+            <p className="text-[11px] text-gray-500 leading-relaxed italic">
+              {persona.background}
+            </p>
+          ) : null}
+          {(persona.strengths?.length || persona.concerns?.length) ? (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {persona.strengths?.slice(0, 2).map((s, i) => (
+                <span
+                  key={`s${i}`}
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--status-good)]/15 text-[var(--status-good)]"
+                >
+                  ✓ {s}
+                </span>
+              ))}
+              {persona.concerns?.slice(0, 2).map((c, i) => (
+                <span
+                  key={`c${i}`}
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--status-concerned)]/15 text-[var(--status-concerned)]"
+                >
+                  ⚠ {c}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* KPI 概览 */}
       <div className="grid grid-cols-3 gap-3">

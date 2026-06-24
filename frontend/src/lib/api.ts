@@ -83,13 +83,38 @@ export function setAuthToken(token: string): void {
 export { API_BASE, V1_BASE };
 export type { UserSummary, UsersSummaryResponse };
 
+// ── Persona 类型(2026-06-24) ─────────────────────────────────────────
+export interface PersonaGoal {
+  metric: string;
+  target: number;
+  unit?: string;
+  deadline?: string;
+}
+
+export interface Persona {
+  title: string;
+  summary: string;
+  background?: string;
+  strengths?: string[];
+  concerns?: string[];
+  goals?: PersonaGoal[];
+}
+
+export interface PersonaResponse {
+  user_id: string;
+  persona: Persona | null;
+  has_persona: boolean;
+}
+
 export async function fetchWithAuth<T>(
   endpoint: string,
   options?: RequestInit
 ): Promise<T> {
   const token = getAuthToken();
 
-  const res = await fetch(`${API_BASE}${endpoint}`, {
+  // /v1/* 走 V1_BASE(无 /qm/api 前缀),其他走 API_BASE
+  const base = endpoint.startsWith('/v1/') ? V1_BASE : API_BASE;
+  const res = await fetch(`${base}${endpoint}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -151,6 +176,11 @@ export const api = {
 
   getUsersSummary() {
     return fetchWithAuth<UsersSummaryResponse>('/users/summary');
+  },
+
+  getUserPersona(userId: string) {
+    // persona 端点在 /api/v1/(由 dashboard_ext.py 提供,无 /qm/api 前缀)
+    return fetchWithAuth<PersonaResponse>(`/v1/users/${userId}/persona`);
   },
 
   getInfluxTimeSeries(

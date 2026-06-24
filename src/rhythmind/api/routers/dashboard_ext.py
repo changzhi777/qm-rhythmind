@@ -258,4 +258,52 @@ async def switch_user(
     )
 
 
+# ── User Persona 端点(2026-06-24 新增) ────────────────────────────────
+
+
+class PersonaResponse(BaseModel):
+    user_id: str
+    persona: dict[str, Any] | None = None
+    has_persona: bool = False
+
+
+@router.get("/users/{user_id}/persona", response_model=PersonaResponse)
+async def get_user_persona(user_id: str = Path(...)) -> PersonaResponse:
+    """获取用户人物画像(从 health_fact 表 user_profile.persona 读取)"""
+    from sqlalchemy import text
+
+    from rhythmind.core.memory.manager import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            text("""
+                SELECT object_json FROM health_fact
+                WHERE valid_until IS NULL
+                  AND user_id = :uid
+                  AND subject = 'user_profile'
+                  AND predicate = 'persona'
+                LIMIT 1
+            """),
+            {"uid": user_id},
+        )
+        row = result.first()
+        if not row:
+            return PersonaResponse(user_id=user_id, persona=None, has_persona=False)
+
+        raw = row[0]
+        if isinstance(raw, str):
+            try:
+                persona = json.loads(raw)
+            except json.JSONDecodeError:
+                persona = None
+        else:
+            persona = raw
+
+        return PersonaResponse(
+            user_id=user_id,
+            persona=persona,
+            has_persona=persona is not None,
+        )
+
+
 __all__ = ["router"]
