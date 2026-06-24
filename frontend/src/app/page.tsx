@@ -1,7 +1,7 @@
 'use client';
 
-// / — 用户选择首页(Stage 3 + Persona 展示)
-// 2026-06-24 frontend-polish Stage 3 + 27
+// / — 用户选择首页(Stage 3 + v3 首页改造:上下排列大卡)
+// 2026-06-24 frontend-polish Stage 3 + 27 + 38
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -37,7 +37,6 @@ export default function HomePage() {
     try {
       const res = await api.getUsersSummary();
       const list = res.users || [];
-      // 并发拉取每个用户的人物画像
       const withPersona = await Promise.all(
         list.map(async (u) => {
           try {
@@ -71,7 +70,8 @@ export default function HomePage() {
       localStorage.setItem('user_display', JSON.stringify({ avatar: u.avatar, name: u.display_name }));
     }
     if (u) toast.success(`已选择用户 ${u.display_name}`);
-    router.push('/dashboard');
+    // v3: 跳转到数据大屏(深度展示)
+    router.push('/bigscreen');
   }
 
   if (!mounted) return null;
@@ -96,15 +96,17 @@ export default function HomePage() {
       </header>
 
       {/* Content */}
-      <main className="flex-1 flex flex-col items-center justify-center px-4 py-12">
-        <h1 className="text-2xl font-bold mb-2">选择用户</h1>
-        <p className="text-gray-400 text-sm mb-8">选择一个用户以查看其健康数据</p>
+      <main className="flex-1 flex flex-col items-center px-4 py-12">
+        <div className="text-center mb-8">
+          <h1 className="text-2xl font-bold mb-2">选择用户</h1>
+          <p className="text-gray-400 text-sm">选择一个用户以查看其健康数据大屏</p>
+        </div>
 
         {error && !loading ? (
           <ErrorState error={error} onRetry={loadUsers} />
         ) : loading ? (
-          <div className="max-w-[900px] w-full">
-            <SkeletonGroup count={4} height={120} />
+          <div className="w-full max-w-[800px]">
+            <SkeletonGroup count={2} height={220} />
           </div>
         ) : users.length === 0 ? (
           <Card>
@@ -115,7 +117,8 @@ export default function HomePage() {
             />
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-[900px] w-full">
+          // v3: 上下垂直排列(单列)
+          <div className="flex flex-col gap-6 w-full max-w-[800px]">
             {users.map((u) => (
               <UserCard key={u.user_id} user={u} onSelect={() => selectUser(u.user_id)} />
             ))}
@@ -146,103 +149,171 @@ function UserCard({
   const persona = user.persona;
 
   return (
+    // v3: 大卡 + 手提箱效果(hover 提升 + 阴影 + 边框变色)
     <button
+      type="button"
       onClick={onSelect}
-      className="bg-[var(--surface)] rounded-xl p-6 text-left hover:bg-[var(--surface-elevated)] transition-colors border border-transparent hover:border-[var(--primary)]/30 w-full"
+      className="
+        group relative w-full text-left
+        bg-[var(--surface)] rounded-2xl p-8
+        border-2 border-transparent
+        hover:border-[var(--primary)]/60
+        hover:bg-[var(--surface-elevated)]
+        hover:shadow-2xl hover:shadow-[var(--primary)]/10
+        hover:-translate-y-1
+        transition-all duration-300 ease-[var(--ease-out-soft)]
+        cursor-pointer
+      "
     >
-      {/* 用户信息 */}
-      <div className="flex items-center gap-4 mb-4">
-        <div className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold bg-[var(--primary)] text-[#111]">
+      {/* 顶部:大头像 + 用户信息 + 切换大屏按钮 */}
+      <div className="flex items-start gap-6 mb-6">
+        {/* v3: 渐变大头像 + hover 微缩放 */}
+        <div
+          className="
+            shrink-0 w-20 h-20 rounded-2xl
+            flex items-center justify-center
+            text-2xl font-bold text-[#111]
+            bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)]
+            shadow-lg shadow-[var(--primary)]/20
+            group-hover:scale-105 group-hover:shadow-[var(--primary)]/40
+            transition-all duration-300
+          "
+          aria-hidden="true"
+        >
           {user.avatar}
         </div>
-        <div className="flex-1">
-          <div className="text-lg font-semibold text-white">{user.display_name}</div>
-          <div className="text-xs text-gray-500">
-            {user.user_id}
-            {user.profile.gender && ` · ${user.profile.gender === 'MALE' ? '男' : '女'}`}
-            {user.profile.age && ` · ${user.profile.age}岁`}
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-3 mb-1 flex-wrap">
+            <h2 className="text-2xl font-bold text-white">{user.display_name}</h2>
+            <span className="text-sm text-[var(--text-muted)] font-mono">
+              {user.user_id}
+            </span>
+            {user.has_medical && (
+              <span className="text-xs px-2 py-0.5 rounded bg-green-400/10 text-green-400 border border-green-400/30">
+                含医疗
+              </span>
+            )}
+          </div>
+          <div className="text-sm text-[var(--text-secondary)] flex items-center gap-2 flex-wrap">
+            {user.profile.gender && <span>{user.profile.gender === 'MALE' ? '男' : '女'}</span>}
+            {user.profile.age && <span>· {user.profile.age}岁</span>}
+            {user.facts_count > 0 && <span>· {user.facts_count} 条数据</span>}
           </div>
         </div>
-        <div className="text-right">
-          <div className="text-xs text-gray-500">{user.facts_count} 条数据</div>
-          {user.has_medical && (
-            <span className="text-xs px-2 py-0.5 rounded bg-green-400/10 text-green-400">
-              含医疗记录
-            </span>
-          )}
-        </div>
+
+        {/* v3: "切换大屏"独立按钮(阻止冒泡) */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect();
+          }}
+          className="
+            shrink-0 px-4 py-2 rounded-lg
+            bg-[var(--primary)]/15 text-[var(--primary)]
+            border border-[var(--primary)]/30
+            hover:bg-[var(--primary)] hover:text-white
+            transition-all duration-200
+            text-sm font-medium
+            flex items-center gap-1.5
+            opacity-60 group-hover:opacity-100
+          "
+          aria-label={`切换到 ${user.display_name} 的数据大屏`}
+        >
+          📊 切换大屏
+        </button>
       </div>
 
-      {/* 人物画像(2026-06-24 新增) */}
+      {/* v3: 重点突出 PERSONA 区块(渐变背景 + 主色边框) */}
       {persona ? (
-        <div className="mb-4 p-3 rounded-lg bg-[var(--background)] border border-[var(--primary)]/20">
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="text-sm font-semibold text-[var(--primary)]">
-              {persona.title}
-            </span>
-          </div>
-          <p className="text-xs text-gray-300 leading-relaxed mb-2">{persona.summary}</p>
-          {persona.background ? (
-            <p className="text-[11px] text-gray-500 leading-relaxed italic">
-              {persona.background}
-            </p>
-          ) : null}
-          {(persona.strengths?.length || persona.concerns?.length) ? (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {persona.strengths?.slice(0, 2).map((s, i) => (
-                <span
-                  key={`s${i}`}
-                  className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--status-good)]/15 text-[var(--status-good)]"
-                >
-                  ✓ {s}
-                </span>
-              ))}
-              {persona.concerns?.slice(0, 2).map((c, i) => (
-                <span
-                  key={`c${i}`}
-                  className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--status-concerned)]/15 text-[var(--status-concerned)]"
-                >
-                  ⚠ {c}
-                </span>
-              ))}
+        <div
+          className="
+            mb-5 p-5 rounded-xl
+            bg-gradient-to-br from-[var(--primary)]/8 to-[var(--secondary)]/8
+            border border-[var(--primary)]/30
+            relative overflow-hidden
+          "
+        >
+          {/* 装饰角标 */}
+          <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-[var(--primary)]/15 to-transparent rounded-bl-full" />
+
+          <div className="relative">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-xs uppercase tracking-wider text-[var(--primary)]/80 font-semibold">
+                人物画像
+              </span>
             </div>
-          ) : null}
+            <h3 className="text-lg font-bold text-[var(--primary)] mb-2">
+              {persona.title}
+            </h3>
+            <p className="text-[15px] text-white leading-relaxed mb-3">
+              {persona.summary}
+            </p>
+            {persona.background && (
+              <p className="text-sm text-[var(--text-secondary)] leading-relaxed italic mb-3">
+                {persona.background}
+              </p>
+            )}
+            {(persona.strengths?.length || persona.concerns?.length) ? (
+              <div className="flex flex-wrap gap-2">
+                {persona.strengths?.map((s, i) => (
+                  <span
+                    key={`s${i}`}
+                    className="text-xs px-2.5 py-1 rounded-md
+                               bg-[var(--status-good)]/15 text-[var(--status-good)]
+                               border border-[var(--status-good)]/30
+                               flex items-center gap-1"
+                  >
+                    ✓ {s}
+                  </span>
+                ))}
+                {persona.concerns?.map((c, i) => (
+                  <span
+                    key={`c${i}`}
+                    className="text-xs px-2.5 py-1 rounded-md
+                               bg-[var(--status-concerned)]/15 text-[var(--status-concerned)]
+                               border border-[var(--status-concerned)]/30
+                               flex items-center gap-1"
+                  >
+                    ⚠ {c}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </div>
         </div>
       ) : null}
 
-      {/* KPI 概览 */}
-      <div className="grid grid-cols-3 gap-3">
-        <KpiItem label="跑步次数" value={totalRuns > 0 ? `${totalRuns} 次` : '-'} />
-        <KpiItem label="总跑量" value={totalKm > 0 ? `${totalKm.toFixed(0)} km` : '-'} />
-        <KpiItem
-          label="平均配速"
-          value={avgPace ? `${Math.floor(avgPace)}'${String(Math.round((avgPace % 1) * 60)).padStart(2, '0')}"` : '-'}
-        />
+      {/* v3: 弱化的辅助指标(单行小字,不再抢眼) */}
+      <div className="flex items-center gap-3 text-xs text-[var(--text-muted)] flex-wrap">
+        <span className="flex items-center gap-1">
+          <span className="text-[var(--text-secondary)]">跑步</span>
+          <span className="text-white font-medium">{totalRuns}</span>
+          <span>次</span>
+        </span>
+        <span>·</span>
+        <span className="flex items-center gap-1">
+          <span className="text-[var(--text-secondary)]">总跑量</span>
+          <span className="text-white font-medium">{totalKm > 0 ? totalKm.toFixed(0) : '-'}</span>
+          <span>km</span>
+        </span>
+        <span>·</span>
+        <span className="flex items-center gap-1">
+          <span className="text-[var(--text-secondary)]">配速</span>
+          <span className="text-white font-medium">
+            {avgPace ? `${Math.floor(avgPace)}'${String(Math.round((avgPace % 1) * 60)).padStart(2, '0')}"` : '-'}
+          </span>
+        </span>
+        <span>·</span>
+        <span className="flex items-center gap-1">
+          <span className="text-[var(--text-secondary)]">VO2 Max</span>
+          <span className="text-white font-medium">{user.profile.vo2_max ?? '-'}</span>
+        </span>
+        <span className="ml-auto text-[var(--primary)] group-hover:translate-x-1 transition-transform">
+          点击进入数据大屏 →
+        </span>
       </div>
-
-      {/* 第二行 KPI */}
-      {(user.profile.vo2_max || (user.active_medications ?? 0) > 0 || (user.abnormal_labs ?? 0) > 0) && (
-        <div className="grid grid-cols-3 gap-3 mt-3">
-          <KpiItem label="VO2 Max" value={user.profile.vo2_max ? String(user.profile.vo2_max) : '-'} />
-          <KpiItem label="当前用药" value={`${user.active_medications ?? 0} 种`} />
-          <KpiItem
-            label="异常指标"
-            value={(user.abnormal_labs ?? 0) > 0 ? `${user.abnormal_labs} 项` : '正常'}
-            highlight={(user.abnormal_labs ?? 0) > 0}
-          />
-        </div>
-      )}
     </button>
-  );
-}
-
-function KpiItem({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
-  return (
-    <div className="bg-[var(--background)] rounded-lg p-2.5">
-      <div className="text-[10px] text-gray-500 mb-0.5">{label}</div>
-      <div className={`text-sm font-semibold ${highlight ? 'text-red-400' : 'text-white'}`}>
-        {value}
-      </div>
-    </div>
   );
 }
