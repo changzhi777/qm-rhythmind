@@ -1,17 +1,27 @@
 'use client';
 
+// /report — AI 健康报告(Stage 2:接入 8 组件库 + 错误处理)
+// 2026-06-24 frontend-polish Stage 2
+
 import { useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useReportStore } from '@/lib/stores/report-store';
 import { Header } from '@/components/layout/header';
+import {
+  Button,
+  Card,
+  EmptyState,
+  ErrorState,
+  Skeleton,
+  useToast,
+} from '@/components/ui';
 
 function formatTime(timestamp: string) {
   if (!timestamp) return '-';
   return timestamp.replace('T', ' ').substring(0, 19);
 }
 
-// react-markdown 自定义组件 — 保持原自写 renderMarkdown 的视觉风格
 const markdownComponents = {
   h1: ({ children }: { children?: React.ReactNode }) => (
     <h1 className="mb-4 mt-0 text-xl font-bold text-white">{children}</h1>
@@ -37,9 +47,44 @@ const markdownComponents = {
 };
 
 export default function ReportPage() {
-  const { reports, currentReport, loading, analyzing, downloading, fetchReports, fetchReport, triggerAnalyze, downloadReport } = useReportStore();
+  const {
+    reports,
+    currentReport,
+    loading,
+    analyzing,
+    downloading,
+    error,
+    fetchReports,
+    fetchReport,
+    triggerAnalyze,
+    downloadReport,
+  } = useReportStore();
+  const toast = useToast();
 
-  useEffect(() => { fetchReports(); }, [fetchReports]);
+  useEffect(() => {
+    fetchReports().catch((e: unknown) =>
+      toast.error(`报告列表加载失败: ${e instanceof Error ? e.message : e}`),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const onAnalyze = async () => {
+    try {
+      await triggerAnalyze();
+      toast.success('分析已触发,请稍候查看新报告');
+    } catch (e) {
+      toast.error(`触发失败: ${e instanceof Error ? e.message : e}`);
+    }
+  };
+
+  const onDownload = async (id: number) => {
+    try {
+      await downloadReport(id);
+      toast.success('下载完成');
+    } catch (e) {
+      toast.error(`下载失败: ${e instanceof Error ? e.message : e}`);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
@@ -47,21 +92,14 @@ export default function ReportPage() {
         title={`报告 ${reports.length} 份`}
         activePath="/report"
         extra={
-          <button
-            onClick={triggerAnalyze}
-            disabled={analyzing}
-            className="btn-primary flex items-center gap-1.5"
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={onAnalyze}
+            loading={analyzing}
           >
-            <span
-              className="inline-block"
-              style={{
-                animation: analyzing ? 'spin 1s linear infinite' : 'none',
-              }}
-            >
-              ⟳
-            </span>
-            {analyzing ? '分析中...' : '重新分析'}
-          </button>
+            ⟳ {analyzing ? '分析中...' : '重新分析'}
+          </Button>
         }
       />
 
@@ -73,10 +111,20 @@ export default function ReportPage() {
               报告列表
             </h2>
             <div className="flex flex-col gap-2">
-              {reports.length === 0 ? (
-                <div className="py-8 text-center text-[13px] text-[var(--text-muted)]">
-                  {loading ? '加载中...' : '暂无报告'}
-                </div>
+              {loading && reports.length === 0 ? (
+                <>
+                  <Skeleton height={70} />
+                  <Skeleton height={70} />
+                  <Skeleton height={70} />
+                </>
+              ) : reports.length === 0 ? (
+                <Card>
+                  <EmptyState
+                    icon="📋"
+                    title="暂无报告"
+                    description="点击右上角「重新分析」生成第一份 AI 健康报告"
+                  />
+                </Card>
               ) : (
                 reports.map((report) => {
                   const isSelected = currentReport?.id === report.id;
@@ -84,17 +132,21 @@ export default function ReportPage() {
                     <button
                       key={report.id}
                       onClick={() => fetchReport(report.id)}
-                      className={`cursor-pointer rounded-md p-3 text-left border ${isSelected ? 'bg-[var(--surface-elevated)] border-[var(--primary)]' : 'bg-[var(--surface)] border-[var(--border)]'}`}
+                      aria-pressed={isSelected}
+                      className={[
+                        'cursor-pointer rounded-md p-3 text-left border transition-colors',
+                        isSelected
+                          ? 'bg-[var(--surface-elevated)] border-[var(--primary)]'
+                          : 'bg-[var(--surface)] border-[var(--border)] hover:bg-[var(--surface-elevated)]',
+                      ].join(' ')}
                     >
                       <div className="mb-1 flex items-center justify-between">
                         <span className="text-[11px] text-[var(--text-muted)]">{formatTime(report.timestamp)}</span>
-                        {report.is_current && (
-                          <span
-                            className="rounded px-1.5 py-0.5 text-[10px] text-white bg-[var(--primary)]"
-                          >
+                        {report.is_current ? (
+                          <span className="rounded px-1.5 py-0.5 text-[10px] text-white bg-[var(--primary)]">
                             最新
                           </span>
-                        )}
+                        ) : null}
                       </div>
                       <p className="truncate text-xs text-[var(--text-secondary)]">
                         {report.content?.substring(0, 60) ?? '无内容'}...
@@ -108,8 +160,10 @@ export default function ReportPage() {
 
           {/* Report Detail */}
           <div>
-            {currentReport ? (
-              <div className="card">
+            {error && !loading ? (
+              <ErrorState error={error} onRetry={() => fetchReports()} />
+            ) : currentReport ? (
+              <Card>
                 <div className="mb-5 flex items-start justify-between">
                   <div>
                     <h2 className="text-base font-semibold text-white">报告详情</h2>
@@ -117,25 +171,23 @@ export default function ReportPage() {
                       {formatTime(currentReport.timestamp)} · {currentReport.model}
                     </p>
                   </div>
-                  <button
-                    onClick={() => downloadReport(currentReport.id)}
-                    disabled={downloading}
-                    className="btn-primary flex items-center gap-1.5 disabled:opacity-60"
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => onDownload(currentReport.id)}
+                    loading={downloading}
                   >
-                    {downloading ? '⏳ 下载中...' : '📥 下载'}
-                  </button>
+                    {downloading ? '下载中...' : '📥 下载'}
+                  </Button>
                 </div>
                 <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                   {currentReport.content || ''}
                 </ReactMarkdown>
-              </div>
+              </Card>
             ) : (
-              <div className="card flex min-h-[320px] items-center justify-center">
-                <div className="text-center">
-                  <div className="mb-2 text-[32px]">📋</div>
-                  <p className="text-[13px] text-[var(--text-muted)]">选择左侧报告查看详情</p>
-                </div>
-              </div>
+              <Card>
+                <EmptyState icon="📋" title="选择左侧报告查看详情" />
+              </Card>
             )}
           </div>
         </div>

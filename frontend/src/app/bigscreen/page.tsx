@@ -1,22 +1,30 @@
 'use client';
 
+// /bigscreen — 数据大屏(Stage 3:接入 8 组件 + 错误处理)
+// 2026-06-24 frontend-polish Stage 3
+
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useHealthStore } from '@/lib/stores/health-store';
 import { Header } from '@/components/layout/header';
 import { KpiCard } from '@/components/dashboard/kpi-card';
 import { LineChart } from '@/components/charts/line-chart';
+import { ErrorState, useToast } from '@/components/ui';
 import { v, yearlyToChart } from '@/lib/utils';
 
 export default function BigscreenPage() {
-  const { data, fetchDashboard } = useHealthStore();
+  const { data, loading, error, fetchDashboard } = useHealthStore();
   const [mounted, setMounted] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 0);
-    fetchDashboard();
+    fetchDashboard().catch((e: unknown) =>
+      toast.error(`大屏加载失败: ${e instanceof Error ? e.message : e}`),
+    );
     return () => clearTimeout(t);
-  }, [fetchDashboard]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const training = data['training.metrics'];
   const sleep = data['sleep.summary'];
@@ -28,6 +36,9 @@ export default function BigscreenPage() {
       <Header title="数据大屏" activePath="/bigscreen" maxWidth="1400px" showDate={mounted} />
 
       <main className="mx-auto max-w-[1400px] p-6">
+        {error && !loading ? (
+          <ErrorState error={error} onRetry={() => fetchDashboard()} />
+        ) : null}
         {/* KPI Grid */}
         <section className="mb-6">
           <h2 className="text-[13px] font-medium uppercase tracking-wider text-[var(--text-muted)] mb-3">
@@ -37,8 +48,8 @@ export default function BigscreenPage() {
             <KpiCard title="VO2 Max" value={v(data['profile.vo2_max'])} unit="ml/kg/min" status="excellent" />
             <KpiCard title="BMI" value={v(data['profile.bmi'])} status="good" />
             <KpiCard title="体重" value={v(data['profile.weight_kg'])} unit="kg" status="good" />
-            <KpiCard title="训练准备度" value={v(training?.readiness_score)} unit="/100" status={typeof training?.readiness_score === 'number' && training.readiness_score >= 60 ? 'good' : 'warning'} />
-            <KpiCard title="ACWR" value={v(training?.acwr)} status={typeof training?.acwr === 'number' && training.acwr >= 0.8 && training.acwr <= 1.3 ? 'good' : 'warning'} />
+            <KpiCard title="训练准备度" value={v(training?.readiness_score)} unit="/100" status={typeof training?.readiness_score === 'number' && training.readiness_score >= 60 ? 'good' : 'concerned'} />
+            <KpiCard title="ACWR" value={v(training?.acwr)} status={typeof training?.acwr === 'number' && training.acwr >= 0.8 && training.acwr <= 1.3 ? 'good' : 'concerned'} />
             <KpiCard title="日均睡眠" value={v(sleep?.avg_total_hours)} unit="h" status="good" />
           </div>
         </section>

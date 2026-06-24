@@ -1,10 +1,13 @@
 'use client';
 
+// /llm-observe — LLM 观测(Stage 3:接入 8 组件 + 错误处理)
+// 2026-06-24 frontend-polish Stage 3
+
 import { useEffect, useState } from 'react';
 import { useLLMObserveStore } from '@/lib/stores/llm-observe-store';
 import { Header } from '@/components/layout/header';
 import { KpiCard } from '@/components/dashboard/kpi-card';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Button, Skeleton, useToast } from '@/components/ui';
 import ReactECharts from 'echarts-for-react';
 
 const severityColor: Record<string, string> = {
@@ -22,17 +25,27 @@ export default function LLMObservePage() {
 
   const [days, setDays] = useState(7);
   const [analysisLoading, setAnalysisLoading] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
-    fetchMetrics(days);
-    fetchTraces(50, 0);
-    fetchSuggestions(days);
-  }, [days, fetchMetrics, fetchTraces, fetchSuggestions]);
+    fetchMetrics(days).catch((e: unknown) =>
+      toast.error(`指标加载失败: ${e instanceof Error ? e.message : e}`),
+    );
+    fetchTraces(50, 0).catch(() => undefined);
+    fetchSuggestions(days).catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [days]);
 
   const handleAnalyze = async () => {
     setAnalysisLoading(true);
-    await runAnalysis(days);
-    setAnalysisLoading(false);
+    try {
+      await runAnalysis(days);
+      toast.success('AI 分析完成');
+    } catch (e) {
+      toast.error(`分析失败: ${e instanceof Error ? e.message : e}`);
+    } finally {
+      setAnalysisLoading(false);
+    }
   };
 
   const trendOption = {
@@ -186,13 +199,9 @@ export default function LLMObservePage() {
         <div className="card mb-5">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="m-0 text-white">优化建议</h3>
-            <button
-              onClick={handleAnalyze}
-              disabled={analysisLoading}
-              className={`cursor-pointer rounded-lg border-none px-5 py-2 text-[13px] font-semibold disabled:cursor-not-allowed ${analysisLoading ? 'bg-[#333] text-[#666]' : 'bg-[#00C9A7] text-[#111]'}`}
-            >
+            <Button variant="primary" size="md" onClick={handleAnalyze} loading={analysisLoading}>
               {analysisLoading ? 'AI 分析中...' : 'AI 深度分析'}
-            </button>
+            </Button>
           </div>
 
           {suggestions.length === 0 && !analysisReport && (

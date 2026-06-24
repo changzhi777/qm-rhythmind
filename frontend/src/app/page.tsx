@@ -1,14 +1,26 @@
 'use client';
 
+// / — 用户选择首页(Stage 3:接入 8 组件 + 错误处理)
+// 2026-06-24 frontend-polish Stage 3
+
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, setAuthToken, type UserSummary } from '@/lib/api';
+import {
+  Card,
+  EmptyState,
+  ErrorState,
+  SkeletonGroup,
+  useToast,
+} from '@/components/ui';
 
 export default function HomePage() {
   const [users, setUsers] = useState<UserSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
+  const toast = useToast();
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 0);
@@ -17,11 +29,14 @@ export default function HomePage() {
 
   async function loadUsers() {
     setLoading(true);
+    setError(null);
     try {
       const res = await api.getUsersSummary();
       setUsers(res.users || []);
-    } catch {
-      console.error('Failed to load users');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '加载失败';
+      setError(msg);
+      toast.error(`用户列表加载失败: ${msg}`);
     } finally {
       setLoading(false);
     }
@@ -35,10 +50,11 @@ export default function HomePage() {
 
   function selectUser(userId: string) {
     setAuthToken(userId);
-    const u = users.find(u => u.user_id === userId);
+    const u = users.find((x) => x.user_id === userId);
     if (u && typeof window !== 'undefined') {
       localStorage.setItem('user_display', JSON.stringify({ avatar: u.avatar, name: u.display_name }));
     }
+    if (u) toast.success(`已选择用户 ${u.display_name}`);
     router.push('/dashboard');
   }
 
@@ -70,18 +86,26 @@ export default function HomePage() {
         <h1 className="text-2xl font-bold mb-2">选择用户</h1>
         <p className="text-gray-400 text-sm mb-8">选择一个用户以查看其健康数据</p>
 
-        {loading ? (
-          <div className="text-gray-400 py-8">加载中...</div>
+        {error && !loading ? (
+          <ErrorState error={error} onRetry={loadUsers} />
+        ) : loading ? (
+          <div className="max-w-[900px] w-full">
+            <SkeletonGroup count={4} height={120} />
+          </div>
+        ) : users.length === 0 ? (
+          <Card>
+            <EmptyState
+              icon="👥"
+              title="暂无用户数据"
+              description="请先在系统中创建用户"
+            />
+          </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-[900px] w-full">
             {users.map((u) => (
               <UserCard key={u.user_id} user={u} onSelect={() => selectUser(u.user_id)} />
             ))}
           </div>
-        )}
-
-        {users.length === 0 && !loading && (
-          <div className="text-gray-500 py-12">暂无用户数据</div>
         )}
       </main>
 

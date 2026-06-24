@@ -35,6 +35,8 @@ from rhythmind import __version__ as RHYTHMIND_VERSION  # type: ignore[attr-defi
 # 路由
 from rhythmind.api.routers.admin import router as admin_router
 from rhythmind.api.routers.dashboard import router as dashboard_router
+from rhythmind.api.routers.dashboard_ext import router as dashboard_ext_router
+from rhythmind.api.routers.dashboard_p2 import router as dashboard_p2_router
 from rhythmind.api.routers.feishu import router as feishu_router
 from rhythmind.api.routers.health import router as health_router
 from rhythmind.api.routers.llm_observe import router as llm_observe_router
@@ -91,7 +93,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         settings.assert_production_safe()
     except RuntimeError as exc:
         try:
-            from rhythmind.audit import AuditEvent, audit_log  # type: ignore[attr-defined]
+            from rhythmind.audit import (  # type: ignore[attr-defined]
+                AuditEvent,
+                audit_log,
+            )
             audit_log(
                 AuditEvent.CONFIG_UNSAFE_STARTUP,
                 env=settings.env,
@@ -217,7 +222,9 @@ else:
 
 
 # ── 请求体大小硬上限（早于业务路由）──────────────────────────────────────
-from rhythmind.api.middleware import RequestSizeLimitMiddleware  # type: ignore[attr-defined]  # noqa: E402
+from rhythmind.api.middleware import (  # type: ignore[attr-defined]  # noqa: E402
+    RequestSizeLimitMiddleware,
+)
 
 app.add_middleware(RequestSizeLimitMiddleware)
 app.add_middleware(GZipMiddleware, minimum_size=500)
@@ -226,7 +233,10 @@ app.add_middleware(GZipMiddleware, minimum_size=500)
 # ── 可观测性：Prometheus + OTel ─────────────────────────────────────────────
 # 调用顺序很关键：metrics 中间件应早于其他可能 swallow 异常的中间件，
 # 这样无论后续 handler 如何，HTTP_REQUESTS 都能记录到。
-from rhythmind.observability import install_metrics, install_tracing  # type: ignore[attr-defined]  # noqa: E402
+from rhythmind.observability import (  # type: ignore[attr-defined]  # noqa: E402
+    install_metrics,
+    install_tracing,
+)
 
 install_metrics(app)
 install_tracing(app, service_name="rhythmind-api")
@@ -260,6 +270,11 @@ app.include_router(feishu_router, prefix="/api/v1")
 app.include_router(privacy_router, prefix="/api/v1")
 # /admin/skills/* (R-4)
 app.include_router(admin_router, prefix="/api/v1")
+# 2026-06-24 dashboard 扩展: goals/comparison/thresholds/switch
+app.include_router(dashboard_ext_router)
+# 2026-06-24 dashboard P2 批量: SSE/upload chunk/chat/reports/test-reports/
+# llm-observe ext/medical ext/bigscreen
+app.include_router(dashboard_p2_router)
 # /qm/api/dashboard, /qm/api/influxdb/timeseries, /qm/api/analyze,
 # /qm/api/import-facts, /qm/api/upload/file, /qm/api/chat
 app.include_router(dashboard_router)

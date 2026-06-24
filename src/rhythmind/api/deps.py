@@ -66,7 +66,10 @@ async def get_current_user_id(
             settings.env, token,
         )
         try:
-            from rhythmind.audit import AuditEvent, audit_log  # type: ignore[attr-defined]
+            from rhythmind.audit import (  # type: ignore[attr-defined]
+                AuditEvent,
+                audit_log,
+            )
             audit_log(AuditEvent.AUTH_BYPASS_USED, user_id=token, env=settings.env)
         except Exception:
             pass

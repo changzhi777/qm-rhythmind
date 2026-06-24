@@ -1,7 +1,11 @@
 'use client';
 
+// /chat — AI 对话(Stage 2.2:接入 Button/useToast 错误处理)
+// 2026-06-24 frontend-polish Stage 2.2
+
 import { useEffect, useRef, useState } from 'react';
 import { Header } from '@/components/layout/header';
+import { Button, useToast } from '@/components/ui';
 import { API_BASE, getAuthToken } from '@/lib/api';
 
 interface Message {
@@ -18,6 +22,7 @@ export default function ChatPage() {
   const [files, setFiles] = useState<File[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const toast = useToast();
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -93,13 +98,15 @@ export default function ChatPage() {
         setMessages(prev => [...prev, assistantMsg]);
       }
     } catch (err) {
+      const msg = err instanceof Error ? err.message : '请求失败';
       const errMsg: Message = {
         id: `msg-err-${Date.now()}`,
         role: 'assistant',
-        content: `❌ ${err instanceof Error ? err.message : '请求失败'}`,
+        content: `❌ ${msg}`,
         timestamp: new Date().toISOString(),
       };
       setMessages(prev => [...prev, errMsg]);
+      toast.error(msg); // 全局 Toast 托盘
     } finally {
       setLoading(false);
     }
@@ -239,13 +246,15 @@ export default function ChatPage() {
               rows={1}
               className="min-h-10 max-h-[120px] flex-1 resize-none rounded-lg border border-[var(--border)] text-sm leading-relaxed text-white outline-none px-3.5 py-2.5 bg-[var(--surface)]"
             />
-            <button
+            <Button
+              variant="primary"
+              size="md"
               onClick={sendMessage}
               disabled={loading || (!input.trim() && files.length === 0)}
-              className="shrink-0 cursor-pointer rounded-lg border-none text-sm font-medium text-white px-4 py-2.5 bg-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50"
+              loading={loading}
             >
               发送
-            </button>
+            </Button>
           </div>
           <p className="mt-2 text-[10px] text-[var(--text-muted)]">
             支持 CSV、JSON、PDF、图片上传 · Enter 发送，Shift+Enter 换行

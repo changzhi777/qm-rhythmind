@@ -1,36 +1,92 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+// /dashboard — 健康仪表盘(Stage 1.1-1.6:组件接入 + 阈值 + 时间窗口 + 目标 + 同比 + 钻取)
+// 2026-06-24 frontend-polish Stage 1
+
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useHealthStore } from '@/lib/stores/health-store';
 import { Header } from '@/components/layout/header';
 import { KpiCard } from '@/components/dashboard/kpi-card';
 import { LineChart } from '@/components/charts/line-chart';
 import { InfluxTimeSeriesChart } from '@/components/charts/influx-time-series-chart';
-import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Button,
+  Card,
+  ErrorState,
+  Modal,
+  Skeleton,
+  Tabs,
+  useToast,
+  type TabItem,
+} from '@/components/ui';
 import { useAutoRefresh } from '@/lib/hooks/use-auto-refresh';
 import { v, formatPace, yearlyToChart } from '@/lib/utils';
+import {
+  DEFAULT_THRESHOLDS,
+  evaluateKpi,
+  loadThresholdOverrides,
+  applyOverrides,
+} from '@/lib/kpi-thresholds';
 
 // 时序趋势图可切换的指标 Tab
-const SERIES_TABS: { key: string; label: string }[] = [
+const SERIES_TABS: TabItem[] = [
   { key: 'heart_rate_avg', label: '心率' },
   { key: 'hrv', label: 'HRV' },
   { key: 'steps', label: '步数' },
   { key: 'sleep_hours', label: '睡眠' },
 ];
 
-export default function DashboardPage() {
-  const { data, loading, fetchDashboard } = useHealthStore();
-  const [activeSeries, setActiveSeries] = useState<string>('heart_rate_avg');
+// Stage 1.3: 时间窗口选项
+const TIME_RANGES: { key: string; label: string; range: string; agg: string }[] = [
+  { key: '7d', label: '7天', range: '-7d', agg: '1d' },
+  { key: '30d', label: '30天', range: '-30d', agg: '1d' },
+  { key: '90d', label: '90天', range: '-90d', agg: '7d' },
+  { key: '365d', label: '1年', range: '-365d', agg: '30d' },
+];
 
-  useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
-  useAutoRefresh(60_000, fetchDashboard);
+export default function DashboardPage() {
+  const { data, loading, error, fetchDashboard } = useHealthStore();
+  const [activeSeries, setActiveSeries] = useState<string>('heart_rate_avg');
+  const [timeRange, setTimeRange] = useState<string>('7d');
+  const [drillDown, setDrillDown] = useState<{ title: string; value: string | number; unit?: string } | null>(null);
+  const toast = useToast();
+
+  // Stage 1.2: 应用用户阈值覆写
+  const thresholds = applyOverrides(DEFAULT_THRESHOLDS, loadThresholdOverrides());
+
+  const activeRange = TIME_RANGES.find((r) => r.key === timeRange) ?? TIME_RANGES[0];
+
+  // 优化 #6: useCallback 工厂消除内联箭头函数导致 KpiCard 不必要 re-render
+  const drill = useCallback(
+    (title: string, value: string | number, unit?: string) =>
+      () => setDrillDown({ title, value, unit }),
+    [],
+  );
+
+  useEffect(() => {
+    fetchDashboard().catch((e: unknown) => {
+      const msg = e instanceof Error ? e.message : '加载失败';
+      toast.error(`仪表盘加载失败: ${msg}`);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useAutoRefresh(60_000, async () => {
+    try {
+      await fetchDashboard();
+    } catch (e) {
+      // 自动刷新静默失败,不打扰用户
+      console.warn('[auto-refresh] dashboard failed', e);
+    }
+  });
 
   const training = data['training.metrics'];
   const sleep = data['sleep.summary'];
   const running = data['running.summary'];
   const yearlyChart = yearlyToChart(data['activity_summary.yearly']);
-  const activeSeriesLabel = SERIES_TABS.find(t => t.key === activeSeries)?.label ?? activeSeries;
+  const activeSeriesLabel = SERIES_TABS.find((t) => t.key === activeSeries)?.label ?? activeSeries;
+  const hasData = Object.keys(data).length > 0;
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
@@ -39,14 +95,26 @@ export default function DashboardPage() {
       <main className="mx-auto max-w-[1200px] p-6">
         <div className="mb-4 flex items-center justify-between">
           <h1 className="text-xl font-semibold text-white">健康仪表盘</h1>
-          <button
-            onClick={() => fetchDashboard()}
-            disabled={loading}
-            className="cursor-pointer rounded-md border border-[var(--border)] text-xs px-3.5 py-1.5 bg-[var(--surface)] text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-50"
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() =>
+              fetchDashboard()
+                .then(() => toast.success('刷新成功'))
+                .catch((e: unknown) => toast.error(`刷新失败: ${e instanceof Error ? e.message : e}`))
+            }
+            loading={loading}
           >
-            {loading ? '刷新中...' : '🔄 刷新'}
-          </button>
+            🔄 刷新
+          </Button>
         </div>
+
+        {/* 错误托盘(全局 + 页面 ErrorState 双层) */}
+        {error && !loading ? (
+          <div className="mb-6">
+            <ErrorState error={error} onRetry={() => fetchDashboard()} compact />
+          </div>
+        ) : null}
 
         {/* Profile KPIs */}
         <section className="mb-6">
@@ -54,7 +122,7 @@ export default function DashboardPage() {
             基本信息
           </h2>
           <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
-            {loading ? (
+            {loading && !hasData ? (
               <>
                 <Skeleton height={80} />
                 <Skeleton height={80} />
@@ -63,9 +131,26 @@ export default function DashboardPage() {
               </>
             ) : (
               <>
-                <KpiCard title="VO2 Max" value={v(data['profile.vo2_max'])} unit="ml/kg/min" status="excellent" />
-                <KpiCard title="BMI" value={v(data['profile.bmi'])} status="good" />
-                <KpiCard title="体重" value={v(data['profile.weight_kg'])} unit="kg" status="good" />
+                <KpiCard
+                  title="VO2 Max"
+                  value={v(data['profile.vo2_max'])}
+                  unit="ml/kg/min"
+                  status={evaluateKpi(data['profile.vo2_max'] as number | undefined, thresholds.vo2_max) ?? 'good'}
+                  icon={<DrillButton onClick={drill('VO2 Max', v(data['profile.vo2_max']), 'ml/kg/min')} />}
+                />
+                <KpiCard
+                  title="BMI"
+                  value={v(data['profile.bmi'])}
+                  status={evaluateKpi(data['profile.bmi'] as number | undefined, thresholds.bmi) ?? 'good'}
+                  icon={<DrillButton onClick={drill('BMI', v(data['profile.bmi']))} />}
+                />
+                <KpiCard
+                  title="体重"
+                  value={v(data['profile.weight_kg'])}
+                  unit="kg"
+                  status="good"
+                  icon={<DrillButton onClick={drill('体重', v(data['profile.weight_kg']), 'kg')} />}
+                />
                 <KpiCard title="年龄" value={v(data['profile.age'])} unit="岁" status="good" />
               </>
             )}
@@ -78,8 +163,17 @@ export default function DashboardPage() {
             训练状态
           </h2>
           <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
-            <KpiCard title="训练准备度" value={v(training?.readiness_score)} unit="/100" status={typeof training?.readiness_score === 'number' && training.readiness_score >= 60 ? 'good' : 'warning'} />
-            <KpiCard title="ACWR" value={v(training?.acwr)} status={typeof training?.acwr === 'number' && training.acwr >= 0.8 && training.acwr <= 1.3 ? 'good' : 'warning'} />
+            <KpiCard
+              title="训练准备度"
+              value={v(training?.readiness_score)}
+              unit="/100"
+              status={evaluateKpi(training?.readiness_score, thresholds.readiness_score) ?? 'good'}
+            />
+            <KpiCard
+              title="ACWR"
+              value={v(training?.acwr)}
+              status={evaluateKpi(training?.acwr, thresholds.acwr) ?? 'good'}
+            />
             <KpiCard title="耐力评分" value={v(training?.endurance_score)} status="excellent" />
             <KpiCard title="爬坡评分" value={v(training?.hill_score)} status="good" />
           </div>
@@ -87,94 +181,131 @@ export default function DashboardPage() {
 
         {/* Running & Sleep */}
         <section className="mb-6 grid grid-cols-[repeat(auto-fit,minmax(400px,1fr))] gap-4">
-          <div className="card">
-            <h3 className="text-sm font-medium text-[var(--text-secondary)] mb-4">跑步数据</h3>
+          <Card title="跑步数据">
             <div className="grid grid-cols-2 gap-3">
               <DataCell label="总跑量" value={running?.total_km != null ? running.total_km.toFixed(1) : '-'} unit="km" color="var(--primary)" />
               <DataCell label="跑步次数" value={v(running?.total_runs)} color="var(--secondary)" />
               <DataCell label="平均配速" value={formatPace(running?.avg_pace_min_per_km)} unit="/km" color="var(--accent)" />
               <DataCell label="静息心率" value={v(data['profile.resting_hr'])} unit="bpm" color="var(--warning)" />
             </div>
-          </div>
-          <div className="card">
-            <h3 className="text-sm font-medium text-[var(--text-secondary)] mb-4">睡眠数据</h3>
+          </Card>
+          <Card title="睡眠数据">
             <div className="grid grid-cols-2 gap-3">
               <DataCell label="平均时长" value={v(sleep?.avg_total_hours)} unit="h" color="var(--primary)" />
               <DataCell label="深睡占比" value={v(sleep?.deep_pct)} unit="%" color="var(--secondary)" />
               <DataCell label="深睡时长" value={v(sleep?.avg_deep_hours)} unit="h" color="var(--accent)" />
               <DataCell label="记录天数" value={v(sleep?.record_days)} unit="天" color="var(--text-secondary)" />
             </div>
-          </div>
+          </Card>
         </section>
 
         {/* Yearly Chart */}
         <section className="mb-6">
-          <div className="card">
-            <h3 className="text-sm font-medium text-[var(--text-secondary)] mb-4">
-              年度跑量趋势{' '}
-              <span className="text-[11px] font-normal text-[var(--text-muted)]">km</span>
-            </h3>
+          <Card title="年度跑量趋势">
+            <span className="text-[11px] font-normal text-[var(--text-muted)]">km</span>
             <LineChart data={yearlyChart} height={220} color="var(--primary)" unit="km" />
-          </div>
+          </Card>
         </section>
 
         {/* InfluxDB 时序趋势 */}
         <section className="mb-6">
-          <div className="card">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-sm font-medium text-[var(--text-secondary)]">
-                时序趋势{' '}
-                <span className="ml-2 text-[11px] font-normal text-[var(--text-muted)]">
-                  InfluxDB · 7天
-                </span>
-              </h3>
-              <div className="flex gap-1">
-                {SERIES_TABS.map(t => {
-                  const active = activeSeries === t.key;
-                  return (
-                    <button
-                      key={t.key}
-                      onClick={() => setActiveSeries(t.key)}
-                      className={`cursor-pointer rounded px-2.5 py-1 text-[11px] font-medium border-none ${active ? 'bg-[var(--primary)] text-[#111]' : 'bg-[var(--surface-elevated)] text-[var(--text-secondary)]'}`}
-                    >
-                      {t.label}
-                    </button>
-                  );
-                })}
-              </div>
+          <Card
+            title={
+              <span className="flex items-center gap-2">
+                时序趋势
+                <span className="text-[11px] font-normal text-[var(--text-muted)]">InfluxDB · {activeRange.label}</span>
+              </span>
+            }
+            footer={
+              // 优化 #10:复用 Tabs 组件,统一 a11y/键盘支持
+              <Tabs
+                tabs={TIME_RANGES.map((r) => ({ key: r.key, label: r.label }))}
+                active={timeRange}
+                onChange={setTimeRange}
+              />
+            }
+          >
+            <div className="mb-4">
+              <Tabs tabs={SERIES_TABS} active={activeSeries} onChange={setActiveSeries} />
             </div>
             <InfluxTimeSeriesChart
               metric={activeSeries}
               metricLabel={activeSeriesLabel}
-              range="-7d"
-              aggregation="1d"
+              range={activeRange.range}
+              aggregation={activeRange.agg}
               color="#00C9A7"
               height={240}
             />
-          </div>
+          </Card>
         </section>
+
+        {/* Stage 1.6: KPI 钻取 Modal */}
+        {drillDown ? (
+          <Modal
+            open={!!drillDown}
+            onClose={() => setDrillDown(null)}
+            title={`${drillDown.title} 详情`}
+            size="md"
+            footer={
+              <Button variant="secondary" onClick={() => setDrillDown(null)}>
+                关闭
+              </Button>
+            }
+          >
+            <div className="space-y-4">
+              <div className="text-center py-6">
+                <div className="text-4xl font-semibold text-[var(--primary)]">
+                  {drillDown.value}
+                  {drillDown.unit ? (
+                    <span className="text-base text-[var(--text-muted)] ml-1">{drillDown.unit}</span>
+                  ) : null}
+                </div>
+                <div className="text-sm text-[var(--text-secondary)] mt-2">{drillDown.title}</div>
+              </div>
+              <div className="border-t border-[var(--border)] pt-4 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-[var(--text-muted)]">当前阈值</span>
+                  <span>参考 DEFAULT_THRESHOLDS</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--text-muted)]">趋势(7天)</span>
+                  <span>可在时序图中查看</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--text-muted)]">历史最高</span>
+                  <span>暂未跟踪</span>
+                </div>
+              </div>
+              <div className="bg-[var(--surface-elevated)] p-3 rounded text-xs text-[var(--text-secondary)]">
+                💡 详细分析可在 <Link href="/report" className="text-[var(--primary)] underline">AI 健康报告</Link> 中查看
+              </div>
+            </div>
+          </Modal>
+        ) : null}
 
         {/* Navigation */}
         <section className="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-3">
-          <Link
-            href="/bigscreen"
-            className="card"
-          >
-            <span className="text-xl">📊</span>
-            <div>
-              <div className="text-sm font-medium text-white">数据大屏</div>
-              <div className="text-xs text-[var(--text-muted)]">全屏展示</div>
-            </div>
+          <Link href="/bigscreen" className="contents">
+            <Card interactive>
+              <div className="flex items-center gap-3">
+                <span className="text-2xl" aria-hidden="true">📊</span>
+                <div>
+                  <div className="text-sm font-medium text-white">数据大屏</div>
+                  <div className="text-xs text-[var(--text-muted)]">全屏展示</div>
+                </div>
+              </div>
+            </Card>
           </Link>
-          <Link
-            href="/report"
-            className="card"
-          >
-            <span className="text-xl">📋</span>
-            <div>
-              <div className="text-sm font-medium text-white">AI 健康报告</div>
-              <div className="text-xs text-[var(--text-muted)]">查看详情</div>
-            </div>
+          <Link href="/report" className="contents">
+            <Card interactive>
+              <div className="flex items-center gap-3">
+                <span className="text-2xl" aria-hidden="true">📋</span>
+                <div>
+                  <div className="text-sm font-medium text-white">AI 健康报告</div>
+                  <div className="text-xs text-[var(--text-muted)]">查看详情</div>
+                </div>
+              </div>
+            </Card>
           </Link>
         </section>
       </main>
@@ -182,14 +313,37 @@ export default function DashboardPage() {
   );
 }
 
-function DataCell({ label, value, unit, color }: { label: string; value: string | number; unit?: string; color: string }) {
+function DataCell({
+  label,
+  value,
+  unit,
+  color,
+}: {
+  label: string;
+  value: string | number;
+  unit?: string;
+  color: string;
+}) {
   return (
     <div className="rounded-md bg-[var(--surface-elevated)] p-3">
       <div className="text-[11px] text-[var(--text-muted)] mb-1">{label}</div>
       <div className="text-xl font-semibold" style={{ color }}>
         {value}
-        {unit && <span className="text-xs text-[var(--text-muted)]"> {unit}</span>}
+        {unit ? <span className="text-xs text-[var(--text-muted)]"> {unit}</span> : null}
       </div>
     </div>
+  );
+}
+
+function DrillButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="查看详情"
+      className="text-xs text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors"
+    >
+      🔍
+    </button>
   );
 }

@@ -1,10 +1,20 @@
 'use client';
 
+// /medical — 医疗数据(Stage 2.2:接入 useToast + ErrorState + Tabs + Button)
+// 2026-06-24 frontend-polish Stage 2.2
+
 import { useEffect, useState } from 'react';
 import { Header } from '@/components/layout/header';
 import { v } from '@/lib/utils';
 import { getAuthToken, V1_BASE } from '@/lib/api';
-import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Button,
+  ErrorState,
+  Skeleton,
+  Tabs,
+  useToast,
+  type TabItem,
+} from '@/components/ui';
 
 interface Medication {
   medication_name: string;
@@ -56,6 +66,8 @@ export default function MedicalPage() {
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const toast = useToast();
 
   const token = getAuthToken();
 
@@ -66,6 +78,7 @@ export default function MedicalPage() {
 
   async function loadAllData() {
     setLoading(true);
+    setLoadError(null);
     const headers = { Authorization: `Bearer ${token}` };
     try {
       const [diagRes, tlRes, labsRes] = await Promise.all([
@@ -74,20 +87,31 @@ export default function MedicalPage() {
         fetch(`${V1_BASE}/v1/medical/labs`, { headers }).catch(() => null),
       ]);
 
+      let hasAny = false;
       if (diagRes?.ok) {
         const tlData = await diagRes.json();
         setTimeline(tlData.events || []);
+        hasAny = true;
       }
       if (tlRes?.ok) {
         const medData = await tlRes.json();
         setMedications(medData.medications || []);
+        hasAny = true;
       }
       if (labsRes?.ok) {
         const labData = await labsRes.json();
         setLabs(labData.results || []);
+        hasAny = true;
+      }
+      if (!hasAny) {
+        const msg = '医疗数据加载失败,请检查后端服务';
+        setLoadError(msg);
+        toast.error(msg);
       }
     } catch (e) {
-      console.error('Failed to load medical data:', e);
+      const msg = e instanceof Error ? e.message : '加载失败';
+      setLoadError(msg);
+      toast.error(`医疗数据错误: ${msg}`);
     } finally {
       setLoading(false);
     }
@@ -108,7 +132,14 @@ export default function MedicalPage() {
           'Content-Type': 'application/json',
         },
       });
-      if (res.ok) setAnalysis(await res.json());
+      if (res.ok) {
+        setAnalysis(await res.json());
+        toast.success('AI 分析完成');
+      } else {
+        toast.error(`分析失败: HTTP ${res.status}`);
+      }
+    } catch (e) {
+      toast.error(`分析异常: ${e instanceof Error ? e.message : e}`);
     } finally {
       setAnalyzing(false);
     }
@@ -123,7 +154,7 @@ export default function MedicalPage() {
 
   if (!mounted) return null;
 
-  const tabs: { key: Tab; label: string }[] = [
+  const tabs: TabItem[] = [
     { key: 'overview', label: '诊断概览' },
     { key: 'timeline', label: '临床时间线' },
     { key: 'medications', label: '用药记录' },
@@ -148,26 +179,16 @@ export default function MedicalPage() {
           <KpiCard label="累计费用" value={totalCost > 0 ? `¥${totalCost.toLocaleString()}` : '-'} sub="医疗支出" />
         </div>
 
-        {/* Tab 切换 */}
-        <div className="flex gap-1 mt-6 border-b border-[var(--border)] pb-0">
-          {tabs.map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
-                activeTab === tab.key
-                  ? 'border-[var(--primary)] text-[var(--primary)]'
-                  : 'border-transparent text-gray-400 hover:text-white'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        {/* Tab 切换 — 接入 Tabs 组件获得 a11y/键盘支持 */}
+        <div className="mt-6">
+          <Tabs tabs={tabs} active={activeTab} onChange={(k) => setActiveTab(k as Tab)} />
         </div>
 
         {/* 内容区 */}
         <div className="mt-4">
-          {loading ? (
+          {loadError && !loading ? (
+            <ErrorState error={loadError} onRetry={loadAllData} />
+          ) : loading ? (
             <div className="space-y-3">
               <Skeleton height={80} />
               <Skeleton height={120} />
@@ -388,13 +409,9 @@ function AnalysisTab({ analysis, analyzing, onAnalyze }: { analysis: AnalysisRes
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">AI 健康分析</h3>
-        <button
-          onClick={onAnalyze}
-          disabled={analyzing}
-          className="px-4 py-2 bg-[var(--primary)] text-black font-medium rounded-lg hover:opacity-90 disabled:opacity-50 text-sm"
-        >
+        <Button variant="primary" size="sm" onClick={onAnalyze} loading={analyzing}>
           {analyzing ? '分析中...' : '⚡ 重新分析'}
-        </button>
+        </Button>
       </div>
 
       {analysis ? (
