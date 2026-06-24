@@ -21,6 +21,8 @@ router = APIRouter(prefix="/qm/api", tags=["users"])
 _USER_DISPLAY: dict[str, dict[str, str]] = {
     "garmin_user_001": {"name": "律动跑者", "avatar": "M"},
     "athlete_zhang": {"name": "张晓燕", "avatar": "Z"},
+    # 2026-06-24 脱敏测试账户(基于佳明"张晨"原型,化名林远舟)
+    "athlete_demo_001": {"name": "林远舟", "avatar": "L"},
 }
 
 
