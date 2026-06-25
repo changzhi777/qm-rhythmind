@@ -220,30 +220,42 @@ async def _do_analyze(user_id, adapter_router, settings) -> dict[str, Any]:
     import json
     from datetime import UTC
 
+    # 2026-06-25: 只取关键 facts(避免 prompt 过长触发 oMLX 17s 超时)
+    KEY_FACTS = {
+        ("profile", "age"),
+        ("profile", "gender"),
+        ("profile", "bmi"),
+        ("profile", "vo2_max"),
+        ("profile", "resting_hr"),
+        ("training", "metrics"),
+        ("sleep", "summary"),
+        ("running", "summary"),
+        ("activity_summary", "yearly"),
+    }
+
     fact_summary = []
     for f in facts:
-        fact_summary.append(
-            f"- [{f.subject}/{f.predicate}]: "
-            f"{json.dumps(f.object_json, ensure_ascii=False)}"
-        )
+        if (f.subject, f.predicate) not in KEY_FACTS:
+            continue
+        # 截断长值(避免时序数据塞爆 prompt)
+        obj_str = json.dumps(f.object_json, ensure_ascii=False)
+        if len(obj_str) > 200:
+            obj_str = obj_str[:200] + "..."
+        fact_summary.append(f"- {f.subject}.{f.predicate}: {obj_str}")
 
     system_prompt = (
         "你是一位专业的运动健康 AI 分析师。"
         "根据用户的健康数据事实，生成一份专业的中文分析报告。"
         "\n\n"
         "报告格式要求（Markdown）：\n"
-        "1. **总体评价**（1-2段）\n"
-        "2. **运动能力评估**（VO2Max、耐力、配速分析）\n"
-        "3. **健康风险评估**（心率、HRV、睡眠）\n"
-        "4. **训练负荷分析**（急性/慢性负荷比）\n"
-        "5. **赛事能力预测**（基于当前数据）\n"
-        "6. **个性化建议**（3-5条具体可执行的建议）\n"
+        "1. **总体评价**（1-2 句话）\n"
+        "2. **运动能力评估**（VO2Max、耐力、配速）\n"
+        "3. **健康风险**（心率、睡眠）\n"
+        "4. **训练建议**（3 条具体可执行）\n"
         "\n"
         "注意：\n"
-        "- 所有分析基于事实数据，不做无依据推测\n"
-        "- 如果某项数据异常，指出具体问题和建议\n"
-        "- 语言专业但不晦涩，适合运动爱好者阅读\n"
-        "- 报告长度控制在 800-1200 字"
+        "- 报告长度控制在 500-800 字(精炼,不要长篇大论)\n"
+        "- 直接给结论和建议,不要重复事实"
     )
 
     user_prompt = f"""以下是用户的健康数据事实：
@@ -267,7 +279,7 @@ async def _do_analyze(user_id, adapter_router, settings) -> dict[str, Any]:
                 {"role": "user", "content": user_prompt},
             ],
             temperature=0.4,
-            max_tokens=2000,
+            max_tokens=1500,  # 2026-06-25: 500-800 字输出,1500 tokens 足够
         )
     else:
         report_content = await adapter_router.chat(
