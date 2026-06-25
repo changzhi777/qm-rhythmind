@@ -178,6 +178,25 @@ export const api = {
     return fetchWithAuth<UsersSummaryResponse>('/users/summary');
   },
 
+  // v6: 登录换 JWT(解决点击卡片 401 重定向问题)
+  // 注意:login 端点在 /api/v1/* 前缀(由 /api/v1/auth 路由提供)
+  async login(userId: string): Promise<{ access_token: string; expires_in: number }> {
+    const res = await fetch(`${V1_BASE}/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId }),
+    });
+    if (!res.ok) {
+      throw new Error(`Login failed: ${res.status}`);
+    }
+    const data = (await res.json()) as { access_token: string; expires_in: number };
+    // 自动用返回的 JWT 替换 dev token
+    if (typeof window !== 'undefined' && data.access_token) {
+      localStorage.setItem('auth_token', data.access_token);
+    }
+    return data;
+  },
+
   getUserPersona(userId: string) {
     // persona 端点在 /api/v1/(由 dashboard_ext.py 提供,无 /qm/api 前缀)
     return fetchWithAuth<PersonaResponse>(`/v1/users/${userId}/persona`);

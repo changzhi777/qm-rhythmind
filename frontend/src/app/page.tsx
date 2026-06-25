@@ -112,8 +112,18 @@ export default function HomePage() {
       localStorage.setItem('user_display', JSON.stringify({ avatar: u.avatar, name: u.display_name }));
     }
     if (u) toast.success(`已选择用户 ${u.display_name}`);
-    // v3: 跳转到数据大屏(深度展示)
-    router.push('/bigscreen');
+
+    // v6: 异步获取 JWT(避免 /bigscreen 401 重定向)
+    api.login(userId)
+      .then(() => {
+        // 跳转到数据大屏(深度展示)
+        router.push('/bigscreen');
+      })
+      .catch((err: unknown) => {
+        console.warn('Login failed, falling back to dev token:', err);
+        // 即使 login 失败也尝试跳转(可能是 dev 模式 dev_auth_bypass)
+        router.push('/bigscreen');
+      });
   }
 
   if (!mounted) return null;

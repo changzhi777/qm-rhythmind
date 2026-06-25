@@ -34,6 +34,7 @@ from rhythmind import __version__ as RHYTHMIND_VERSION  # type: ignore[attr-defi
 
 # 路由
 from rhythmind.api.routers.admin import router as admin_router
+from rhythmind.api.routers.auth import router as auth_router
 from rhythmind.api.routers.dashboard import router as dashboard_router
 from rhythmind.api.routers.dashboard_ext import router as dashboard_ext_router
 from rhythmind.api.routers.dashboard_p2 import router as dashboard_p2_router
@@ -270,6 +271,8 @@ app.include_router(feishu_router, prefix="/api/v1")
 app.include_router(privacy_router, prefix="/api/v1")
 # /admin/skills/* (R-4)
 app.include_router(admin_router, prefix="/api/v1")
+# 2026-06-25: 认证端点(用户登录换 JWT)
+app.include_router(auth_router)
 # 2026-06-24 dashboard 扩展: goals/comparison/thresholds/switch
 app.include_router(dashboard_ext_router)
 # 2026-06-24 dashboard P2 批量: SSE/upload chunk/chat/reports/test-reports/
