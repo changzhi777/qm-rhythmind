@@ -112,8 +112,13 @@ export async function fetchWithAuth<T>(
 ): Promise<T> {
   const token = getAuthToken();
 
-  // /v1/* 走 V1_BASE(无 /qm/api 前缀),其他走 API_BASE
-  const base = endpoint.startsWith('/v1/') ? V1_BASE : API_BASE;
+  // 2026-06-25: 后端有两套前缀:
+  //   - dashboard.py 显式 prefix="/qm/api" → 走 API_BASE ("/qm/api")
+  //   - health/medical/llm-observe/feishu/privacy/auth 在 main.py 挂 prefix="/api/v1" → 走 V1_BASE ("/api")
+  // 前端 basePath=/qm,统一从 API_BASE 出发会把 /v1/* 拼成 /qm/api/v1/* → 404
+  // 解法:/v1/* 路径走 V1_BASE(nginx 已在代理 /api/*),其余走 API_BASE
+  const isV1 = endpoint.startsWith('/v1/');
+  const base = isV1 ? V1_BASE : API_BASE;
   const res = await fetch(`${base}${endpoint}`, {
     ...options,
     headers: {

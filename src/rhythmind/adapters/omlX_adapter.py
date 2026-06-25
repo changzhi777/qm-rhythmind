@@ -27,20 +27,26 @@ from rhythmind.adapters.model_adapter import ModelAdapter
 
 logger = logging.getLogger(__name__)
 
-# 客户端实例缓存 base_url → AsyncOpenAI
-_CLIENT_CACHE: dict[str, Any] = {}
+# 客户端实例缓存 base_url+timeout → AsyncOpenAI
+_CLIENT_CACHE: dict[tuple[str, float], Any] = {}
 
 
-def _get_client(base_url: str, api_key: str) -> Any:
-    """获取或创建 AsyncOpenAI 客户端（oMLX OpenAI 兼容模式）。"""
-    if base_url not in _CLIENT_CACHE:
+def _get_client(base_url: str, api_key: str, timeout: float = 60.0) -> Any:
+    """获取或创建 AsyncOpenAI 客户端（oMLX OpenAI 兼容模式）。
+
+    2026-06-25: 显式设置 httpx 超时,避免 OpenAI SDK 默认 60s 限制 gemma-4 长 prompt 推理。
+    """
+    cache_key = (base_url, timeout)
+    if cache_key not in _CLIENT_CACHE:
+        import httpx
         from openai import AsyncOpenAI
 
-        _CLIENT_CACHE[base_url] = AsyncOpenAI(
+        _CLIENT_CACHE[cache_key] = AsyncOpenAI(
             base_url=f"{base_url.rstrip('/')}/v1",
             api_key=api_key,
+            timeout=httpx.Timeout(timeout),
         )
-    return _CLIENT_CACHE[base_url]
+    return _CLIENT_CACHE[cache_key]
 
 
 class OMLXTimeoutError(Exception):
@@ -108,7 +114,7 @@ class OMLXAdapter(ModelAdapter):
         """
         import asyncio
 
-        client = _get_client(self._base_url, self._api_key)
+        client = _get_client(self._base_url, self._api_key, timeout=self._timeout)
 
         call_kwargs: dict[str, Any] = {
             "model": self._model_name,
