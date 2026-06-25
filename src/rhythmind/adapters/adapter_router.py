@@ -89,7 +89,7 @@ class AdapterRouter:
 
     # ── 快捷调用接口 ──────────────────────────────────────────────────────
 
-    @observe_llm(model="adapter_router", agent="router")
+    @observe_llm(model="auto", agent="router")
     async def chat(
         self,
         messages: list[dict[str, Any]],

@@ -27,6 +27,10 @@ export default function LLMObservePage() {
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const toast = useToast();
 
+  // 数据源指示(2026-06-25 双源支持)
+  const dataSource = (metrics as unknown as { source?: string } | null)?.source || 'unknown';
+  const totalCalls = metrics?.total_calls ?? 0;
+
   useEffect(() => {
     fetchMetrics(days).catch((e: unknown) =>
       toast.error(`指标加载失败: ${e instanceof Error ? e.message : e}`),
@@ -100,6 +104,17 @@ export default function LLMObservePage() {
       <Header title="LLM 观测" activePath="/llm-observe" />
 
       <div className="mx-auto max-w-[1200px] p-6">
+        {/* 数据源指示器 (2026-06-25 双源支持) */}
+        <div className="mb-2 flex items-center gap-2 text-[11px] text-[var(--text-muted)]">
+          <span className={`h-1.5 w-1.5 rounded-full ${dataSource === 'langfuse' ? 'bg-[#00D4FF]' : 'bg-[var(--primary)]'}`} />
+          <span>数据源：
+            <span className="font-mono text-[var(--text-secondary)]">
+              {dataSource === 'langfuse' ? 'Langfuse v2 (生产)' :
+               dataSource === 'local' ? '本地 llm_call_log' : '加载中…'}
+            </span>
+          </span>
+        </div>
+
         {/* 天数选择 */}
         <div className="mb-4 flex items-center gap-2">
           <span className="text-[var(--text-secondary,#aaa)]">时间范围：</span>
@@ -205,7 +220,11 @@ export default function LLMObservePage() {
           </div>
 
           {suggestions.length === 0 && !analysisReport && (
-            <div className="text-sm text-[#666]">暂无优化建议（需要 LLM 调用数据）</div>
+            <div className="text-sm text-[#666]">
+              {totalCalls > 0
+                ? '✓ 系统表现良好，无需优化建议'
+                : '暂无优化建议（需要 LLM 调用数据）'}
+            </div>
           )}
 
           {suggestions.map((s, i) => (
