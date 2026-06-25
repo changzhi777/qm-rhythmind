@@ -198,6 +198,17 @@ async def trigger_analysis(user_id: CurrentUserId) -> dict[str, Any]:
     from rhythmind.adapters.adapter_router import adapter_router
     from rhythmind.config import settings
 
+    try:
+        return await _do_analyze(user_id, adapter_router, settings)
+    except Exception as exc:
+        logger.exception("analyze failed: %s", exc)
+        raise HTTPException(
+            status_code=500,
+            detail=f"分析失败: {type(exc).__name__}: {str(exc)[:200]}",
+        )
+
+
+async def _do_analyze(user_id, adapter_router, settings) -> dict[str, Any]:
     fm = _fm(user_id)
     facts = await fm.get_all_current()
     if not facts:
@@ -248,14 +259,15 @@ async def trigger_analysis(user_id: CurrentUserId) -> dict[str, Any]:
     if model_spec.startswith("omlX://"):
         from rhythmind.adapters.omlX_adapter import OMLXAdapter
         model_name = model_spec[len("omlX://"):]
-        analysis_adapter = OMLXAdapter(model_name, timeout=120.0)
+        # 2026-06-25: 报告生成耗时长, max_tokens 从 4096 调到 2000 加速生成
+        analysis_adapter = OMLXAdapter(model_name, timeout=300.0)
         report_content = await analysis_adapter.chat(
             [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
             temperature=0.4,
-            max_tokens=4096,
+            max_tokens=2000,
         )
     else:
         report_content = await adapter_router.chat(

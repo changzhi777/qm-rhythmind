@@ -163,13 +163,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             try:
                 from rhythmind.adapters.adapter_router import adapter_router
                 adapter = adapter_router.get(settings.model_primary_spec)
+                # 2026-06-25: gemma-4-12b 模型加载 + 首次推理 ~15s,warmup 超时提到 90s
                 result = await asyncio.wait_for(
                     adapter.chat(
                         [{"role": "user", "content": "ok"}],
                         max_tokens=5,
                         temperature=0.1,
                     ),
-                    timeout=30,
+                    timeout=90,
                 )
                 log.info("rhythmind.omlx_warmup done chars=%d", len(result))
             except Exception as exc:

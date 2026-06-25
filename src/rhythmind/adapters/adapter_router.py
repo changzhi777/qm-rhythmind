@@ -77,9 +77,11 @@ class AdapterRouter:
             from rhythmind.config import settings
             model_name = model_spec[len("omlX://"):]
             compliance_url = settings.omlX_compliance_base_url
+            # 2026-06-25: gemma-4-12b 单次推理 14-15s,默认 60s 偶发不够 → 提升到 300s
+            chat_timeout = settings.omlX_chat_timeout or 300.0
             if compliance_url and model_spec == settings.model_compliance_spec:
-                return OMLXAdapter(model_name, base_url=compliance_url)
-            return OMLXAdapter(model_name)
+                return OMLXAdapter(model_name, base_url=compliance_url, timeout=chat_timeout)
+            return OMLXAdapter(model_name, timeout=chat_timeout)
 
         # 其余全部走 LiteLLM（处理 openai/, anthropic/, 及别名如 "primary"）
         from rhythmind.adapters.litellm_adapter import LiteLLMAdapter
