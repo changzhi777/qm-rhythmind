@@ -220,10 +220,17 @@ export default function LLMObservePage() {
           </div>
 
           {suggestions.length === 0 && !analysisReport && (
-            <div className="text-sm text-[#666]">
-              {totalCalls > 0
-                ? '✓ 系统表现良好，无需优化建议'
-                : '暂无优化建议（需要 LLM 调用数据）'}
+            <div className="space-y-2 text-sm text-[#666]">
+              {totalCalls > 0 ? (
+                <>
+                  <div>✓ 当前系统表现良好（单模型，无横向对比基线）</div>
+                  <div className="text-[#00C9A7]">
+                    💡 点击「AI 深度分析」获取 LLM 生成的运维优化报告
+                  </div>
+                </>
+              ) : (
+                <div>暂无优化建议（需要 LLM 调用数据）</div>
+              )}
             </div>
           )}
 
