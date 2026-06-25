@@ -80,6 +80,10 @@ export default function MedicalPage() {
     setLoading(true);
     setLoadError(null);
     const headers = { Authorization: `Bearer ${token}` };
+    // 2026-06-25: 后端无数据时返回 404("未找到临床事件记录"等),
+    // 视为"该用户无医疗数据"而不是错误,显示空态
+    const isEmpty = (res: Response | null) =>
+      res === null || res.status === 404 || res.status === 405 || !res.ok;
     try {
       const [diagRes, tlRes, labsRes] = await Promise.all([
         fetch(`${V1_BASE}/v1/medical/timeline`, { headers }).catch(() => null),
@@ -87,26 +91,30 @@ export default function MedicalPage() {
         fetch(`${V1_BASE}/v1/medical/labs`, { headers }).catch(() => null),
       ]);
 
-      let hasAny = false;
-      if (diagRes?.ok) {
-        const tlData = await diagRes.json();
+      if (!isEmpty(diagRes)) {
+        const tlData = await diagRes!.json();
         setTimeline(tlData.events || []);
-        hasAny = true;
       }
-      if (tlRes?.ok) {
-        const medData = await tlRes.json();
+      if (!isEmpty(tlRes)) {
+        const medData = await tlRes!.json();
         setMedications(medData.medications || []);
-        hasAny = true;
       }
-      if (labsRes?.ok) {
-        const labData = await labsRes.json();
+      if (!isEmpty(labsRes)) {
+        const labData = await labsRes!.json();
         setLabs(labData.results || []);
-        hasAny = true;
       }
-      if (!hasAny) {
-        const msg = '医疗数据加载失败,请检查后端服务';
-        setLoadError(msg);
-        toast.error(msg);
+      // 全 404/405 = 用户无医疗数据,正常情况,显示空态
+      const allEmpty = isEmpty(diagRes) && isEmpty(tlRes) && isEmpty(labsRes);
+      if (!allEmpty) {
+        // 至少有一个端点 5xx,提示
+        const hasError = [diagRes, tlRes, labsRes].some(r =>
+          r !== null && r.status >= 500
+        );
+        if (hasError) {
+          const msg = '医疗数据加载失败,请检查后端服务';
+          setLoadError(msg);
+          toast.error(msg);
+        }
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : '加载失败';

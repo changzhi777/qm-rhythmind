@@ -260,9 +260,16 @@ async def analyze_health(
         events = await _query_events(user_id, db, limit=20)
 
     if not patient and not diagnoses and not medications and not lab_results:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="未找到该用户的医疗数据",
+        # 2026-06-25: 无数据返回 200 + 占位响应,避免前端 404 误判为错误
+        return MedicalAnalysisResponse(
+            status="no_data",
+            session_id=session_id,
+            summary="该用户暂无医疗数据,无法生成综合分析。",
+            insights=[],
+            concerns=[],
+            recommendations=[],
+            risk_flags=[],
+            confidence=0.0,
         )
 
     advisor = MedicalAdvisor(user_id=user_id)
@@ -322,9 +329,14 @@ async def get_timeline(
         )
 
     if not events:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="未找到临床事件记录",
+        # 2026-06-25: 无数据返回 200 + 空 events,避免前端 404 误判为错误
+        return TimelineResponse(
+            status="success",
+            session_id=session_id,
+            events=[],
+            summary="",
+            insights=[],
+            recommendations=[],
         )
 
     async with _db_session() as db:
@@ -379,9 +391,15 @@ async def get_medications(
         diagnoses = await _query_diagnoses(user_id, db)
 
     if not medications:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="未找到用药记录",
+        # 2026-06-25: 无数据返回 200 + 空 medications
+        return MedicationsResponse(
+            status="success",
+            session_id=session_id,
+            medications=[],
+            summary="",
+            insights=[],
+            concerns=[],
+            recommendations=[],
         )
 
     advisor = MedicalAdvisor(user_id=user_id)
