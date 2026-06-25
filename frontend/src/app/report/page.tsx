@@ -149,7 +149,7 @@ export default function ReportPage() {
                         ) : null}
                       </div>
                       <p className="truncate text-xs text-[var(--text-secondary)]">
-                        {report.content?.substring(0, 60) ?? '无内容'}...
+                        {(report.content || (report as unknown as { preview?: string }).preview)?.substring(0, 60) ?? '无内容'}...
                       </p>
                     </button>
                   );
