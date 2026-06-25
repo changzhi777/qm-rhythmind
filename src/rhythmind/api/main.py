@@ -34,6 +34,7 @@ from rhythmind import __version__ as RHYTHMIND_VERSION  # type: ignore[attr-defi
 
 # 路由
 from rhythmind.api.routers.admin import router as admin_router
+from rhythmind.api.routers.analyze_with_source import router as analyze_with_source_router
 from rhythmind.api.routers.auth import router as auth_router
 from rhythmind.api.routers.chat import router as chat_router
 from rhythmind.api.routers.dashboard import router as dashboard_router
@@ -288,6 +289,9 @@ app.include_router(dashboard_p2_router)
 # /qm/api/dashboard, /qm/api/influxdb/timeseries, /qm/api/analyze,
 # /qm/api/import-facts, /qm/api/upload/file, /qm/api/chat
 app.include_router(dashboard_router)
+# 2026-06-25: 一体化"再报告"端点(数据源 + 上传 + LLM)
+# /qm/api/analyze/with-source
+app.include_router(analyze_with_source_router)
 # /qm/api/reports, /qm/api/reports/{id},
 # /qm/api/reports/{id}/download, /qm/api/test-reports/*
 app.include_router(reports_router)

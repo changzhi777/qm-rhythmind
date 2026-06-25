@@ -172,6 +172,49 @@ export const api = {
     return fetchWithAuth<AnalyzeResponse>('/analyze', { method: 'POST' });
   },
 
+  // 2026-06-25: 一体化"再报告"端点(数据源 + 上传 + LLM)
+  // 接受预置目录/文件上传/URL 三种 source,一链触发入库+分析
+  // 注意:multipart/form-data 不能用 fetchWithAuth(会自动加 Content-Type)
+  async analyzeWithSource(params: {
+    source: 'garmin_20260526' | 'upload' | 'url';
+    files?: File[];
+    url?: string;
+  }): Promise<{
+    status: string;
+    source: string;
+    ingested: { facts_imported: number; message: string; summary: string };
+    report: { id: number; content: string; model: string; timestamp: string };
+  }> {
+    const token = getAuthToken();
+    const formData = new FormData();
+    formData.append('source', params.source);
+    if (params.url) formData.append('url', params.url);
+    if (params.files) {
+      for (const file of params.files) {
+        formData.append('files', file);
+      }
+    }
+    const res = await fetch(`${API_BASE}/analyze/with-source`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: formData,
+    });
+    if (res.status === 401) {
+      // 401 拦截与 fetchWithAuth 行为一致
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_display');
+        window.location.href = '/';
+      }
+      throw new Error('Unauthorized: token expired or invalid');
+    }
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Analyze failed: ${res.status}`);
+    }
+    return res.json();
+  },
+
   uploadHealth(data: Record<string, unknown>) {
     return fetchWithAuth<UploadResponse>('/v1/health/upload', {
       method: 'POST',
