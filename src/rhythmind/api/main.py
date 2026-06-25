@@ -225,9 +225,11 @@ else:
 
 # ── 请求体大小硬上限（早于业务路由）──────────────────────────────────────
 from rhythmind.api.middleware import (  # type: ignore[attr-defined]  # noqa: E402
+    QmApiV1RewriteMiddleware,
     RequestSizeLimitMiddleware,
 )
 
+app.add_middleware(QmApiV1RewriteMiddleware)  # 2026-06-25: 修 /qm/api/v1/* 404
 app.add_middleware(RequestSizeLimitMiddleware)
 app.add_middleware(GZipMiddleware, minimum_size=500)
 
