@@ -1,25 +1,33 @@
 'use client';
 
-// /chat — AI 对话(Stage 2.2:接入 Button/useToast 错误处理)
-// 2026-06-24 frontend-polish Stage 2.2
+// /chat — AI 对话 (2026-06-25 v2: 直接调 oMLX 算力后台)
+// 历史版本:
+//   v1 (2026-05-18): 多轮对话 + 文件上传
+//   v2 (2026-06-24): 接入 Button/useToast 错误处理
+//   v3 (2026-06-25): 改用 /api/v1/llm/chat 直接调 oMLX 算力后台,不走 Swarm 工作流
 
 import { useEffect, useRef, useState } from 'react';
 import { Header } from '@/components/layout/header';
 import { Button, useToast } from '@/components/ui';
-import { API_BASE, getAuthToken } from '@/lib/api';
+import { api, getAuthToken } from '@/lib/api';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;
+  model?: string;
+  latency_ms?: number;
 }
+
+const MAX_HISTORY = 10;  // 后端上限 10 轮
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
+  const [lastModel, setLastModel] = useState<string>('');
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
@@ -44,12 +52,12 @@ export default function ChatPage() {
     setLoading(true);
 
     try {
-      // 如果有文件，先上传
+      // 文件上传(保留旧功能,走 /upload/file 端点)
       if (files.length > 0) {
         for (const file of files) {
           const formData = new FormData();
           formData.append('file', file);
-          const res = await fetch(`${API_BASE}/upload/file`, {
+          const res = await fetch('/qm/api/upload/file', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${getAuthToken()}` },
             body: formData,
@@ -66,36 +74,25 @@ export default function ChatPage() {
         }
       }
 
-      // 发送文本对话
+      // 文本对话 → 直接调 oMLX
       if (text) {
-        const res = await fetch(`${API_BASE}/chat`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${getAuthToken()}`,
-          },
-          body: JSON.stringify({ text, context: {} }),
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        if (data.status === 'throttled') {
-          const throttledMsg: Message = {
-            id: `msg-${Date.now()}-reply`,
-            role: 'assistant',
-            content: `⏳ ${data.message || '操作过于频繁，请稍后再试。'}`,
-            timestamp: new Date().toISOString(),
-          };
-          setMessages(prev => [...prev, throttledMsg]);
-          return;
-        }
-        const reply = formatChatReply(data);
+        // 构造 history:最近 MAX_HISTORY 轮(不含当前 message)
+        const history = messages
+          .filter(m => m.role === 'user' || m.role === 'assistant')
+          .slice(-MAX_HISTORY * 2)  // user+assistant 各 1 算 1 轮
+          .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+
+        const data = await api.chatWithLLM(text, history, { max_tokens: 1024 });
         const assistantMsg: Message = {
           id: `msg-${Date.now()}-reply`,
           role: 'assistant',
-          content: reply,
+          content: data.reply,
           timestamp: new Date().toISOString(),
+          model: data.model,
+          latency_ms: data.latency_ms,
         };
         setMessages(prev => [...prev, assistantMsg]);
+        setLastModel(data.model);
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : '请求失败';
@@ -106,7 +103,7 @@ export default function ChatPage() {
         timestamp: new Date().toISOString(),
       };
       setMessages(prev => [...prev, errMsg]);
-      toast.error(msg); // 全局 Toast 托盘
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -130,9 +127,20 @@ export default function ChatPage() {
     setFiles(prev => prev.filter((_, i) => i !== idx));
   };
 
+  const clearHistory = () => {
+    setMessages([]);
+    setLastModel('');
+  };
+
   const formatTime = (ts: string) => {
     if (!ts) return '';
     return new Date(ts).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  // 解析模型简称
+  const modelShort = (m?: string) => {
+    if (!m) return '';
+    return m.replace(/^omlX:\/\//, '').replace(/-it-\d+bit$/, '');
   };
 
   return (
@@ -140,6 +148,24 @@ export default function ChatPage() {
       <Header title="Chat 助手" activePath="/chat" />
 
       <main className="mx-auto flex w-full max-w-[900px] flex-1 flex-col px-6">
+        {/* 算力后台指示器 */}
+        <div className="flex items-center justify-between border-b border-[var(--border)] py-2 text-[11px] text-[var(--text-muted)]">
+          <div className="flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-[var(--primary)]" />
+            <span>算力后台: <span className="font-mono text-[var(--text-secondary)]">
+              {lastModel ? modelShort(lastModel) : 'omlX gemma-4-12B'}
+            </span></span>
+          </div>
+          {messages.length > 0 && (
+            <button
+              onClick={clearHistory}
+              className="cursor-pointer border-none bg-transparent text-[var(--text-muted)] hover:text-white"
+            >
+              清空对话
+            </button>
+          )}
+        </div>
+
         {/* 消息区 */}
         <div className="flex-1 overflow-y-auto py-6">
           {messages.length === 0 && (
@@ -147,14 +173,14 @@ export default function ChatPage() {
               <div className="mb-4 text-[48px]">💬</div>
               <h2 className="mb-2 text-lg font-medium text-white">RHYTHMIND 健康助手</h2>
               <p className="mx-auto max-w-[400px] text-sm leading-relaxed text-[var(--text-muted)]">
-                可以向我提问健康问题、上传数据文件、医学报告或图像进行分析
+                基于 oMLX 本地算力后台的多轮对话，可咨询训练、睡眠、营养、健康数据等问题
               </p>
               <div className="mt-6 flex flex-wrap justify-center gap-2">
-                {['我的训练准备度如何？', '分析一下我的睡眠数据', '最近的跑步表现怎么样？'].map(q => (
+                {['我的训练准备度如何？', '如何提高 VO2 Max？', '最近睡眠质量分析', '推荐一次恢复跑'].map(q => (
                   <button
                     key={q}
                     onClick={() => { setInput(q); }}
-                    className="cursor-pointer rounded-full border border-[var(--border)] text-xs px-3.5 py-2 bg-[var(--surface)] text-[var(--text-secondary)]"
+                    className="cursor-pointer rounded-full border border-[var(--border)] text-xs px-3.5 py-2 bg-[var(--surface)] text-[var(--text-secondary)] transition-colors hover:border-[var(--primary)]"
                   >
                     {q}
                   </button>
@@ -171,17 +197,25 @@ export default function ChatPage() {
                 className={`mb-3 flex ${isUser ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-[70%] rounded-xl px-3.5 py-2.5 ${isUser ? 'bg-[var(--primary)]' : 'bg-[var(--surface)] border border-[var(--border)]'}`}
+                  className={`max-w-[70%] rounded-xl px-3.5 py-2.5 ${
+                    isUser
+                      ? 'bg-[var(--primary)] text-white'
+                      : 'bg-[var(--surface)] border border-[var(--border)] text-[var(--text-secondary)]'
+                  }`}
                 >
-                  <div
-                    className={`whitespace-pre-wrap text-[13px] leading-relaxed break-words ${isUser ? 'text-white' : 'text-[var(--text-secondary)]'}`}
-                  >
+                  <div className="whitespace-pre-wrap text-[13px] leading-relaxed break-words">
                     {msg.content}
                   </div>
-                  <div
-                    className={`mt-1 text-right text-[10px] ${isUser ? 'text-white/60' : 'text-[var(--text-muted)]'}`}
-                  >
-                    {formatTime(msg.timestamp)}
+                  <div className={`mt-1.5 flex items-center gap-2 text-[10px] ${
+                    isUser ? 'text-white/60 justify-end' : 'text-[var(--text-muted)]'
+                  }`}>
+                    <span>{formatTime(msg.timestamp)}</span>
+                    {!isUser && msg.latency_ms !== undefined && (
+                      <span className="font-mono">· {(msg.latency_ms / 1000).toFixed(1)}s</span>
+                    )}
+                    {!isUser && msg.model && (
+                      <span className="font-mono opacity-70">{modelShort(msg.model)}</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -190,10 +224,11 @@ export default function ChatPage() {
 
           {loading && (
             <div className="mb-3 flex">
-              <div
-                className="rounded-xl px-3.5 py-2.5 text-[13px] bg-[var(--surface)] border border-[var(--border)] text-[var(--text-muted)]"
-              >
-                思考中...
+              <div className="rounded-xl px-3.5 py-2.5 text-[13px] bg-[var(--surface)] border border-[var(--border)] text-[var(--text-muted)]">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--primary)]" />
+                  算力后台思考中…
+                </span>
               </div>
             </div>
           )}
@@ -226,7 +261,8 @@ export default function ChatPage() {
           <div className="flex items-end gap-2">
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="shrink-0 cursor-pointer rounded-lg border border-[var(--border)] text-base p-2.5 bg-[var(--surface)] text-[var(--text-secondary)]"
+              className="shrink-0 cursor-pointer rounded-lg border border-[var(--border)] text-base p-2.5 bg-[var(--surface)] text-[var(--text-secondary)] transition-colors hover:border-[var(--primary)]"
+              title="上传文件"
             >
               ＋
             </button>
@@ -242,9 +278,9 @@ export default function ChatPage() {
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="输入消息或上传文件..."
+              placeholder="向健康助手提问…"
               rows={1}
-              className="min-h-10 max-h-[120px] flex-1 resize-none rounded-lg border border-[var(--border)] text-sm leading-relaxed text-white outline-none px-3.5 py-2.5 bg-[var(--surface)]"
+              className="min-h-10 max-h-[120px] flex-1 resize-none rounded-lg border border-[var(--border)] text-sm leading-relaxed text-white outline-none px-3.5 py-2.5 bg-[var(--surface)] transition-colors focus:border-[var(--primary)]"
             />
             <Button
               variant="primary"
@@ -257,7 +293,7 @@ export default function ChatPage() {
             </Button>
           </div>
           <p className="mt-2 text-[10px] text-[var(--text-muted)]">
-            支持 CSV、JSON、PDF、图片上传 · Enter 发送，Shift+Enter 换行
+            算力后台: omlX gemma-4-12B-it-4bit (本地推理) · Enter 发送，Shift+Enter 换行
           </p>
         </div>
       </main>
@@ -269,42 +305,4 @@ function getFileIcon(name: string): string {
   const ext = name.split('.').pop()?.toLowerCase();
   const icons: Record<string, string> = { csv: '📊', json: '📋', pdf: '📕', png: '🖼️', jpg: '🖼️', jpeg: '🖼️', txt: '📄', xml: '📄' };
   return icons[ext || ''] || '📎';
-}
-
-function formatChatReply(data: Record<string, unknown>): string {
-  const d = data?.data as Record<string, unknown> | undefined;
-  if (d?.coach_response && typeof d.coach_response === 'string') return d.coach_response;
-  if (data?.message && typeof data.message === 'string' && data.message.trim()) return data.message;
-
-  const payload = (d || data) as Record<string, unknown>;
-  if (!payload || typeof payload !== 'object') return JSON.stringify(payload);
-
-  const lines: string[] = [];
-
-  const report = payload.data_report as Record<string, unknown> | undefined;
-  if (report) {
-    if (report.summary) lines.push(`📋 ${report.summary}`);
-    const concerns = report.concerns as string[] | undefined;
-    if (concerns?.length) lines.push(`⚠️ 关注: ${concerns.join('、')}`);
-    if (report.next_suggestion) lines.push(`💡 ${report.next_suggestion}`);
-  }
-
-  const plan = payload.training_plan as Record<string, unknown> | undefined;
-  if (plan) {
-    const today = plan.today_plan as Record<string, unknown> | undefined;
-    if (today) {
-      lines.push(`\n🏃 今日训练: ${today.name} · ${today.duration_min}分钟 · ${today.intensity}强度`);
-      const exercises = today.exercises as string[] | undefined;
-      if (exercises?.length) lines.push(`   内容: ${exercises.join(' → ')}`);
-    }
-    if (plan.recovery_advice) lines.push(`\n🛌 ${plan.recovery_advice}`);
-    if (plan.motivation) lines.push(`💪 ${plan.motivation}`);
-  }
-
-  if (!lines.length) {
-    const summary = typeof report?.summary === 'string' ? report.summary : '';
-    return summary || JSON.stringify(payload, null, 2);
-  }
-
-  return lines.join('\n');
 }

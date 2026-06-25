@@ -183,6 +183,29 @@ export const api = {
     return fetchWithAuth<UsersSummaryResponse>('/users/summary');
   },
 
+  // 2026-06-25: 直接 LLM 对话（调 oMLX 算力后台，绕过工作流路由）
+  // POST /api/v1/llm/chat → { reply, model, latency_ms }
+  chatWithLLM(
+    message: string,
+    history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
+    options: { temperature?: number; max_tokens?: number } = {},
+  ) {
+    return fetchWithAuth<{
+      reply: string;
+      model: string;
+      latency_ms: number;
+      usage?: Record<string, number>;
+    }>('/v1/llm/chat', {
+      method: 'POST',
+      body: JSON.stringify({
+        message,
+        history,
+        temperature: options.temperature ?? 0.7,
+        max_tokens: options.max_tokens ?? 1024,
+      }),
+    });
+  },
+
   // v6: 登录换 JWT(解决点击卡片 401 重定向问题)
   // 注意:login 端点在 /api/v1/* 前缀(由 /api/v1/auth 路由提供)
   async login(userId: string): Promise<{ access_token: string; expires_in: number }> {
