@@ -115,22 +115,23 @@ class TestEstimation:
         assert tokens == 0
 
     def test_estimate_cost_known_model(self):
+        # 2026-07-08: _estimate_cost 返回 float 而非 dict
         cost = _estimate_cost(
             "gpt-4o",
             {"messages": [{"role": "user", "content": "hi"}]},
             "ok",
         )
-        assert cost["total"] > 0
+        assert cost > 0
 
     def test_estimate_cost_free_model(self):
         cost = _estimate_cost("gemma-4-e4b-it", {"messages": []}, "ok")
-        assert cost["total"] == 0
+        assert cost == 0.0
 
     def test_estimate_cost_unknown_model(self):
         cost = _estimate_cost("unknown-model", {"messages": [
             {"role": "user", "content": "x" * 100},
         ]}, "y" * 50)
-        assert cost["total"] > 0
+        assert cost > 0
 
 
 # ── init_langfuse ──────────────────────────────────────────────────────
