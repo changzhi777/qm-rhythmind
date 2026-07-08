@@ -226,6 +226,39 @@ export const api = {
     return fetchWithAuth<UsersSummaryResponse>('/users/summary');
   },
 
+  // 2026-07-07: 跨领域评估 (康复 + 营养 + 运动)
+  // 三段式对话,基于 3 本国家职业技能标准
+  assessmentStart() {
+    return fetchWithAuth<{
+      session_id: string;
+      current_state: Record<string, unknown>;
+      missing_dimensions: string[];
+    }>('/assessment/start', { method: 'POST' });
+  },
+
+  assessmentQuestion(sessionId: string, answer: string, dimension: string) {
+    return fetchWithAuth<{
+      question: string;
+      options: string[];
+      is_final: boolean;
+      dimension: string;
+    }>('/assessment/question', {
+      method: 'POST',
+      body: JSON.stringify({ session_id: sessionId, answer, dimension }),
+    });
+  },
+
+  assessmentComplete(sessionId: string) {
+    return fetchWithAuth<{
+      scores: { rehab: number; nutrition: number; training: number };
+      advice: string;
+      summary: Record<string, unknown>;
+    }>('/assessment/complete', {
+      method: 'POST',
+      body: JSON.stringify({ session_id: sessionId, force: false }),
+    });
+  },
+
   // 2026-06-25: 直接 LLM 对话（调 oMLX 算力后台，绕过工作流路由）
   // POST /api/v1/llm/chat → { reply, model, latency_ms }
   chatWithLLM(

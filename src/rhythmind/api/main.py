@@ -35,6 +35,7 @@ from rhythmind import __version__ as RHYTHMIND_VERSION  # type: ignore[attr-defi
 # 路由
 from rhythmind.api.routers.admin import router as admin_router
 from rhythmind.api.routers.analyze_with_source import router as analyze_with_source_router
+from rhythmind.api.routers.assessment import router as assessment_router
 from rhythmind.api.routers.auth import router as auth_router
 from rhythmind.api.routers.chat import router as chat_router
 from rhythmind.api.routers.dashboard import router as dashboard_router
@@ -281,6 +282,9 @@ app.include_router(auth_router)
 # 2026-06-25: 直接 LLM 对话(调 oMLX 算力后台)
 # /api/v1/llm/chat
 app.include_router(chat_router, prefix="/api/v1")
+# 2026-07-07: 跨领域评估 (康复+营养+运动)
+# /api/v1/assessment/*
+app.include_router(assessment_router, prefix="/api/v1")
 # 2026-06-24 dashboard 扩展: goals/comparison/thresholds/switch
 app.include_router(dashboard_ext_router)
 # 2026-06-24 dashboard P2 批量: SSE/upload chunk/chat/reports/test-reports/

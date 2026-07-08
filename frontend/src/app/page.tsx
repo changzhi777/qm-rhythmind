@@ -295,6 +295,21 @@ function UserCard({
         >
           📊 切换大屏
         </button>
+        {/* 2026-07-07: 跨领域评估入口 */}
+        <a
+          href="/assessment"
+          onClick={(e) => { e.stopPropagation(); }}
+          className="
+            cursor-pointer rounded-md border border-[var(--border)]
+            bg-[var(--surface-elevated)] hover:bg-[var(--primary)]/20
+            px-3 py-1.5 text-xs text-[var(--text-secondary)]
+            transition-colors flex items-center gap-1.5
+            opacity-60 group-hover:opacity-100
+          "
+          aria-label={`开始 ${user.display_name} 的跨领域评估`}
+        >
+          🩺 跨领域评估
+        </a>
       </div>
 
       {/* v4: 勋章/成就行 */}
