@@ -61,6 +61,42 @@ _NATIONAL_STANDARDS_REF = """
 """
 
 
+# ── 关键词映射 (用于判断数据维度覆盖) ──
+DIMENSION_KEYWORDS = {
+    "rehab": ["rehab", "recovery", "injury", "mobility", "pain"],
+    "nutrition": ["nutrition", "diet", "food", "meal", "weight", "bmi"],
+    "training": ["training", "fitness", "vo2max", "endurance", "activity"],
+}
+
+ALL_DIMENSIONS = ["rehab", "nutrition", "training"]
+
+
+async def _aload_user_state(user_id: str) -> dict[str, Any]:
+    """异步版: 读取用户 health_fact → flat dict。"""
+    fm = _fm(user_id)
+    facts = await fm.get_all_current()
+    state: dict[str, Any] = {}
+    for f in facts:
+        if f.valid_until is not None:
+            continue
+        key = f"{f.subject}.{f.predicate}"
+        obj = f.object_json
+        if isinstance(obj, dict) and "value" in obj:
+            state[key] = obj["value"]
+        else:
+            state[key] = obj
+    return state
+
+
+def _find_missing_dimensions(state: dict[str, Any]) -> list[str]:
+    """基于关键词匹配,返回数据缺失的维度。"""
+    missing: list[str] = []
+    for dim, kws in DIMENSION_KEYWORDS.items():
+        if not any(any(kw in k.lower() for kw in kws) for k in state):
+            missing.append(dim)
+    return missing or list(ALL_DIMENSIONS)
+
+
 # ── 启动评估 ──
 
 class StartResponse(BaseModel):
@@ -78,30 +114,8 @@ class StartResponse(BaseModel):
 @router.post("/start", response_model=StartResponse)
 async def assessment_start(user_id: CurrentUserId) -> StartResponse:
     """读取用户现有 health_fact,生成 session,返回待评估维度。"""
-    fm = _fm(user_id)
-    facts = await fm.get_all_current()
-    current_state: dict[str, Any] = {}
-    for f in facts:
-        if f.valid_until is None:
-            key = f"{f.subject}.{f.predicate}"
-            obj = f.object_json
-            if isinstance(obj, dict) and "value" in obj:
-                current_state[key] = obj["value"]
-            else:
-                current_state[key] = obj
-
-    # 评估 3 维数据完整度
-    KEYWORDS = {
-        "rehab": ["rehab", "recovery", "injury", "mobility", "pain"],
-        "nutrition": ["nutrition", "diet", "food", "meal", "weight", "bmi"],
-        "training": ["training", "fitness", "vo2max", "endurance", "activity"],
-    }
-    missing: list[str] = []
-    for dim, kws in KEYWORDS.items():
-        if not any(any(kw in k.lower() for kw in kws) for k in current_state):
-            missing.append(dim)
-    if not missing:
-        missing = ["rehab", "nutrition", "training"]  # 强制 3 维全评估
+    current_state = await _aload_user_state(user_id)
+    missing = _find_missing_dimensions(current_state)
 
     sid = str(uuid.uuid4())
     _SESSIONS[sid] = {

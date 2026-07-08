@@ -37,8 +37,9 @@ npm run build # 生产构建
 | `/` | 用户选择 | 多用户摘要卡片，选择后 `setAuthToken(userId)` 并跳转 `/dashboard` |
 | `/dashboard` | 仪表盘 | 健康数据展示、KPI 卡片、4 Tab（含 InfluxDB 时序图）、`useAutoRefresh` |
 | `/bigscreen` | 数据大屏 | 全屏展示、6 列 KPI 网格、年度跑量、`useAutoRefresh` |
-| `/report` | AI 健康报告 | Markdown 报告渲染、列表选择、PDF 下载 |
-| `/chat` | Chat 智能助手 | 多轮对话、文件上传分析、流式响应 |
+| `/report` | AI 健康报告 | Markdown 报告渲染、列表选择、PDF 下载；含数据源面板（预置目录/上传/URL）|
+| `/chat` | Chat 智能助手 | 多轮对话、文件上传分析；调 oMLX 直接 LLM |
+| `/assessment` | 跨领域评估 | 康复+营养+运动 3 维对话式评估；基于 3 本国标 |
 | `/upload` | 文件上传 | CSV/JSON/PDF/图像/TXT 多模态 AI 分析 |
 | `/test-report` | 测试报告 | E2E 报告列表、认证文件下载 |
 | `/medical` | 医疗报告 | 5 Tab（综合分析/时间线/用药/化验/健康画像） |
