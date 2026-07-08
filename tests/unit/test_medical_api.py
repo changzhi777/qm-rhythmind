@@ -166,6 +166,7 @@ class TestAnalyzeEndpoint:
 
     @pytest.mark.asyncio
     async def test_analyze_no_data(self, user_id):
+        # 2026-07-08: commit 4b8b7e1 改无数据返回 200 + 占位响应(避免前端 404 误判)
         transport = ASGITransport(app=app)
         async with AsyncClient(
             transport=transport, base_url="http://test",
@@ -175,8 +176,10 @@ class TestAnalyzeEndpoint:
                 headers={"Authorization": f"Bearer {user_id}"},
             )
 
-        assert resp.status_code == 404
-        assert "未找到" in resp.json()["detail"]
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "no_data"
+        assert "暂无" in body["summary"]
 
     @pytest.mark.asyncio
     async def test_analyze_compliance_fail(self, user_id):
@@ -243,6 +246,7 @@ class TestTimelineEndpoint:
 
     @pytest.mark.asyncio
     async def test_timeline_no_events(self, user_id):
+        # 2026-07-08: commit 4b8b7e1 改无数据返回 200 + 空 events
         transport = ASGITransport(app=app)
         async with AsyncClient(
             transport=transport, base_url="http://test",
@@ -252,7 +256,8 @@ class TestTimelineEndpoint:
                 headers={"Authorization": f"Bearer {user_id}"},
             )
 
-        assert resp.status_code == 404
+        assert resp.status_code == 200
+        assert resp.json()["events"] == []
 
 
 # ── GET /medical/medications ─────────────────────────────────────────────
@@ -295,6 +300,7 @@ class TestMedicationsEndpoint:
 
     @pytest.mark.asyncio
     async def test_medications_no_data(self, user_id):
+        # 2026-07-08: commit 4b8b7e1 改无数据返回 200 + 空 medications
         transport = ASGITransport(app=app)
         async with AsyncClient(
             transport=transport, base_url="http://test",
@@ -304,7 +310,8 @@ class TestMedicationsEndpoint:
                 headers={"Authorization": f"Bearer {user_id}"},
             )
 
-        assert resp.status_code == 404
+        assert resp.status_code == 200
+        assert resp.json()["medications"] == []
 
 
 # ── GET /medical/labs/{test} ─────────────────────────────────────────────

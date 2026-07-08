@@ -288,7 +288,7 @@ class TestOMLXAdapter:
 
         captured_key: list[str] = []
 
-        def capture_key(base_url, api_key):
+        def capture_key(base_url, api_key, timeout=60.0):  # 2026-07-08: 适配新签名
             captured_key.append(api_key)
             return mock_client
 
